@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import type { SessionPayload } from '@/lib/auth/jwt';
 import { tierLabel, isEditor } from '@/lib/auth/entitlement';
 import LogoutButton from './LogoutButton';
@@ -13,12 +14,8 @@ export function Header({ session }: Props) {
       <div className="container">
         <div className="header-inner">
           {/* Logo */}
-          <Link href="/" className="logo">
-            <div className="logo-mark">K</div>
-            <div style={{ lineHeight: 1.1 }}>
-              <span style={{ fontFamily: 'Lora,serif', fontWeight: 700 }}>Know Your </span>
-              <span style={{ color: 'var(--green)', fontFamily: 'Lora,serif', fontWeight: 700 }}>Commodity</span>
-            </div>
+          <Link href="/" className="logo" style={{ gap: 0 }}>
+            <Image src="/logo.png" alt="Know Your Commodity" width={90} height={52} style={{ objectFit: 'contain' }} priority />
           </Link>
 
           {/* Nav links */}

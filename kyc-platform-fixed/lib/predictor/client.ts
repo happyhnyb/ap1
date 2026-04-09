@@ -113,6 +113,9 @@ export interface ForecastResult {
   dataPoints: number;
   insufficient: boolean;
   message?: string;
+  insights?: string | null;
+  alpha?: number;
+  beta?: number;
 }
 
 export const predictorClient = {
@@ -121,7 +124,8 @@ export const predictorClient = {
   summary: (filters: Record<string, string | number>) => mandiGet<MandiSummary>('/api/summary', { params: filters, revalidate: 120 }),
   history: (filters: Record<string, string | number>) => mandiGet<MandiHistoryPoint[]>('/api/history', { params: filters, revalidate: 120 }),
   table: (filters: Record<string, string | number>) => mandiGet<MandiTableResult>('/api/table', { params: filters, revalidate: 60 }),
-  forecast: (filters: Record<string, string | number>) => mandiGet<ForecastResult>('/api/forecast', { params: filters, revalidate: 120 }),
+  forecast: (filters: Record<string, string | number>) => mandiGet<ForecastResult>('/api/forecast', { params: { ...filters, insights: 'true' }, revalidate: 120 }),
+  fetch: (urlPath: string) => mandiGet<unknown>(urlPath),
 
   async isAvailable(): Promise<boolean> {
     try {
