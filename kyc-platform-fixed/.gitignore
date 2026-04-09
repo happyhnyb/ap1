@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+mandi-service/node_modules/
+
+# Next.js
+.next/
+out/
+
+# env files (never commit secrets)
+.env
+.env.local
+.env.*.local
+
+# data snapshots (fetched at runtime)
+mandi-service/data/snapshots/
+mandi-service/data/status.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# misc
+.turbo
