@@ -23,7 +23,7 @@ export type { MandiRecord, MandiHistoryPoint, MandiFilters };
 const RESOURCE_ID = '9ef84268-d588-465a-a308-a864a43d0070';
 const BASE_URL    = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
 const FETCH_LIMIT = 500;
-const MAX_PAGES   = 3; // 1 500 records max — keeps first fetch within hobby-plan 10 s timeout
+const MAX_PAGES   = 10; // fetch all pages in parallel → 5 000 records in ~500 ms
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -119,14 +119,23 @@ async function fetchPage(apiKey: string, offset: number): Promise<Record<string,
 export async function fetchAllRecords(apiKey: string): Promise<MandiRecord[]> {
   if (!apiKey) throw new Error('DATAGOV_API_KEY is not configured');
 
-  const raw: Record<string, unknown>[] = [];
-  for (let p = 0; p < MAX_PAGES; p++) {
-    const batch = await fetchPage(apiKey, p * FETCH_LIMIT);
-    raw.push(...batch);
-    if (batch.length < FETCH_LIMIT) break; // no more pages
+  // Fetch first page to confirm data exists
+  const first = await fetchPage(apiKey, 0);
+
+  let allBatches: Record<string, unknown>[][] = [first];
+
+  if (first.length === FETCH_LIMIT) {
+    // Fetch all remaining pages IN PARALLEL — same wall-clock time as 1 page
+    const rest = await Promise.all(
+      Array.from({ length: MAX_PAGES - 1 }, (_, i) =>
+        fetchPage(apiKey, (i + 1) * FETCH_LIMIT)
+          .catch(() => [] as Record<string, unknown>[]) // ignore individual page errors
+      )
+    );
+    allBatches = [first, ...rest];
   }
 
-  // Deduplicate
+  const raw = allBatches.flat();
   const dedup = new Map<string, MandiRecord>();
   for (const r of raw) {
     const norm = normaliseRecord(r);
