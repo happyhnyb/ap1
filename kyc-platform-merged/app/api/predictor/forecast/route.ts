@@ -3,9 +3,11 @@ import { getServerSession } from '@/lib/auth/jwt';
 import { isPremiumUser } from '@/lib/auth/entitlement';
 import { usersAdapter } from '@/lib/adapters';
 import {
-  getCachedRecords, filterRecords, buildHistory,
+  getRecords, filterRecords, buildHistory,
   holtForecast, rollingBacktest, filtersFromQuery,
 } from '@/lib/mandi/engine';
+
+export const maxDuration = 60;
 
 const MIN_REAL_DATA = 7;
 
@@ -31,7 +33,7 @@ export async function GET(req: NextRequest) {
   const horizon  = Math.min(30, Math.max(3, Number(q.horizon || 14)));
 
   try {
-    const { records, fetchedAt } = await getCachedRecords();
+    const { records, fetchedAt } = await getRecords();
     const filtered = filterRecords(records, filters);
     const history  = buildHistory(filtered);
 
@@ -54,14 +56,13 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const result = holtForecast(prices, horizon);
+    const result   = holtForecast(prices, horizon);
     if (!result) {
       return NextResponse.json({ insufficient: true, message: 'Could not compute forecast.', insights: null });
     }
 
     const backtest = rollingBacktest(prices);
 
-    // OpenAI insights (optional — only if key configured)
     let insights = null;
     const openaiKey = process.env.OPENAI_API_KEY;
     if (openaiKey && q.insights !== 'false') {
@@ -112,51 +113,31 @@ async function generateInsights(
   history: { arrival_date: string; avg_modal_price: number | null }[],
   result: { forecast: { date: string; price: number; lower: number; upper: number }[]; alpha: number; beta: number; mape: number; direction: string; trend_pct: number; data_points: number }
 ) {
-  const histSummary = history.slice(-30).map((h) => `${h.arrival_date}: ₹${h.avg_modal_price ?? '–'}/qtl`).join(' | ');
+  const histSummary  = history.slice(-30).map((h) => `${h.arrival_date}: ₹${h.avg_modal_price ?? '–'}/qtl`).join(' | ');
   const fcastSummary = result.forecast.slice(0, 7).map((f) => `${f.date}: ₹${f.price} (${f.lower}–${f.upper})`).join(' | ');
 
   const prompt = `You are a senior commodity analyst for Indian agricultural markets.
+Commodity: ${commodity || 'All'}  State: ${state || 'All India'}  Market: ${market || 'All'}
+Historical avg modal price (last 30 days, ₹/qtl): ${histSummary}
+14-day forecast (α=${result.alpha}, β=${result.beta}): ${fcastSummary}
+Trend: ${result.direction} (${result.trend_pct > 0 ? '+' : ''}${result.trend_pct}%)  MAPE: ${result.mape}%
 
-Commodity: ${commodity || 'All commodities'}
-State: ${state || 'All India'}
-Market: ${market || 'All markets'}
-
-Historical avg modal price (last 30 days, ₹/qtl):
-${histSummary}
-
-14-day forecast (Holt adaptive smoothing, α=${result.alpha}, β=${result.beta}):
-${fcastSummary}
-
-Trend: ${result.direction} (${result.trend_pct > 0 ? '+' : ''}${result.trend_pct}% over 14 days)
-Model MAPE: ${result.mape}%  Data points used: ${result.data_points}
-
-Respond ONLY with a JSON object (no markdown) with exactly these fields:
-{
-  "outlook": "<2–3 sentence price outlook>",
-  "drivers": ["<key driver 1>", "<key driver 2>", "<key driver 3>"],
-  "risks": ["<downside risk 1>", "<upside risk 2>"],
-  "signal": "Buy" | "Hold" | "Wait",
-  "signal_reason": "<one sentence justification>",
-  "confidence": "high" | "medium" | "low"
-}`;
+Respond ONLY with a JSON object (no markdown):
+{"outlook":"<2-3 sentences>","drivers":["<d1>","<d2>","<d3>"],"risks":["<r1>","<r2>"],"signal":"Buy"|"Hold"|"Wait","signal_reason":"<1 sentence>","confidence":"high"|"medium"|"low"}`;
 
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o-mini', temperature: 0.25, max_tokens: 500,
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 600,
-        temperature: 0.25,
         response_format: { type: 'json_object' },
       }),
     });
     if (!res.ok) return null;
     const data = await res.json() as { choices?: { message?: { content?: string } }[] };
-    const raw = data.choices?.[0]?.message?.content;
+    const raw  = data.choices?.[0]?.message?.content;
     return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictor } from '@/lib/auth/entitlement';
-import { getCachedRecords, filterRecords, buildHistory, holtForecast, filtersFromQuery } from '@/lib/mandi/engine';
+import { getRecords, filterRecords, buildHistory, holtForecast, filtersFromQuery } from '@/lib/mandi/engine';
+
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession();
@@ -19,7 +21,7 @@ export async function GET(req: NextRequest) {
   const filters = filtersFromQuery(q);
 
   try {
-    const { records } = await getCachedRecords();
+    const { records } = await getRecords();
     const filtered = filterRecords(records, filters);
     const history  = buildHistory(filtered);
     const prices   = history
@@ -39,37 +41,20 @@ export async function GET(req: NextRequest) {
     const fcastSummary = forecastResult.forecast.slice(0, 7).map((f) => `${f.date}: ₹${f.price} (${f.lower}–${f.upper})`).join(' | ');
 
     const prompt = `You are a senior commodity analyst for Indian agricultural markets.
+Commodity: ${filters.commodity || 'All'}  State: ${filters.state || 'All India'}  Market: ${filters.market || 'All'}
+Historical: ${histSummary}
+Forecast (α=${forecastResult.alpha}, β=${forecastResult.beta}): ${fcastSummary}
+Trend: ${forecastResult.direction} (${forecastResult.trend_pct > 0 ? '+' : ''}${forecastResult.trend_pct}%)  MAPE: ${forecastResult.mape}%
 
-Commodity: ${filters.commodity || 'All commodities'}
-State: ${filters.state || 'All India'}
-Market: ${filters.market || 'All markets'}
-
-Historical avg modal price (last 30 days, ₹/qtl):
-${histSummary}
-
-14-day forecast (α=${forecastResult.alpha}, β=${forecastResult.beta}):
-${fcastSummary}
-
-Trend: ${forecastResult.direction} (${forecastResult.trend_pct > 0 ? '+' : ''}${forecastResult.trend_pct}%)
-MAPE: ${forecastResult.mape}%
-
-Respond ONLY with a JSON object (no markdown):
-{
-  "outlook": "<2–3 sentence price outlook>",
-  "drivers": ["<driver 1>", "<driver 2>", "<driver 3>"],
-  "risks": ["<risk 1>", "<risk 2>"],
-  "signal": "Buy" | "Hold" | "Wait",
-  "signal_reason": "<one sentence>",
-  "confidence": "high" | "medium" | "low"
-}`;
+Respond ONLY with JSON:
+{"outlook":"<2-3 sentences>","drivers":["<d1>","<d2>","<d3>"],"risks":["<r1>","<r2>"],"signal":"Buy"|"Hold"|"Wait","signal_reason":"<1 sentence>","confidence":"high"|"medium"|"low"}`;
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o-mini', temperature: 0.25, max_tokens: 500,
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 600, temperature: 0.25,
         response_format: { type: 'json_object' },
       }),
     });
@@ -80,13 +65,9 @@ Respond ONLY with a JSON object (no markdown):
     if (!raw) return NextResponse.json({ error: 'AI analysis failed.' }, { status: 500 });
 
     return NextResponse.json({
-      commodity: filters.commodity || 'All',
-      state:     filters.state     || 'All',
-      market:    filters.market    || 'All',
+      commodity: filters.commodity || 'All', state: filters.state || 'All', market: filters.market || 'All',
       ...JSON.parse(raw),
-      latestPrice:      prices.at(-1) ?? null,
-      data_points:      prices.length,
-      real_data_points: prices.length,
+      latestPrice: prices.at(-1) ?? null, data_points: prices.length, real_data_points: prices.length,
     });
   } catch {
     return NextResponse.json({ error: 'Insights service unavailable.' }, { status: 503 });

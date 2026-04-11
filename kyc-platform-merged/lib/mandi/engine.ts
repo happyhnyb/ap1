@@ -1,14 +1,13 @@
 /**
  * Mandi data engine — runs entirely within Next.js (no separate service).
  *
- * Fetches commodity price data from data.gov.in (Agmarknet resource) and
- * processes it using Adaptive Holt's Double Exponential Smoothing for
- * price trend forecasting.
+ * Fetches commodity price data from data.gov.in (Agmarknet) and processes
+ * it using Adaptive Holt's Double Exponential Smoothing for forecasting.
  *
- * Data is cached for 24 hours via Next.js unstable_cache.
+ * Each API page URL is cached for 24 h by Next.js fetch cache.
+ * Max pages: MAX_PAGES (caps fetch time in serverless environments).
  */
 
-import { unstable_cache } from 'next/cache';
 import type {
   MandiRecord,
   MandiHistoryPoint,
@@ -24,6 +23,7 @@ export type { MandiRecord, MandiHistoryPoint, MandiFilters };
 const RESOURCE_ID = '9ef84268-d588-465a-a308-a864a43d0070';
 const BASE_URL    = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
 const FETCH_LIMIT = 500;
+const MAX_PAGES   = 20; // cap at 10 000 records to stay within function timeout
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -35,7 +35,6 @@ function parseNumber(v: unknown): number | null {
 
 function slug(v = '') { return String(v || '').trim().toLowerCase(); }
 
-/** Convert Agmarknet dd/mm/yyyy OR already-ISO yyyy-mm-dd → yyyy-mm-dd */
 function parseToIso(dateStr: string): string {
   if (!dateStr) return '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
@@ -51,7 +50,7 @@ function safeAverage(values: number[]): number | null {
     : null;
 }
 
-// ── Raw record normalisation ──────────────────────────────────────────────────
+// ── Record normalisation ──────────────────────────────────────────────────────
 
 function normaliseRecord(r: Record<string, unknown>): MandiRecord {
   return {
@@ -97,7 +96,7 @@ export function filtersFromQuery(q: Record<string, string>): MandiFilters {
   };
 }
 
-// ── API fetch ─────────────────────────────────────────────────────────────────
+// ── API fetch (each page URL cached 24 h by Next.js fetch cache) ──────────────
 
 async function fetchPage(apiKey: string, offset: number): Promise<Record<string, unknown>[]> {
   const url = new URL(BASE_URL);
@@ -106,52 +105,43 @@ async function fetchPage(apiKey: string, offset: number): Promise<Record<string,
   url.searchParams.set('limit',   String(FETCH_LIMIT));
   url.searchParams.set('offset',  String(offset));
 
-  let lastErr: Error = new Error('fetch failed');
-  for (let attempt = 1; attempt <= 4; attempt++) {
-    try {
-      const res = await fetch(url.toString(), {
-        headers: { Accept: 'application/json' },
-        // No next.revalidate here — caching is done at the getCachedRecords level
-      });
-      if (res.status === 429 || res.status >= 500) {
-        if (attempt === 4) throw new Error(`API ${res.status}`);
-        await new Promise((r) => setTimeout(r, attempt * 2000));
-        continue;
-      }
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(`API ${res.status}: ${t.slice(0, 120)}`);
-      }
-      const data = await res.json() as { total?: number; records?: Record<string, unknown>[] };
-      return data.records ?? [];
-    } catch (e) {
-      lastErr = e instanceof Error ? e : new Error(String(e));
-      if (attempt < 4) await new Promise((r) => setTimeout(r, attempt * 2000));
-    }
-  }
-  throw lastErr;
+  // next.revalidate caches this URL for 24 h in Next.js data cache
+  const res = await fetch(url.toString(), {
+    headers: { Accept: 'application/json' },
+    next: { revalidate: 86400 },
+  });
+
+  if (!res.ok) throw new Error(`Agmarknet API ${res.status}`);
+  const data = await res.json() as { records?: Record<string, unknown>[] };
+  return data.records ?? [];
 }
 
-async function fetchAllRecords(apiKey: string): Promise<MandiRecord[]> {
-  if (!apiKey) throw new Error('DATAGOV_API_KEY is not configured');
-
+async function fetchTotalCount(apiKey: string): Promise<number> {
   const url = new URL(BASE_URL);
   url.searchParams.set('api-key', apiKey);
   url.searchParams.set('format',  'json');
   url.searchParams.set('limit',   '1');
   url.searchParams.set('offset',  '0');
 
-  const first = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
-  if (!first.ok) throw new Error(`API ${first.status}`);
-  const meta  = await first.json() as { total?: number };
-  const total = Number(meta.total || 0);
-  const pages = Math.max(1, Math.ceil(total / FETCH_LIMIT));
+  const res = await fetch(url.toString(), {
+    headers: { Accept: 'application/json' },
+    next: { revalidate: 3600 }, // check total count every hour
+  });
+  if (!res.ok) throw new Error(`Agmarknet API ${res.status}`);
+  const data = await res.json() as { total?: number | string };
+  return Number(data.total || 0);
+}
+
+export async function fetchAllRecords(apiKey: string): Promise<MandiRecord[]> {
+  if (!apiKey) throw new Error('DATAGOV_API_KEY is not configured');
+
+  const total = await fetchTotalCount(apiKey);
+  const pages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(total / FETCH_LIMIT)));
 
   const raw: Record<string, unknown>[] = [];
   for (let p = 0; p < pages; p++) {
     const batch = await fetchPage(apiKey, p * FETCH_LIMIT);
     raw.push(...batch);
-    if (p < pages - 1) await new Promise((r) => setTimeout(r, 300));
   }
 
   // Deduplicate
@@ -163,39 +153,16 @@ async function fetchAllRecords(apiKey: string): Promise<MandiRecord[]> {
   return [...dedup.values()];
 }
 
-// ── Cached data access ────────────────────────────────────────────────────────
-
-interface CacheResult {
-  records:      MandiRecord[];
-  fetchedAt:    string;
-  recordCount:  number;
-  apiConfigured: boolean;
-}
-
-const MANDI_CACHE_TAG = 'mandi-records';
-
-/** Fetches all Agmarknet records and caches for 24 h. */
-const _fetchCached = unstable_cache(
-  async (apiKey: string): Promise<CacheResult> => {
-    const records   = await fetchAllRecords(apiKey);
-    const fetchedAt = new Date().toISOString();
-    return { records, fetchedAt, recordCount: records.length, apiConfigured: true };
-  },
-  [MANDI_CACHE_TAG],
-  { revalidate: 86400, tags: [MANDI_CACHE_TAG] }
-);
-
-export async function getCachedRecords(): Promise<CacheResult> {
+export async function getRecords(): Promise<{ records: MandiRecord[]; fetchedAt: string; apiConfigured: boolean }> {
   const apiKey = process.env.DATAGOV_API_KEY || '';
   if (!apiKey) {
-    return { records: [], fetchedAt: new Date().toISOString(), recordCount: 0, apiConfigured: false };
+    return { records: [], fetchedAt: new Date().toISOString(), apiConfigured: false };
   }
-  return _fetchCached(apiKey);
+  const records = await fetchAllRecords(apiKey);
+  return { records, fetchedAt: new Date().toISOString(), apiConfigured: true };
 }
 
-export { MANDI_CACHE_TAG };
-
-// ── Aggregation helpers ───────────────────────────────────────────────────────
+// ── Aggregation ───────────────────────────────────────────────────────────────
 
 export function buildHistory(records: MandiRecord[]): MandiHistoryPoint[] {
   const grouped = new Map<string, {
@@ -214,17 +181,16 @@ export function buildHistory(records: MandiRecord[]): MandiHistoryPoint[] {
     grouped.set(key, ex);
   }
 
-  return [...grouped.values()
-    ? [...grouped.entries()].map(([k, g]) => ({
-        arrival_date:    k,
-        avg_modal_price: safeAverage(g.modalValues),
-        avg_min_price:   safeAverage(g.minValues),
-        avg_max_price:   safeAverage(g.maxValues),
-        markets_count:   g.markets.size,
-        records_count:   g.count,
-      }))
-    : []
-  ].sort((a, b) => a.arrival_date.localeCompare(b.arrival_date));
+  return [...grouped.entries()]
+    .map(([k, g]) => ({
+      arrival_date:    k,
+      avg_modal_price: safeAverage(g.modalValues),
+      avg_min_price:   safeAverage(g.minValues),
+      avg_max_price:   safeAverage(g.maxValues),
+      markets_count:   g.markets.size,
+      records_count:   g.count,
+    }))
+    .sort((a, b) => a.arrival_date.localeCompare(b.arrival_date));
 }
 
 export function buildSummary(records: MandiRecord[], fetchedAt: string | null) {
@@ -234,10 +200,11 @@ export function buildSummary(records: MandiRecord[], fetchedAt: string | null) {
   const markets     = [...new Set(records.map((r) => r.market).filter(Boolean))];
 
   const latestRows = records.slice().sort((a, b) => b.arrival_date.localeCompare(a.arrival_date));
-  const marketMap  = new Map<string, typeof latestRows[0]>();
+  const marketMap  = new Map<string, MandiRecord>();
   for (const r of latestRows) {
     if (!marketMap.has(r.market || 'Unknown')) marketMap.set(r.market || 'Unknown', r);
   }
+
   const topMarkets = [...marketMap.values()]
     .filter((r) => typeof r.modal_price === 'number')
     .sort((a, b) => (b.modal_price ?? 0) - (a.modal_price ?? 0))
@@ -248,13 +215,11 @@ export function buildSummary(records: MandiRecord[], fetchedAt: string | null) {
       arrival_date: r.arrival_date,
     }));
 
-  const latestArrivalDate = records.map((r) => r.arrival_date).filter(Boolean).sort().at(-1) ?? null;
-
   return {
     latestSnapshotDate: fetchedAt ? fetchedAt.slice(0, 10) : null,
-    latestArrivalDate,
-    recordsCount: records.length,
-    marketsCount: markets.length,
+    latestArrivalDate:  records.map((r) => r.arrival_date).filter(Boolean).sort().at(-1) ?? null,
+    recordsCount:       records.length,
+    marketsCount:       markets.length,
     avgModalPrice:      safeAverage(modalValues),
     avgMinPrice:        safeAverage(minValues),
     avgMaxPrice:        safeAverage(maxValues),
@@ -267,13 +232,37 @@ export function buildSummary(records: MandiRecord[], fetchedAt: string | null) {
 export function buildOptions(records: MandiRecord[]) {
   const uniq = (vals: (string | null | undefined)[]) =>
     [...new Set(vals.filter((v): v is string => !!v))].sort((a, b) => a.localeCompare(b));
+
+  // Build state → markets and state → districts mappings for dependent filters
+  const marketsByState: Record<string, string[]> = {};
+  const districtsByState: Record<string, string[]> = {};
+  for (const r of records) {
+    if (r.state && r.market) {
+      (marketsByState[r.state] ??= new Set() as unknown as string[]);
+      (districtsByState[r.state] ??= new Set() as unknown as string[]);
+    }
+  }
+  // Use Sets then convert
+  const mbs: Record<string, string[]> = {};
+  const dbs: Record<string, string[]> = {};
+  for (const r of records) {
+    if (r.state) {
+      if (r.market)   (mbs[r.state] ??= []).includes(r.market)   || (mbs[r.state] ??= []).push(r.market);
+      if (r.district) (dbs[r.state] ??= []).includes(r.district) || (dbs[r.state] ??= []).push(r.district);
+    }
+  }
+  Object.keys(mbs).forEach((s) => mbs[s].sort((a, b) => a.localeCompare(b)));
+  Object.keys(dbs).forEach((s) => dbs[s].sort((a, b) => a.localeCompare(b)));
+
   return {
-    commodities: uniq(records.map((r) => r.commodity)),
-    states:      uniq(records.map((r) => r.state)),
-    districts:   uniq(records.map((r) => r.district)),
-    markets:     uniq(records.map((r) => r.market)),
-    varieties:   uniq(records.map((r) => r.variety)),
-    grades:      uniq(records.map((r) => r.grade)),
+    commodities:    uniq(records.map((r) => r.commodity)),
+    states:         uniq(records.map((r) => r.state)),
+    districts:      uniq(records.map((r) => r.district)),
+    markets:        uniq(records.map((r) => r.market)),
+    varieties:      uniq(records.map((r) => r.variety)),
+    grades:         uniq(records.map((r) => r.grade)),
+    marketsByState: mbs,
+    districtsByState: dbs,
   };
 }
 
@@ -295,7 +284,6 @@ export function holtForecast(values: number[], horizon = 14): HoltResult | null 
 
   const ALPHAS = [0.1, 0.2, 0.3, 0.4, 0.5];
   const BETAS  = [0.05, 0.1, 0.2, 0.3];
-
   let bestAlpha = 0.3, bestBeta = 0.1, bestMape = Infinity;
 
   if (values.length >= 14) {
@@ -316,7 +304,6 @@ export function holtForecast(values: number[], horizon = 14): HoltResult | null 
   }
 
   const { level, trend } = holtFit(values, bestAlpha, bestBeta);
-
   const window = Math.min(values.length - 1, 14);
   const errors: number[] = [];
   for (let i = values.length - window; i < values.length; i++) {
@@ -325,12 +312,11 @@ export function holtForecast(values: number[], horizon = 14): HoltResult | null 
   }
   const mape = errors.length ? errors.reduce((s, e) => s + e, 0) / errors.length : 10;
 
-  const today    = new Date();
+  const today = new Date();
   const forecast = [];
   for (let h = 1; h <= horizon; h++) {
     const price = Math.max(0, level + h * trend);
-    const uncertaintyFactor = 1.5 + (h / horizon) * 0.5;
-    const uncertainty = price * (mape / 100) * uncertaintyFactor;
+    const uncertainty = price * (mape / 100) * (1.5 + (h / horizon) * 0.5);
     const date = new Date(today);
     date.setDate(date.getDate() + h);
     forecast.push({
@@ -368,8 +354,8 @@ export function rollingBacktest(values: number[], window = 14): BacktestResult {
   }
   if (!errors.length) return { mae: null, rmse: null, smape: null };
 
-  const mae  = errors.reduce((s, e) => s + Math.abs(e.actual - e.pred), 0) / errors.length;
-  const rmse = Math.sqrt(errors.reduce((s, e) => s + (e.actual - e.pred) ** 2, 0) / errors.length);
+  const mae   = errors.reduce((s, e) => s + Math.abs(e.actual - e.pred), 0) / errors.length;
+  const rmse  = Math.sqrt(errors.reduce((s, e) => s + (e.actual - e.pred) ** 2, 0) / errors.length);
   const smape = errors.reduce((s, e) => {
     const denom = (Math.abs(e.actual) + Math.abs(e.pred)) / 2;
     return s + (denom > 0 ? Math.abs(e.actual - e.pred) / denom : 0);

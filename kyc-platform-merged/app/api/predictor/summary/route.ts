@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictor } from '@/lib/auth/entitlement';
-import { getCachedRecords, filterRecords, buildSummary, filtersFromQuery } from '@/lib/mandi/engine';
+import { getRecords, filterRecords, buildSummary, filtersFromQuery } from '@/lib/mandi/engine';
+
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession();
@@ -13,7 +15,7 @@ export async function GET(req: NextRequest) {
   req.nextUrl.searchParams.forEach((v, k) => { q[k] = v; });
 
   try {
-    const { records, fetchedAt } = await getCachedRecords();
+    const { records, fetchedAt } = await getRecords();
     const filtered = filterRecords(records, filtersFromQuery(q));
     return NextResponse.json(buildSummary(filtered, fetchedAt));
   } catch {

@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictor } from '@/lib/auth/entitlement';
-import { getCachedRecords, buildOptions } from '@/lib/mandi/engine';
+import { getRecords, buildOptions } from '@/lib/mandi/engine';
+
+export const maxDuration = 60;
 
 export async function GET() {
   const session = await getServerSession();
@@ -10,7 +12,7 @@ export async function GET() {
   }
 
   try {
-    const { records } = await getCachedRecords();
+    const { records } = await getRecords();
     return NextResponse.json(buildOptions(records));
   } catch {
     return NextResponse.json({ error: 'Predictor service unavailable.' }, { status: 503 });

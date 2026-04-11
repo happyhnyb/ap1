@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { isAdmin } from '@/lib/auth/entitlement';
-import { revalidateTag } from 'next/cache';
-import { MANDI_CACHE_TAG } from '@/lib/mandi/engine';
+import { revalidatePath } from 'next/cache';
 
 export async function POST() {
   const session = await getServerSession();
@@ -10,10 +9,10 @@ export async function POST() {
     return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
   }
 
-  try {
-    revalidateTag(MANDI_CACHE_TAG);
-    return NextResponse.json({ ok: true, message: 'Cache invalidated — data will be re-fetched on next request.' });
-  } catch {
-    return NextResponse.json({ error: 'Refresh failed.' }, { status: 500 });
-  }
+  // Invalidate all predictor routes so next request re-fetches from Agmarknet
+  revalidatePath('/api/predictor/options');
+  revalidatePath('/api/predictor/summary');
+  revalidatePath('/api/predictor/history');
+  revalidatePath('/api/predictor/forecast');
+  return NextResponse.json({ ok: true, message: 'Cache cleared — data will refresh on next request.' });
 }
