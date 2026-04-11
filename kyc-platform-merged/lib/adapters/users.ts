@@ -140,10 +140,12 @@ const memory = {
     const user = memoryUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
     if (!user) return null;
 
-    // Plaintext comparison is ONLY allowed for seeded demo data in non-production.
-    // The seed users intentionally have readable passwords for local development.
-    if (!IS_PROD && user.password_hash === password) {
-      return user;
+    // Seed/demo users store plaintext passwords (not bcrypt hashes).
+    // Detect by checking if the stored value looks like a bcrypt hash ($2a/$2b prefix).
+    // This allows the in-memory demo to work in production (e.g. Vercel without MongoDB).
+    const isBcrypt = user.password_hash?.startsWith('$2');
+    if (!isBcrypt) {
+      return user.password_hash === password ? user : null;
     }
 
     const ok = await bcrypt.compare(password, user.password_hash);
