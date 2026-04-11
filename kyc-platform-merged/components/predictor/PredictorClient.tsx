@@ -91,9 +91,12 @@ export default function PredictorClient() {
     if (!serviceUp) return;
     setOptLoading(true);
     fetch('/api/predictor/options')
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d) setOptions(d); })
-      .catch(() => {})
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) { setError(d?.error || 'Failed to load market data.'); return; }
+        setOptions(d);
+      })
+      .catch(() => setError('Network error loading market data.'))
       .finally(() => setOptLoading(false));
   }, [serviceUp]);
 
@@ -271,12 +274,19 @@ export default function PredictorClient() {
         {/* Main panel */}
         <div style={{ display: 'grid', gap: 18 }}>
 
+          {/* Error banner */}
+          {error && !loading && (
+            <div className="notice notice-gold" style={{ marginBottom: 0 }}>
+              <strong>Data error:</strong> {error}
+            </div>
+          )}
+
           {/* Loading overlay */}
-          {loading && !summary && (
+          {(loading || optLoading) && !summary && !error && (
             <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
               <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
               <div style={{ fontWeight: 500, marginBottom: 6 }}>Loading market data…</div>
-              <div style={{ fontSize: 13, color: 'var(--dim)' }}>First load fetches live data from Agmarknet — may take a few seconds.</div>
+              <div style={{ fontSize: 13, color: 'var(--dim)' }}>Fetching live data from Agmarknet — takes a few seconds on first load.</div>
             </div>
           )}
 

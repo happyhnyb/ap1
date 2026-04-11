@@ -23,7 +23,7 @@ export type { MandiRecord, MandiHistoryPoint, MandiFilters };
 const RESOURCE_ID = '9ef84268-d588-465a-a308-a864a43d0070';
 const BASE_URL    = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
 const FETCH_LIMIT = 500;
-const MAX_PAGES   = 20; // cap at 10 000 records to stay within function timeout
+const MAX_PAGES   = 3; // 1 500 records max — keeps first fetch within hobby-plan 10 s timeout
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -116,32 +116,14 @@ async function fetchPage(apiKey: string, offset: number): Promise<Record<string,
   return data.records ?? [];
 }
 
-async function fetchTotalCount(apiKey: string): Promise<number> {
-  const url = new URL(BASE_URL);
-  url.searchParams.set('api-key', apiKey);
-  url.searchParams.set('format',  'json');
-  url.searchParams.set('limit',   '1');
-  url.searchParams.set('offset',  '0');
-
-  const res = await fetch(url.toString(), {
-    headers: { Accept: 'application/json' },
-    next: { revalidate: 3600 }, // check total count every hour
-  });
-  if (!res.ok) throw new Error(`Agmarknet API ${res.status}`);
-  const data = await res.json() as { total?: number | string };
-  return Number(data.total || 0);
-}
-
 export async function fetchAllRecords(apiKey: string): Promise<MandiRecord[]> {
   if (!apiKey) throw new Error('DATAGOV_API_KEY is not configured');
 
-  const total = await fetchTotalCount(apiKey);
-  const pages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(total / FETCH_LIMIT)));
-
   const raw: Record<string, unknown>[] = [];
-  for (let p = 0; p < pages; p++) {
+  for (let p = 0; p < MAX_PAGES; p++) {
     const batch = await fetchPage(apiKey, p * FETCH_LIMIT);
     raw.push(...batch);
+    if (batch.length < FETCH_LIMIT) break; // no more pages
   }
 
   // Deduplicate
@@ -153,13 +135,18 @@ export async function fetchAllRecords(apiKey: string): Promise<MandiRecord[]> {
   return [...dedup.values()];
 }
 
-export async function getRecords(): Promise<{ records: MandiRecord[]; fetchedAt: string; apiConfigured: boolean }> {
+export async function getRecords(): Promise<{ records: MandiRecord[]; fetchedAt: string; apiConfigured: boolean; error?: string }> {
   const apiKey = process.env.DATAGOV_API_KEY || '';
   if (!apiKey) {
-    return { records: [], fetchedAt: new Date().toISOString(), apiConfigured: false };
+    return { records: [], fetchedAt: new Date().toISOString(), apiConfigured: false, error: 'DATAGOV_API_KEY not configured' };
   }
-  const records = await fetchAllRecords(apiKey);
-  return { records, fetchedAt: new Date().toISOString(), apiConfigured: true };
+  try {
+    const records = await fetchAllRecords(apiKey);
+    return { records, fetchedAt: new Date().toISOString(), apiConfigured: true };
+  } catch (err) {
+    console.error('[mandi] fetchAllRecords failed:', err);
+    return { records: [], fetchedAt: new Date().toISOString(), apiConfigured: true, error: String(err) };
+  }
 }
 
 // ── Aggregation ───────────────────────────────────────────────────────────────
