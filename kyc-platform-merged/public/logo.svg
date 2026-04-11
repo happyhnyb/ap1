@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" fill="none">
+  <!-- Two overlapping leaf / seed shapes — the KYC emblem -->
+  <path d="M38 32 Q60 14 82 32 Q60 50 38 32Z" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M38 32 Q60 50 82 32" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.55"/>
+  <!-- centre seed dot -->
+  <ellipse cx="60" cy="32" rx="3.5" ry="3.5" fill="white" opacity="0.9"/>
+  <!-- "kyc" in a fluid script style built from strokes -->
+  <!-- k -->
+  <path d="M14 56 L14 84 M14 70 Q22 64 26 70 M22 65 Q28 72 32 84"
+        stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- y -->
+  <path d="M38 60 Q44 72 44 78 Q44 86 40 88 M50 60 Q44 72 44 78"
+        stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- c -->
+  <path d="M70 64 Q63 60 59 68 Q57 76 60 82 Q64 88 71 86"
+        stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- connecting flow swash under c -->
+  <path d="M71 86 Q82 88 88 84" stroke="white" stroke-width="1.4" stroke-linecap="round" opacity="0.5"/>
+</svg>

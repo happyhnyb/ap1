@@ -1,0 +1,48 @@
+# ── Dependencies ──────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ── Next.js ────────────────────────────────────────────────────
+.next/
+out/
+build/
+
+# ── TypeScript build info ──────────────────────────────────────
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ── Environment variables — NEVER commit secrets ──────────────
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Keep .env.example files — they have safe placeholders only
+
+# ── Mandi service data (runtime-generated, not source) ────────
+mandi-service/data/snapshots/
+mandi-service/data/status.json
+
+# ── OS / editor metadata ──────────────────────────────────────
+.DS_Store
+__MACOSX/
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/settings.json
+
+# ── Testing / coverage ────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ── Uploaded media (dev fallback — use R2 in production) ──────
+public/uploads/
+
+# ── Misc ───────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.cache/

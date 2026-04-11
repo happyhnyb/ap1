@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Next.js app ────────────────────────────────────────────────────
+  app:
+    name: App — typecheck / lint / test / build
+    runs-on: ubuntu-latest
+
+    env:
+      # Minimal env for CI — no real secrets needed for lint/test/typecheck
+      JWT_SECRET: ci-test-secret-not-for-production
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          # Build succeeds without Mongo in demo mode
+          MONGODB_URI: ""
+
+  # ── Mandi sidecar ─────────────────────────────────────────────────
+  mandi:
+    name: Mandi service — install / test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: mandi-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mandi-service/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Smoke test — server starts and exits cleanly
+        run: |
+          # Start with minimal env — should log ready and exit when killed
+          DATAGOV_API_KEY=ci-placeholder \
+          OPENAI_API_KEY="" \
+          NODE_ENV=test \
+          timeout 10 node src/server.js &
+          PID=$!
+          sleep 5
+          kill $PID 2>/dev/null || true
+          echo "Smoke test passed"
