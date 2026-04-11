@@ -3,8 +3,9 @@ import mongoose from 'mongoose';
 const MONGODB_URI = process.env.MONGODB_URI || '';
 const IS_PROD = process.env.NODE_ENV === 'production';
 
-// In production, MONGODB_URI is required — fail loudly at startup rather than at first request.
-if (IS_PROD && !MONGODB_URI) {
+// In production, MONGODB_URI is required — warn at module load but only hard-fail at request time.
+// (next build runs in production mode without DB — we must not process.exit during build)
+if (IS_PROD && !MONGODB_URI && process.env.NEXT_PHASE !== 'phase-production-build') {
   console.error('[db] FATAL: MONGODB_URI is not set. The application cannot run without a database in production.');
   process.exit(1);
 }
