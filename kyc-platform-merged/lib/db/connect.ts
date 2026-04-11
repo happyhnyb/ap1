@@ -3,11 +3,9 @@ import mongoose from 'mongoose';
 const MONGODB_URI = process.env.MONGODB_URI || '';
 const IS_PROD = process.env.NODE_ENV === 'production';
 
-// In production, MONGODB_URI is required — warn at module load but only hard-fail at request time.
-// (next build runs in production mode without DB — we must not process.exit during build)
-if (IS_PROD && !MONGODB_URI && process.env.NEXT_PHASE !== 'phase-production-build') {
-  console.error('[db] FATAL: MONGODB_URI is not set. The application cannot run without a database in production.');
-  process.exit(1);
+// Warn when running without a DB in production — app falls back to in-memory demo mode.
+if (IS_PROD && !MONGODB_URI) {
+  console.warn('[db] WARNING: MONGODB_URI is not set — running in in-memory demo mode. Data will not persist.');
 }
 
 // Cache the connection across Next.js hot-reloads in development
