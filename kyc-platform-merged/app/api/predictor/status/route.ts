@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictor } from '@/lib/auth/entitlement';
-import { predictorClient } from '@/lib/predictor/client';
+import { getCachedRecords } from '@/lib/mandi/engine';
 
 export async function GET() {
   const session = await getServerSession();
@@ -10,9 +10,20 @@ export async function GET() {
   }
 
   try {
-    const data = await predictorClient.status();
-    return NextResponse.json(data);
-  } catch {
-    return NextResponse.json({ error: 'Predictor service unavailable.' }, { status: 503 });
+    const { fetchedAt, recordCount, apiConfigured } = await getCachedRecords();
+    return NextResponse.json({
+      lastRefreshAt:    fetchedAt,
+      lastSnapshotDate: fetchedAt ? fetchedAt.slice(0, 10) : null,
+      lastRecordCount:  recordCount,
+      inProgress:       false,
+      error:            apiConfigured ? null : 'DATAGOV_API_KEY not configured',
+      totalSnapshots:   recordCount > 0 ? 1 : 0,
+      snapshotDates:    fetchedAt ? [fetchedAt.slice(0, 10)] : [],
+    });
+  } catch (err) {
+    return NextResponse.json({
+      lastRefreshAt: null, lastSnapshotDate: null, lastRecordCount: 0,
+      inProgress: false, error: String(err), totalSnapshots: 0, snapshotDates: [],
+    });
   }
 }

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { isAdmin } from '@/lib/auth/entitlement';
-
-const MANDI_BASE = process.env.MANDI_SERVICE_URL || 'http://localhost:4000';
+import { revalidateTag } from 'next/cache';
+import { MANDI_CACHE_TAG } from '@/lib/mandi/engine';
 
 export async function POST() {
   const session = await getServerSession();
@@ -11,10 +11,9 @@ export async function POST() {
   }
 
   try {
-    const res = await fetch(`${MANDI_BASE}/api/refresh`, { method: 'POST' });
-    const data = await res.json();
-    return NextResponse.json(data);
+    revalidateTag(MANDI_CACHE_TAG);
+    return NextResponse.json({ ok: true, message: 'Cache invalidated — data will be re-fetched on next request.' });
   } catch {
-    return NextResponse.json({ error: 'Predictor service unavailable.' }, { status: 503 });
+    return NextResponse.json({ error: 'Refresh failed.' }, { status: 500 });
   }
 }

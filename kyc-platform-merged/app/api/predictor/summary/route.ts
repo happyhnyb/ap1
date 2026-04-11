@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictor } from '@/lib/auth/entitlement';
-import { predictorClient } from '@/lib/predictor/client';
+import { getCachedRecords, filterRecords, buildSummary, filtersFromQuery } from '@/lib/mandi/engine';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession();
@@ -9,16 +9,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Premium access required.' }, { status: 403 });
   }
 
-  const { searchParams } = req.nextUrl;
-  const filters: Record<string, string> = {};
-  ['commodity', 'state', 'district', 'market', 'days'].forEach((k) => {
-    const v = searchParams.get(k);
-    if (v) filters[k] = v;
-  });
+  const q: Record<string, string> = {};
+  req.nextUrl.searchParams.forEach((v, k) => { q[k] = v; });
 
   try {
-    const data = await predictorClient.summary(filters);
-    return NextResponse.json(data);
+    const { records, fetchedAt } = await getCachedRecords();
+    const filtered = filterRecords(records, filtersFromQuery(q));
+    return NextResponse.json(buildSummary(filtered, fetchedAt));
   } catch {
     return NextResponse.json({ error: 'Predictor service unavailable.' }, { status: 503 });
   }

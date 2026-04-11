@@ -63,9 +63,8 @@ function fmt(n: number | null) {
 function ServiceDown() {
   return (
     <div className="notice notice-gold" style={{ marginBottom: 24 }}>
-      <strong>Mandi service not running.</strong>{' '}
-      Start it with: <code style={{ background: 'rgba(0,0,0,.3)', padding: '2px 6px', borderRadius: 4 }}>cd mandi-service && npm run dev</code>
-      {' '}— then refresh this page.
+      <strong>Price data temporarily unavailable.</strong>{' '}
+      The data service could not be reached. Please try refreshing the page in a moment.
     </div>
   );
 }
