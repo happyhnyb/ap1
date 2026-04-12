@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import PriceChart from './PriceChart';
+import PriceChart, { type MarketPoint } from './PriceChart';
 
 interface MandiOptions {
   commodities: string[];
@@ -27,12 +27,6 @@ interface Summary {
   }[];
 }
 
-interface HistoryPoint {
-  arrival_date:    string;
-  avg_modal_price: number | null;
-  avg_min_price:   number | null;
-  avg_max_price:   number | null;
-}
 
 interface ForecastMeta {
   mape: number | null; mae: number | null; rmse: number | null; smape: number | null;
@@ -61,7 +55,7 @@ export default function PredictorClient() {
   const [state,      setState]      = useState('');
   const [market,     setMarket]     = useState('');
   const [summary,    setSummary]    = useState<Summary | null>(null);
-  const [history,    setHistory]    = useState<HistoryPoint[]>([]);
+  const [history,    setHistory]    = useState<MarketPoint[]>([]);
   const [forecast,   setForecast]   = useState<ForecastResult | null>(null);
   const [loading,    setLoading]    = useState(false);
   const [optLoading, setOptLoading] = useState(false);
@@ -169,81 +163,55 @@ export default function PredictorClient() {
   return (
     <main className="predictor-shell">
       {/* Header */}
-      <div style={{ paddingBottom: 24, borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-          <span style={{ fontSize: 26 }}>⚡</span>
-          <h1 className="serif" style={{ fontSize: 30, margin: 0 }}>Commodity Price Predictor</h1>
-          <span className="badge badge-gold" style={{ fontSize: 10 }}>★ Pro</span>
+      <div style={{ paddingBottom: 16, borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <h1 className="serif" style={{ fontSize: 'clamp(22px,4vw,30px)', margin: 0 }}>⚡ Price Predictor</h1>
+          <span className="badge badge-gold" style={{ fontSize: 9 }}>★ Pro</span>
         </div>
-        <p style={{ color: 'var(--muted)', margin: 0, fontSize: 14 }}>
-          Real-time Agmarknet data · 14-day trend forecast · Updated daily
+        <p style={{ color: 'var(--muted)', margin: '4px 0 0', fontSize: 13 }}>
+          Live Agmarknet data · Compare prices across India&apos;s mandis
         </p>
       </div>
 
       <div className="predictor-grid">
-        {/* Sidebar controls */}
-        <aside style={{ display: 'grid', gap: 14 }}>
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ fontFamily: 'Lora,serif', fontSize: 16, margin: '0 0 16px' }}>Filter</h3>
+        {/* Sidebar / filter panel */}
+        <aside style={{ display: 'grid', gap: 12 }}>
+          <div className="card" style={{ padding: 16 }}>
+            <div style={{ fontFamily: 'Lora,serif', fontSize: 15, fontWeight: 600, marginBottom: 14, color: 'var(--text)' }}>Filter data</div>
 
-            <div className="form-group" style={{ marginBottom: 12 }}>
-              <label className="form-label">Commodity</label>
-              <select
-                className="select"
-                value={commodity}
-                onChange={(e) => setCommodity(e.target.value)}
-                disabled={optLoading}
-              >
-                {(options?.commodities.length
-                  ? options.commodities
-                  : ['Wheat', 'Onion', 'Tomato', 'Soybean', 'Cotton', 'Rice', 'Maize']
-                ).map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+            {/* On mobile: 2-col grid for selects */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="form-label">Commodity</label>
+                <select className="select" value={commodity} onChange={(e) => setCommodity(e.target.value)} disabled={optLoading}>
+                  {(options?.commodities.length
+                    ? options.commodities
+                    : ['Wheat', 'Onion', 'Tomato', 'Soybean', 'Cotton', 'Rice', 'Maize']
+                  ).map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">State</label>
+                <select className="select" value={state} onChange={(e) => setState(e.target.value)} disabled={optLoading}>
+                  <option value="">All States</option>
+                  {(options?.states ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Market{state && <span style={{ color: 'var(--dim)', fontWeight: 400, marginLeft: 4, fontSize: 10 }}>({state})</span>}</label>
+                <select className="select" value={market} onChange={(e) => setMarket(e.target.value)} disabled={optLoading}>
+                  <option value="">All</option>
+                  {availableMarkets.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
             </div>
 
-            <div className="form-group" style={{ marginBottom: 12 }}>
-              <label className="form-label">State</label>
-              <select
-                className="select"
-                value={state}
-                onChange={(e) => setState(e.target.value)}
-                disabled={optLoading}
-              >
-                <option value="">All States</option>
-                {(options?.states ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label">
-                Market
-                {state && <span style={{ color: 'var(--dim)', fontWeight: 400, marginLeft: 6, fontSize: 11 }}>({state})</span>}
-              </label>
-              <select
-                className="select"
-                value={market}
-                onChange={(e) => setMarket(e.target.value)}
-                disabled={optLoading}
-              >
-                <option value="">All Markets</option>
-                {availableMarkets.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-
-            <button
-              onClick={load}
-              className="btn btn-primary"
-              style={{ width: '100%', justifyContent: 'center' }}
-              disabled={loading || optLoading}
-            >
-              {loading ? 'Loading…' : optLoading ? 'Fetching data…' : 'Refresh'}
+            <button onClick={load} className="btn btn-primary btn-full" disabled={loading || optLoading}>
+              {loading ? 'Loading…' : optLoading ? 'Fetching…' : '↻ Refresh'}
             </button>
-
-            {optLoading && (
-              <p style={{ fontSize: 11, color: 'var(--dim)', textAlign: 'center', margin: '10px 0 0' }}>
-                Fetching live market data…
-              </p>
-            )}
+            {optLoading && <p style={{ fontSize: 11, color: 'var(--dim)', textAlign: 'center', marginTop: 8 }}>Fetching live data…</p>}
           </div>
 
           {/* Status card */}
@@ -336,7 +304,7 @@ export default function PredictorClient() {
           {/* Tabs */}
           <div className="card-elevated" style={{ overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8 }}>
-              {tabBtn('chart',    '📈 Price History')}
+              {tabBtn('chart',    '📊 Market Prices')}
               {tabBtn('markets',  '🏪 Top Markets')}
               {tabBtn('forecast', '🔮 Forecast Detail')}
             </div>
@@ -347,7 +315,7 @@ export default function PredictorClient() {
                   <PriceChart data={history} commodity={commodity} />
                 ) : (
                   <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
-                    {loading ? 'Loading chart data…' : 'No price history for this selection. Try a broader filter.'}
+                    {loading ? 'Loading market data…' : 'No price data for this selection. Try a broader filter.'}
                   </div>
                 )
               )}

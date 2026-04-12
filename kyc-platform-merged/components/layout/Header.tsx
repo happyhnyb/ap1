@@ -1,5 +1,9 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
+import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import type { SessionPayload } from '@/lib/auth/jwt';
 import { tierLabel, isEditor } from '@/lib/auth/entitlement';
 import LogoutButton from './LogoutButton';
@@ -7,66 +11,121 @@ import LogoutButton from './LogoutButton';
 interface Props { session: SessionPayload | null }
 
 export function Header({ session }: Props) {
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
   const tier = tierLabel(session);
 
+  // Close menu on route change
+  useEffect(() => { setOpen(false); }, [pathname]);
+  // Prevent body scroll when menu open
+  useEffect(() => {
+    document.body.style.overflow = open ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
+  const navLinks = [
+    { href: '/',                  icon: '🏠', label: 'Home' },
+    { href: '/feed',              icon: '📰', label: 'Feed' },
+    { href: '/search',            icon: '🔍', label: 'Search' },
+    { href: '/about',             icon: 'ℹ️', label: 'About' },
+    { href: '/contact',           icon: '✉️', label: 'Contact' },
+    ...(session ? [{ href: '/premium/predictor', icon: '⚡', label: 'Predictor', gold: true }] : []),
+    ...(isEditor(session) ? [{ href: '/admin', icon: '⚙️', label: 'CMS' }] : []),
+  ];
+
   return (
-    <header className="header">
-      <div className="container">
-        <div className="header-inner">
-          {/* Logo */}
-          <Link href="/" className="logo" style={{ gap: 12 }}>
-            <Image
-              src="/logo.png"
-              alt="KYC"
-              width={72}
-              height={72}
-              style={{ filter: 'drop-shadow(0 0 12px rgba(76,175,80,.5))', flexShrink: 0 }}
-              priority
-            />
-            <div style={{ lineHeight: 1.2 }}>
-              <div style={{ fontFamily: 'Lora,serif', fontWeight: 700, fontSize: 18 }}>Know Your</div>
-              <div style={{ color: 'var(--green)', fontFamily: 'Lora,serif', fontWeight: 700, fontSize: 18, fontStyle: 'italic' }}>Commodity</div>
+    <>
+      <header className="header">
+        <div className="container">
+          <div className="header-inner">
+            {/* Logo */}
+            <Link href="/" className="logo" onClick={() => setOpen(false)}>
+              <Image src="/logo.png" alt="KYC" width={44} height={44} priority
+                style={{ filter: 'drop-shadow(0 0 10px rgba(76,175,80,.45))', flexShrink: 0 }} />
+              <div className="logo-text">
+                <span>Know Your</span>
+                <span>Commodity</span>
+              </div>
+            </Link>
+
+            {/* Desktop nav */}
+            <nav className="nav-links" aria-label="Main navigation">
+              {navLinks.map(({ href, label, gold }) => (
+                <Link
+                  key={href} href={href}
+                  className={`nav-link${gold ? ' nav-link-gold' : ''}${pathname === href ? ' active' : ''}`}
+                >
+                  {gold && '⚡ '}{label}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Auth + hamburger */}
+            <div className="header-auth">
+              {session ? (
+                <>
+                  {tier === 'Pro' && (
+                    <span className="badge badge-gold" style={{ fontSize: 9, display: 'none' }}
+                      /* Only shown on desktop via inline block */ >★ PRO</span>
+                  )}
+                  <span style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'none' }}
+                    className="desktop-only">{session.name.split(' ')[0]}</span>
+                  <div style={{ display: 'none' }} className="desktop-only"><LogoutButton /></div>
+                </>
+              ) : (
+                <>
+                  <Link href="/login"     className="btn btn-sm" style={{ display: 'none' }} >Sign in</Link>
+                  <Link href="/subscribe" className="btn btn-sm btn-gold" style={{ fontSize: 12 }}>Get Pro</Link>
+                </>
+              )}
+
+              {/* Hamburger */}
+              <button
+                className="hamburger"
+                aria-label={open ? 'Close menu' : 'Open menu'}
+                aria-expanded={open}
+                onClick={() => setOpen(!open)}
+              >
+                <span style={{ transform: open ? 'translateY(6.5px) rotate(45deg)' : '' }} />
+                <span style={{ opacity: open ? 0 : 1 }} />
+                <span style={{ transform: open ? 'translateY(-6.5px) rotate(-45deg)' : '' }} />
+              </button>
             </div>
-          </Link>
-
-          {/* Nav links */}
-          <nav className="nav-links">
-            <Link href="/" className="nav-link">Home</Link>
-            <Link href="/feed" className="nav-link">Feed</Link>
-            <Link href="/search" className="nav-link">Search</Link>
-            <Link href="/about" className="nav-link">About</Link>
-            <Link href="/contact" className="nav-link">Contact</Link>
-            {session && (
-              <Link href="/premium/predictor" className="nav-link" style={{ color: 'var(--gold)', fontWeight: 500 }}>
-                ⚡ Predictor
-              </Link>
-            )}
-            {isEditor(session) && (
-              <Link href="/admin" className="nav-link" style={{ fontSize: 12, opacity: 0.8 }}>CMS</Link>
-            )}
-          </nav>
-
-          {/* Auth */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            {session ? (
-              <>
-                {tier === 'Pro' && (
-                  <span className="badge badge-gold" style={{ fontSize: 10, letterSpacing: '.06em' }}>★ PRO</span>
-                )}
-                <span style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {session.name.split(' ')[0]}
-                </span>
-                <LogoutButton />
-              </>
-            ) : (
-              <>
-                <Link href="/login" className="btn btn-sm">Sign in</Link>
-                <Link href="/subscribe" className="btn btn-sm btn-gold">Get Pro ↗</Link>
-              </>
-            )}
           </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* Mobile menu */}
+      <nav className={`mobile-nav${open ? ' open' : ''}`} aria-hidden={!open}>
+        {navLinks.map(({ href, icon, label, gold }) => (
+          <Link
+            key={href} href={href}
+            className="mobile-nav-link"
+            style={gold ? { color: 'var(--gold)' } : {}}
+          >
+            <span className="mobile-nav-link-icon">{icon}</span>
+            <span>{label}</span>
+            {pathname === href && <span style={{ marginLeft: 'auto', color: 'var(--green)', fontSize: 12 }}>●</span>}
+          </Link>
+        ))}
+
+        <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />
+
+        {session ? (
+          <div style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{session.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--dim)' }}>{session.email}</div>
+            </div>
+            <LogoutButton />
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 10, padding: '8px 0' }}>
+            <Link href="/login"     className="btn btn-full" onClick={() => setOpen(false)}>Sign in</Link>
+            <Link href="/subscribe" className="btn btn-gold btn-full" onClick={() => setOpen(false)}>★ Get Pro access</Link>
+          </div>
+        )}
+      </nav>
+    </>
   );
 }
