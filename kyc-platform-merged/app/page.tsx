@@ -4,8 +4,8 @@ import { postsAdapter } from '@/lib/adapters';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Know Your Commodity — India Agriculture & Commodity Markets',
-  description: 'Deep analysis, mandi prices, and commodity forecasting for Indian agriculture. Follow wheat, rice, soybean, cotton, onion, and more.',
+  title: 'Know Your Commodity — Global Agriculture & Commodity Markets',
+  description: 'Deep analysis, mandi prices, and commodity forecasting for global agriculture and commodity markets. Follow wheat, rice, soybean, cotton, onion, and more.',
 };
 
 // Revalidate home page every 5 minutes
@@ -21,7 +21,7 @@ export default async function HomePage() {
         <div className="container" style={{ padding: '18px 0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)', letterSpacing: '.04em' }}>
-              INDIA&apos;S AGRICULTURE &amp; COMMODITY INTELLIGENCE PLATFORM
+              GLOBAL AGRICULTURE &amp; COMMODITY INTELLIGENCE PLATFORM
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
