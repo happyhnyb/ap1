@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
+import { EmailOTPCard } from '@/components/auth/EmailOTPCard';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -61,6 +63,12 @@ export default function LoginForm() {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+
+        <div className="divider" style={{ margin: '20px 0' }} />
+        <GoogleAuthButton text="signin_with" />
+
+        <div className="divider" style={{ margin: '20px 0' }} />
+        <EmailOTPCard intent="login" />
 
         <div className="divider" style={{ margin: '24px 0' }} />
         <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--muted)', margin: 0 }}>

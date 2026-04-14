@@ -63,18 +63,21 @@ export function Header({ session }: Props) {
             {/* Auth + hamburger */}
             <div className="header-auth">
               {session ? (
-                <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {tier === 'Pro' && (
-                    <span className="badge badge-gold" style={{ fontSize: 9, display: 'none' }}
-                      /* Only shown on desktop via inline block */ >★ PRO</span>
+                    <span className="badge badge-gold desktop-auth-only" style={{ fontSize: 9 }}>★ PRO</span>
                   )}
-                  <span style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'none' }}
-                    className="desktop-only">{session.name.split(' ')[0]}</span>
-                  <div style={{ display: 'none' }} className="desktop-only"><LogoutButton /></div>
-                </>
+                  <span
+                    className="desktop-auth-only"
+                    style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 96, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {session.name.split(' ')[0]}
+                  </span>
+                  <div className="desktop-auth-only"><LogoutButton /></div>
+                </div>
               ) : (
                 <>
-                  <Link href="/login"     className="btn btn-sm" style={{ display: 'none' }} >Sign in</Link>
+                  <Link href="/login" className="btn btn-sm desktop-auth-only">Sign in</Link>
                   <Link href="/subscribe" className="btn btn-sm btn-gold" style={{ fontSize: 12 }}>Get Pro</Link>
                 </>
               )}

@@ -125,3 +125,33 @@ describe('Stripe status mapping', () => {
     expect(mapStripePlan('price_unknown')).toBe('monthly'); // fallback
   });
 });
+
+describe('Payment provider selection', () => {
+  beforeEach(() => {
+    process.env.STRIPE_SECRET_KEY = '';
+    process.env.RAZORPAY_PAYMENT_LINK_URL = '';
+  });
+
+  it('prefers Razorpay when a payment link is configured', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+    process.env.RAZORPAY_PAYMENT_LINK_URL = 'https://rzp.io/rzp/122b60jt';
+
+    const { getPaymentProvider, getPaymentProviderLabel, getRazorpayPaymentLink } =
+      await import('../lib/payments/provider');
+
+    expect(getPaymentProvider()).toBe('razorpay');
+    expect(getPaymentProviderLabel()).toBe('Razorpay');
+    expect(getRazorpayPaymentLink()).toBe('https://rzp.io/rzp/122b60jt');
+  });
+
+  it('falls back to Stripe when Razorpay is not configured', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+
+    const { getPaymentProvider, getPaymentProviderLabel, getRazorpayPaymentLink } =
+      await import('../lib/payments/provider');
+
+    expect(getPaymentProvider()).toBe('stripe');
+    expect(getPaymentProviderLabel()).toBe('Stripe');
+    expect(getRazorpayPaymentLink()).toBeNull();
+  });
+});

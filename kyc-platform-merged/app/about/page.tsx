@@ -1,5 +1,3 @@
-import Image from 'next/image';
-
 const LEADERSHIP = [
   {
     name: 'Deepak Pareek',
@@ -19,9 +17,8 @@ const LEADERSHIP = [
     name: 'Dhairya Pareek',
     role: 'CTO',
     bio: 'Dhairya Pareek leads KYC\'s technology vision, building the digital backbone behind our intelligence platform, data systems, and user experiences. He focuses on turning complex agricultural and commodity market signals into fast, reliable, and accessible tools that help stakeholders act with confidence across global markets.',
-    href: 'https://dhairya-pareek.site',
-    cta: 'Visit site',
-    image: '/team/dhairya-pareek.jpeg',
+    href: 'https://www.linkedin.com/in/dhairya-pareek-9b9234213/',
+    cta: 'LinkedIn',
   },
 ];
 
@@ -78,17 +75,6 @@ export default function AboutPage() {
           <div className="grid-two" style={{ display: 'grid', gap: 16 }}>
             {LEADERSHIP.map((member) => (
               <div key={member.name} className="card" style={{ padding: 20 }}>
-                {member.image && (
-                  <div style={{ marginBottom: 14 }}>
-                    <Image
-                      src={member.image}
-                      alt={member.name}
-                      width={1024}
-                      height={1536}
-                      style={{ width: '100%', height: 280, objectFit: 'cover', borderRadius: 14 }}
-                    />
-                  </div>
-                )}
                 <div className="badge badge-gold" style={{ marginBottom: 10 }}>{member.role}</div>
                 <h3 className="serif" style={{ marginBottom: 6 }}>{member.name}</h3>
                 <p className="muted" style={{ lineHeight: 1.7 }}>{member.bio}</p>

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
+import { EmailOTPCard } from '@/components/auth/EmailOTPCard';
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -74,6 +76,12 @@ export default function RegisterForm() {
             {loading ? 'Creating account…' : 'Create free account'}
           </button>
         </form>
+
+        <div className="divider" style={{ margin: '20px 0' }} />
+        <GoogleAuthButton text="signup_with" />
+
+        <div className="divider" style={{ margin: '20px 0' }} />
+        <EmailOTPCard intent="register" />
 
         <div className="divider" style={{ margin: '24px 0' }} />
         <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--muted)', margin: 0 }}>

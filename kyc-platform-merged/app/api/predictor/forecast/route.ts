@@ -3,7 +3,7 @@ import { getServerSession } from '@/lib/auth/jwt';
 import { isPremiumUser } from '@/lib/auth/entitlement';
 import { usersAdapter } from '@/lib/adapters';
 import {
-  getRecords, filterRecords, buildHistory,
+  getHistoricalRecords, filterRecords, buildHistory,
   holtForecast, rollingBacktest, filtersFromQuery,
 } from '@/lib/mandi/engine';
 
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   const horizon  = Math.min(30, Math.max(3, Number(q.horizon || 14)));
 
   try {
-    const { records, fetchedAt } = await getRecords();
+    const { records, fetchedAt } = await getHistoricalRecords(filters);
     const filtered = filterRecords(records, filters);
     const history  = buildHistory(filtered);
 
@@ -50,8 +50,7 @@ export async function GET(req: NextRequest) {
         forecast: [], direction: 'flat', trend_pct: 0,
         dataPoints: prices.length, realDataPoints: prices.length,
         insufficient: true,
-        message: `Need at least ${MIN_REAL_DATA} days of data (have ${prices.length}). ` +
-          `Try selecting a more popular commodity or removing market/state filters.`,
+        message: `Insufficient multi-day market history for this filter yet. Try narrowing to a specific state or market, or check again as more daily government records accumulate.`,
         insights: null,
       });
     }

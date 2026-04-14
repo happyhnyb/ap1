@@ -5,16 +5,21 @@ import { isEditor } from '@/lib/auth/entitlement';
 import { parseBody, CreatePostSchema } from '@/lib/validation';
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = req.nextUrl;
-  const all = searchParams.get('all') === 'true';
+  try {
+    const { searchParams } = req.nextUrl;
+    const all = searchParams.get('all') === 'true';
 
-  const session = await getServerSession();
-  if (all && !isEditor(session)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getServerSession();
+    if (all && !isEditor(session)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const posts = all ? await postsAdapter.listAll() : await postsAdapter.listPublished();
+    return NextResponse.json(posts);
+  } catch (err) {
+    console.error('[GET /api/posts]', err);
+    return NextResponse.json({ error: 'Failed to load posts.' }, { status: 500 });
   }
-
-  const posts = all ? await postsAdapter.listAll() : await postsAdapter.listPublished();
-  return NextResponse.json(posts);
 }
 
 export async function POST(req: NextRequest) {

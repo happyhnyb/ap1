@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { usersAdapter } from '@/lib/adapters/users';
-import { signToken, COOKIE_NAME, cookieOptions } from '@/lib/auth/jwt';
+import { signToken, COOKIE_NAME, cookieOptions, sessionPayloadFromUser } from '@/lib/auth/jwt';
 import { parseBody, RegisterSchema } from '@/lib/validation';
 import { checkRateLimit, getClientId, LIMITS } from '@/lib/ratelimit';
 
@@ -25,11 +25,7 @@ export async function POST(req: NextRequest) {
 
     const user = await usersAdapter.register({ name, email, password });
 
-    const payload = {
-      _id: user._id, name: user.name, email: user.email, role: user.role,
-      plan: user.subscription.plan, sub_status: user.subscription.status,
-    } as const;
-
+    const payload = sessionPayloadFromUser(user);
     const token = await signToken(payload);
     const res = NextResponse.json({ ok: true, user: payload });
     res.cookies.set(COOKIE_NAME, token, cookieOptions());

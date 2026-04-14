@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { standardSearch } from '@/lib/search/standard';
+import { assertSafeUserText } from '@/lib/ai/moderation';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    await assertSafeUserText(query, 'search query');
     const results = await standardSearch(query, { type, is_premium, from, to });
     return NextResponse.json({
       results: results.map((r) => ({
@@ -33,6 +35,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error('[GET /api/search]', err);
-    return NextResponse.json({ error: 'Search failed.' }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Search failed.' }, { status: 500 });
   }
 }

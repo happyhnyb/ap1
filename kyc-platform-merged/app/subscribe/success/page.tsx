@@ -1,9 +1,16 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { SuccessState } from './SuccessState';
 
 export const metadata: Metadata = { title: 'Subscription Confirmed — KYC Pro' };
 
-export default function SubscribeSuccessPage() {
+export default async function SubscribeSuccessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ provider?: string }>;
+}) {
+  const params = await searchParams;
+
   return (
     <main className="container" style={{ paddingTop: 80, paddingBottom: 80, textAlign: 'center' }}>
       <div style={{ maxWidth: 520, margin: '0 auto' }}>
@@ -11,21 +18,10 @@ export default function SubscribeSuccessPage() {
         <h1 className="serif" style={{ fontSize: 'clamp(28px,4vw,40px)', marginBottom: 16 }}>
           Welcome to KYC Pro
         </h1>
-        <p style={{ fontSize: 18, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 32 }}>
-          Your subscription is active. You now have full access to premium articles,
-          price forecasting, AI search, and all analytical reports.
-        </p>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link href="/premium/predictor" className="btn btn-gold">
-            Open Price Predictor
-          </Link>
-          <Link href="/" className="btn">
-            Browse Articles
-          </Link>
-        </div>
+        <SuccessState provider={params.provider} />
         <p style={{ fontSize: 12, color: 'var(--dim)', marginTop: 32 }}>
-          A confirmation email has been sent to you by Stripe. To manage or cancel your subscription,
-          visit your <Link href="/subscribe" style={{ color: 'var(--gold)' }}>account page</Link>.
+          Payment confirmation and account access can depend on the payment provider configuration.
+          Visit your <Link href="/subscribe" style={{ color: 'var(--gold)' }}>account page</Link> if your access has not updated yet.
         </p>
       </div>
     </main>

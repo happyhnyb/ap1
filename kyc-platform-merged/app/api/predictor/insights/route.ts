@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictor } from '@/lib/auth/entitlement';
-import { getRecords, filterRecords, buildHistory, holtForecast, filtersFromQuery } from '@/lib/mandi/engine';
+import { getHistoricalRecords, filterRecords, buildHistory, holtForecast, filtersFromQuery } from '@/lib/mandi/engine';
 
 export const maxDuration = 60;
 
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const filters = filtersFromQuery(q);
 
   try {
-    const { records } = await getRecords();
+    const { records } = await getHistoricalRecords(filters);
     const filtered = filterRecords(records, filters);
     const history  = buildHistory(filtered);
     const prices   = history

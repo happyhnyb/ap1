@@ -1,5 +1,43 @@
 # Operations Runbook
 
+## Fast Razorpay rollout
+
+Use this path when you need to accept payments today with the hosted Razorpay link:
+
+1. Set:
+   ```
+   RAZORPAY_PAYMENT_LINK_URL=https://rzp.io/rzp/122b60jt
+   ```
+2. Deploy the app. `POST /api/payment/checkout` will now return the Razorpay link instead of Stripe Checkout.
+3. Ask customers to use the same email and mobile number as their KYC account when paying.
+4. Reconcile paid users manually in the Razorpay Dashboard and activate access in MongoDB/admin tooling.
+
+Important: this is a real payment path, but it is not an automated subscription integration yet. Premium access is not granted automatically until Razorpay webhooks or payment verification are implemented.
+
+## Automated Razorpay setup
+
+Use this path for production-ready Razorpay activation:
+
+1. Set:
+   ```
+   RAZORPAY_KEY_ID=rzp_live_xxxxxxxxxxxx
+   RAZORPAY_KEY_SECRET=xxxxxxxxxxxx
+   RAZORPAY_WEBHOOK_SECRET=choose-a-strong-secret
+   NEXT_PUBLIC_BASE_URL=https://your-domain.com
+   ```
+2. Configure a webhook in Razorpay Dashboard pointing to:
+   `https://your-domain.com/api/payment/razorpay/webhook`
+3. Subscribe at minimum to:
+   - `payment_link.paid`
+   - `payment.captured`
+4. Deploy the app. `POST /api/payment/checkout` will create a unique Razorpay Payment Link for the logged-in user and return its `short_url`.
+5. After payment, the success page will poll `POST /api/auth/refresh` until the webhook-updated subscription is reflected in the session cookie.
+
+Notes:
+- Keep `RAZORPAY_PAYMENT_LINK_URL` only as a fallback/manual mode.
+- The webhook secret is separate from the API key secret.
+- The webhook handler is idempotent for repeated events from the same Razorpay payment ID.
+
 ## First-time Stripe setup
 
 ### 1. Create products in Stripe Dashboard
@@ -54,6 +92,10 @@
 | `STRIPE_WEBHOOK_SECRET` | Stripe Dashboard | Starts with `whsec_` |
 | `STRIPE_PRICE_MONTHLY` | Stripe Dashboard | Starts with `price_` |
 | `STRIPE_PRICE_ANNUAL` | Stripe Dashboard | Starts with `price_` |
+| `RAZORPAY_KEY_ID` | Razorpay Dashboard | Starts with `rzp_live_` or `rzp_test_` |
+| `RAZORPAY_KEY_SECRET` | Razorpay Dashboard | Server-side secret for Payment Links API |
+| `RAZORPAY_WEBHOOK_SECRET` | Razorpay Dashboard | Secret used to validate `x-razorpay-signature` |
+| `RAZORPAY_PAYMENT_LINK_URL` | Razorpay Dashboard | Hosted payment link, for example `https://rzp.io/rzp/122b60jt` |
 | `NEXT_PUBLIC_BASE_URL` | Your domain | `https://kyc.news` |
 | `DATAGOV_API_KEY` | data.gov.in | Rotate from committed version |
 | `OPENAI_API_KEY` | OpenAI Dashboard | Rotate from committed version |

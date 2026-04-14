@@ -12,6 +12,7 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
+    "ai:nightly": "tsx scripts/ai-nightly.ts",
     "mandi:install": "cd mandi-service && npm install",
     "mandi:dev": "cd mandi-service && npm run dev",
     "mandi:start": "cd mandi-service && npm start"

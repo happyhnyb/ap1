@@ -8,9 +8,10 @@ interface Props {
   period: string;
   featured: boolean;
   plan: 'monthly' | 'annual';
+  providerLabel: string;
 }
 
-export function SubscribeButton({ planName, price, period, featured, plan }: Props) {
+export function SubscribeButton({ planName, price, period, featured, plan, providerLabel }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +31,9 @@ export function SubscribeButton({ planName, price, period, featured, plan }: Pro
       }
       if (data.url) {
         window.location.assign(data.url);
+        return;
       }
+      setError('Checkout link missing. Please try again.');
     } catch {
       setError('Network error. Please check your connection and try again.');
     } finally {
@@ -39,16 +42,19 @@ export function SubscribeButton({ planName, price, period, featured, plan }: Pro
   }
 
   return (
-    <div>
+    <div style={{ display: 'grid', gap: 8 }}>
       <button
         className={`btn ${featured ? 'btn-gold' : 'btn-primary'}`}
-        style={{ width: '100%', justifyContent: 'center', opacity: loading ? 0.7 : 1 }}
+        style={{ width: '100%', justifyContent: 'center', opacity: loading ? 0.7 : 1, minHeight: 48 }}
         onClick={handleClick}
         disabled={loading}
         aria-busy={loading}
       >
-        {loading ? 'Redirecting…' : `Subscribe ${price}${period}`}
+        {loading ? 'Redirecting…' : `Pay ${price}${period}`}
       </button>
+      <p style={{ color: 'var(--dim)', fontSize: 12, textAlign: 'center', lineHeight: 1.4 }}>
+        {planName} via {providerLabel}
+      </p>
       {error && (
         <p role="alert" style={{ color: 'var(--red, #d32f2f)', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
           {error}

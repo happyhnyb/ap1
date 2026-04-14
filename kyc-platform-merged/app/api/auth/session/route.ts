@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from '@/lib/auth/jwt';
+import { getEffectiveServerSession } from '@/lib/auth/current-user';
 
 export async function GET() {
-  const session = await getServerSession();
+  const session = await getEffectiveServerSession();
   if (!session) return NextResponse.json({ user: null });
   return NextResponse.json({ user: session });
 }

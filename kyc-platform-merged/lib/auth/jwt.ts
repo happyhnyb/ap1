@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { env } from '@/lib/env';
+import type { User } from '@/types/user';
 
 export interface SessionPayload {
   _id:        string;
@@ -44,6 +45,17 @@ export async function getServerSession(): Promise<SessionPayload | null> {
   const token = store.get(COOKIE_NAME)?.value;
   if (!token) return null;
   return verifyToken(token);
+}
+
+export function sessionPayloadFromUser(user: User): SessionPayload {
+  return {
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    plan: user.subscription.plan,
+    sub_status: user.subscription.status,
+  };
 }
 
 /** Cookie options — secure flag on in production. */

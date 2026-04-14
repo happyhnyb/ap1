@@ -24,6 +24,7 @@ const RESOURCE_ID = '9ef84268-d588-465a-a308-a864a43d0070';
 const BASE_URL    = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
 const FETCH_LIMIT = 500;
 const MAX_PAGES   = 10; // fetch all pages in parallel → 5 000 records in ~500 ms
+const HISTORY_DAYS = 30;
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,22 @@ function parseToIso(dateStr: string): string {
   const parts = dateStr.split('/');
   if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
   return dateStr;
+}
+
+function getIsoDateDaysAgo(daysAgo: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+}
+
+function isoToAgmarknetDate(isoDate: string): string {
+  const [y, m, d] = isoDate.split('-');
+  return `${d}/${m}/${y}`;
 }
 
 function safeAverage(values: number[]): number | null {
@@ -64,6 +81,7 @@ function normaliseRecord(r: Record<string, unknown>): MandiRecord {
     min_price:    parseNumber(r.min_price),
     max_price:    parseNumber(r.max_price),
     modal_price:  parseNumber(r.modal_price),
+    arrivals:     parseNumber(r.arrivals),
   };
 }
 
@@ -98,12 +116,27 @@ export function filtersFromQuery(q: Record<string, string>): MandiFilters {
 
 // ── API fetch (each page URL cached 24 h by Next.js fetch cache) ──────────────
 
-async function fetchPage(apiKey: string, offset: number): Promise<Record<string, unknown>[]> {
+function applyFilterParams(url: URL, filters: Partial<MandiFilters> & { arrival_date?: string }) {
+  if (filters.arrival_date) url.searchParams.set('filters[arrival_date]', filters.arrival_date);
+  if (filters.commodity)    url.searchParams.set('filters[commodity]', filters.commodity);
+  if (filters.state)        url.searchParams.set('filters[state]', filters.state);
+  if (filters.district)     url.searchParams.set('filters[district]', filters.district);
+  if (filters.market)       url.searchParams.set('filters[market]', filters.market);
+  if (filters.variety)      url.searchParams.set('filters[variety]', filters.variety);
+  if (filters.grade)        url.searchParams.set('filters[grade]', filters.grade);
+}
+
+async function fetchPage(
+  apiKey: string,
+  offset: number,
+  filters: Partial<MandiFilters> & { arrival_date?: string } = {}
+): Promise<{ records: Record<string, unknown>[]; total: number }> {
   const url = new URL(BASE_URL);
   url.searchParams.set('api-key', apiKey);
   url.searchParams.set('format',  'json');
   url.searchParams.set('limit',   String(FETCH_LIMIT));
   url.searchParams.set('offset',  String(offset));
+  applyFilterParams(url, filters);
 
   // next.revalidate caches this URL for 24 h in Next.js data cache
   const res = await fetch(url.toString(), {
@@ -112,8 +145,8 @@ async function fetchPage(apiKey: string, offset: number): Promise<Record<string,
   });
 
   if (!res.ok) throw new Error(`Agmarknet API ${res.status}`);
-  const data = await res.json() as { records?: Record<string, unknown>[] };
-  return data.records ?? [];
+  const data = await res.json() as { records?: Record<string, unknown>[]; total?: number };
+  return { records: data.records ?? [], total: Number(data.total ?? 0) };
 }
 
 export async function fetchAllRecords(apiKey: string): Promise<MandiRecord[]> {
@@ -122,17 +155,18 @@ export async function fetchAllRecords(apiKey: string): Promise<MandiRecord[]> {
   // Fetch first page to confirm data exists
   const first = await fetchPage(apiKey, 0);
 
-  let allBatches: Record<string, unknown>[][] = [first];
+  let allBatches: Record<string, unknown>[][] = [first.records];
 
-  if (first.length === FETCH_LIMIT) {
+  if (first.records.length === FETCH_LIMIT) {
     // Fetch all remaining pages IN PARALLEL — same wall-clock time as 1 page
     const rest = await Promise.all(
       Array.from({ length: MAX_PAGES - 1 }, (_, i) =>
         fetchPage(apiKey, (i + 1) * FETCH_LIMIT)
+          .then((page) => page.records)
           .catch(() => [] as Record<string, unknown>[]) // ignore individual page errors
       )
     );
-    allBatches = [first, ...rest];
+    allBatches = [first.records, ...rest];
   }
 
   const raw = allBatches.flat();
@@ -140,6 +174,43 @@ export async function fetchAllRecords(apiKey: string): Promise<MandiRecord[]> {
   for (const r of raw) {
     const norm = normaliseRecord(r);
     dedup.set(recordKey(norm), norm);
+  }
+  return [...dedup.values()];
+}
+
+export async function fetchHistoricalRecords(
+  apiKey: string,
+  filters: MandiFilters,
+  daysBack = HISTORY_DAYS
+): Promise<MandiRecord[]> {
+  if (!apiKey) throw new Error('DATAGOV_API_KEY is not configured');
+
+  const batches = await Promise.all(
+    Array.from({ length: daysBack }, async (_, i) => {
+      const isoDate = getIsoDateDaysAgo(i);
+      const arrival_date = isoToAgmarknetDate(isoDate);
+      const first = await fetchPage(apiKey, 0, { ...filters, arrival_date });
+      if (!first.records.length) return [] as MandiRecord[];
+
+      const pages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(first.total / FETCH_LIMIT)));
+      const rest = pages > 1
+        ? await Promise.all(
+            Array.from({ length: pages - 1 }, (_, pageIndex) =>
+              fetchPage(apiKey, (pageIndex + 1) * FETCH_LIMIT, { ...filters, arrival_date })
+                .then((page) => page.records)
+                .catch(() => [] as Record<string, unknown>[])
+            )
+          )
+        : [];
+
+      const raw = [first.records, ...rest].flat();
+      return raw.map((r) => normaliseRecord({ ...r, arrival_date: isoDate }));
+    })
+  );
+
+  const dedup = new Map<string, MandiRecord>();
+  for (const record of batches.flat()) {
+    dedup.set(recordKey(record), record);
   }
   return [...dedup.values()];
 }
@@ -154,6 +225,20 @@ export async function getRecords(): Promise<{ records: MandiRecord[]; fetchedAt:
     return { records, fetchedAt: new Date().toISOString(), apiConfigured: true };
   } catch (err) {
     console.error('[mandi] fetchAllRecords failed:', err);
+    return { records: [], fetchedAt: new Date().toISOString(), apiConfigured: true, error: String(err) };
+  }
+}
+
+export async function getHistoricalRecords(filters: MandiFilters, daysBack = HISTORY_DAYS): Promise<{ records: MandiRecord[]; fetchedAt: string; apiConfigured: boolean; error?: string }> {
+  const apiKey = process.env.DATAGOV_API_KEY || '';
+  if (!apiKey) {
+    return { records: [], fetchedAt: new Date().toISOString(), apiConfigured: false, error: 'DATAGOV_API_KEY not configured' };
+  }
+  try {
+    const records = await fetchHistoricalRecords(apiKey, filters, daysBack);
+    return { records, fetchedAt: new Date().toISOString(), apiConfigured: true };
+  } catch (err) {
+    console.error('[mandi] fetchHistoricalRecords failed:', err);
     return { records: [], fetchedAt: new Date().toISOString(), apiConfigured: true, error: String(err) };
   }
 }

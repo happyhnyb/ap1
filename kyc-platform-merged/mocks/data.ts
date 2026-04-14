@@ -1,18 +1,18 @@
 import type { ContactSubmission, Post } from '@/types/post';
 import type { User } from '@/types/user';
+import { TRADE_TALK_POSTS } from './tradeTalkPosts';
 
 export const CATEGORIES = ['Top Stories', 'Crops', 'Markets', 'AgriTech', 'Livestock', 'Policy', 'Climate', 'Trade', 'Research', 'Alerts'];
 
 export const TEAM = [
-  { name: 'Dhairya Pareek', role: 'Editor-in-Chief', bio: 'Agriculture policy & crop economics' },
-  { name: 'Deepak Pareek', role: 'Technology & Research', bio: 'AgriTech, R&D, precision farming' },
-  { name: 'Niraj Shah', role: 'Markets & Trade', bio: 'Commodity markets, exports, MSP' }
+  { name: 'Niraj Shah', role: 'COO', bio: 'Leverages 10+ years of expertise to drive strategic agri-market intelligence and data-driven trading growth.' },
+  { name: 'Deepak Pareek', role: 'Chief Economist', bio: 'World Economic Forum Tech Pioneer with 25+ years of global expertise in strategic foresight and data-driven agri-trade analysis.' }
 ];
 
 export const PLANS = [
   { id: 'free', name: 'Free', price: '₹0', period: '/forever', features: ['3 premium articles/month', 'All breaking news', 'Market prices & alerts', 'Weekly newsletter'], featured: false },
-  { id: 'monthly', name: 'KYC Pro', price: '₹199', period: '/month', features: ['Unlimited premium access', 'All deep-dive reports', 'AgriTech analysis', 'Commodity forecasts', 'Priority alerts'], featured: true },
-  { id: 'annual', name: 'KYC Pro Annual', price: '₹1,799', period: '/year', features: ['Everything in monthly', 'Save 25%', 'Exclusive annual reports', 'Direct analyst access', 'MSP & policy briefings'], featured: false }
+  { id: 'monthly', name: 'KYC Pro', price: '₹499', period: '/month', features: ['Unlimited premium access', 'All deep-dive reports', 'AgriTech analysis', 'Commodity forecasts', 'Priority alerts'], featured: true },
+  { id: 'annual', name: 'KYC Pro Annual', price: '₹5,000', period: '/year', features: ['Everything in monthly', 'Best annual value', 'Exclusive annual reports', 'Direct analyst access', 'MSP & policy briefings'], featured: false }
 ];
 
 export const MANDI_PRICES = [
@@ -25,6 +25,7 @@ export const MANDI_PRICES = [
 ];
 
 export const INITIAL_POSTS: Post[] = [
+  ...TRADE_TALK_POSTS,
   {
     _id: 'p1', type: 'SHORT', title: 'Kharif Sowing Surges 12% on Early Monsoon Arrival', slug: 'kharif-sowing-surges', excerpt: 'Kharif sowing has jumped 12% year-on-year as the southwest monsoon arrived a week early, boosting rice and soybean acreage across Maharashtra and MP.', body: 'Kharif sowing has jumped 12% year-on-year as the southwest monsoon arrived a week early, boosting rice and soybean acreage across Maharashtra and Madhya Pradesh.\n\nRice planting is up 18% in key paddy states including West Bengal, Telangana, and Chhattisgarh. Soybean acreage in Madhya Pradesh alone has increased by 22%, driven by favourable soil moisture levels and strong MSP signals from the government.\n\nFarmers in Vidarbha report the best pre-monsoon conditions in five years, with reservoir levels at 45% capacity — well above the 10-year average of 32% at this stage.', author: 'Dhairya Pareek', author_id: 'u1', tags: ['kharif', 'monsoon', 'sowing', 'rice'], category: 'Crops', is_premium: false, linked_article_id: null, status: 'published', published_at: '2026-03-28T07:00:00Z', created_at: '2026-03-28T06:00:00Z', updated_at: '2026-03-28T07:00:00Z', view_count: 4210, img: 'crops', hero_image: null
   },

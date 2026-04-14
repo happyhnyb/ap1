@@ -38,7 +38,11 @@ export default function Feed({ posts }: { posts: Post[] }) {
   const side     = posts.slice(1, 4);
   const latest   = posts.slice(0, 6);
   const analysis = posts.filter((p) => p.type !== 'SHORT').slice(0, 4);
-  const mostRead = [...posts].sort((a, b) => b.view_count - a.view_count).slice(0, 5);
+  const nonZeroViewPosts = posts.filter((p) => p.view_count > 0);
+  const hasReliableViewData = nonZeroViewPosts.length >= 20;
+  const mostRead = hasReliableViewData
+    ? [...posts].sort((a, b) => b.view_count - a.view_count).slice(0, 5)
+    : latest.slice(0, 5);
 
   return (
     <main className="container" style={{ paddingBottom: 24 }}>
@@ -124,7 +128,14 @@ export default function Feed({ posts }: { posts: Post[] }) {
       {/* ── Most Read + Mandi ────────────────────────── */}
       <section className="section" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14 }}>
         <div>
-          <div className="section-header"><h2 className="section-title">Most Read</h2></div>
+          <div className="section-header">
+            <h2 className="section-title">{hasReliableViewData ? 'Most Read' : 'Featured'}</h2>
+          </div>
+          {!hasReliableViewData && (
+            <p style={{ color: 'var(--dim)', fontSize: 12, margin: '0 0 10px' }}>
+              Popularity metrics are still syncing, so this section shows featured recent coverage instead of estimated read counts.
+            </p>
+          )}
           <div style={{ display: 'grid', gap: 8 }}>
             {mostRead.map((post, i) => (
               <Link key={post._id} href={`/post/${post.slug}`} className="card post-card"
@@ -134,7 +145,11 @@ export default function Feed({ posts }: { posts: Post[] }) {
                 </span>
                 <div style={{ display: 'grid', gap: 4, minWidth: 0 }}>
                   <h3 className="post-title truncate-2" style={{ fontSize: 14, lineHeight: 1.35 }}>{post.title}</h3>
-                  <span style={{ fontSize: 11, color: 'var(--dim)' }}>{post.view_count.toLocaleString()} reads</span>
+                  <span style={{ fontSize: 11, color: 'var(--dim)' }}>
+                    {hasReliableViewData
+                      ? `${post.view_count.toLocaleString()} reads`
+                      : `${post.author} · ${timeAgo(post.published_at)}`}
+                  </span>
                 </div>
               </Link>
             ))}
@@ -158,7 +173,7 @@ export default function Feed({ posts }: { posts: Post[] }) {
             Premium subscribers get full article access, AI-powered search, and real-time mandi price predictions.
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/subscribe"          className="btn btn-gold btn-lg">Subscribe from ₹199/mo</Link>
+            <Link href="/subscribe"          className="btn btn-gold btn-lg">Subscribe from ₹499/mo</Link>
             <Link href="/premium/predictor"  className="btn btn-lg">View Predictor</Link>
           </div>
         </div>

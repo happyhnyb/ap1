@@ -3,6 +3,12 @@ const nextConfig = {
   // standalone output only for Docker — Vercel/Netlify handle bundling themselves
   ...(process.env.DOCKER_BUILD === 'true' ? { output: 'standalone' } : {}),
 
+  eslint: {
+    // Vercel/Next lint execution is currently tripping over a circular flat-config
+    // serialization issue. Keep deploys unblocked and rely on explicit lint/typecheck runs.
+    ignoreDuringBuilds: true,
+  },
+
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.cloudflare.com' },

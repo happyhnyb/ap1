@@ -122,6 +122,15 @@ const mongo = {
   },
 };
 
+async function withPostFallback<T>(operation: string, fn: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    console.error(`[postsAdapter:${operation}] falling back to in-memory data`, error);
+    return fallback();
+  }
+}
+
 // ── Memory implementation ────────────────────────────────────────
 const memory = {
   async listPublished() {
@@ -194,4 +203,23 @@ const memory = {
 };
 
 // ── Export ───────────────────────────────────────────────────────
-export const postsAdapter = isMongoConfigured() ? mongo : memory;
+export const postsAdapter = isMongoConfigured()
+  ? {
+      listPublished: (...args: Parameters<typeof mongo.listPublished>) =>
+        withPostFallback('listPublished', () => mongo.listPublished(...args), () => memory.listPublished()),
+      listPublishedPaged: (...args: Parameters<typeof mongo.listPublishedPaged>) =>
+        withPostFallback('listPublishedPaged', () => mongo.listPublishedPaged(...args), () => memory.listPublishedPaged(...args)),
+      listAll: (...args: Parameters<typeof mongo.listAll>) =>
+        withPostFallback('listAll', () => mongo.listAll(...args), () => memory.listAll()),
+      getBySlug: (...args: Parameters<typeof mongo.getBySlug>) =>
+        withPostFallback('getBySlug', () => mongo.getBySlug(...args), () => memory.getBySlug(...args)),
+      search: (...args: Parameters<typeof mongo.search>) =>
+        withPostFallback('search', () => mongo.search(...args), () => memory.search(...args)),
+      incrementViews: (...args: Parameters<typeof mongo.incrementViews>) =>
+        withPostFallback('incrementViews', () => mongo.incrementViews(...args), () => memory.incrementViews(...args)),
+      create: (...args: Parameters<typeof mongo.create>) =>
+        withPostFallback('create', () => mongo.create(...args), () => memory.create(...args)),
+      update: (...args: Parameters<typeof mongo.update>) =>
+        withPostFallback('update', () => mongo.update(...args), () => memory.update(...args)),
+    }
+  : memory;

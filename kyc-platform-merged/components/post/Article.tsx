@@ -3,6 +3,7 @@ import Image from 'next/image';
 import type { Post } from '@/types/post';
 import { fmtDate } from '@/lib/utils';
 import { PostThumb } from '@/components/feed/PostThumb';
+import { ArticleAISummary } from './ArticleAISummary';
 
 function renderBody(body: string) {
   return body.split('\n\n').map((part, i) => {
@@ -75,6 +76,8 @@ export function Article({
             <span className="post-meta-dot" style={{ color: 'var(--dim)' }}>{post.view_count.toLocaleString()} reads</span>
           </div>
 
+          {canRead && <ArticleAISummary slug={post.slug} />}
+
           {/* Body */}
           <div className="article-body">
             {canRead ? (
@@ -100,7 +103,7 @@ export function Article({
                     This {post.type.toLowerCase()} is available to KYC Pro subscribers. Unlock full access, AI search, and commodity forecasting.
                   </p>
                   <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <Link href="/subscribe" className="btn btn-gold">Subscribe from ₹199/month</Link>
+                    <Link href="/subscribe" className="btn btn-gold">Subscribe from ₹499/month</Link>
                     <Link href="/login" className="btn">Sign in</Link>
                   </div>
                 </div>

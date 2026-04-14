@@ -11,6 +11,7 @@ export interface MandiRecord {
   min_price:    number | null;
   max_price:    number | null;
   modal_price:  number | null;
+  arrivals?:    number | null;
 }
 
 export interface MandiHistoryPoint {

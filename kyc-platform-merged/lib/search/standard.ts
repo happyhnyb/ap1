@@ -61,35 +61,39 @@ export async function standardSearch(
   if (!query.trim()) return [];
 
   if (isMongoConfigured()) {
-    await connectDB();
+    try {
+      await connectDB();
 
-    const filter: Record<string, unknown> = {
-      status: 'published',
-      $text:  { $search: query },
-    };
-    if (opts.type) filter.type = opts.type.toUpperCase();
-    if (opts.is_premium === 'true')  filter.is_premium = true;
-    if (opts.is_premium === 'false') filter.is_premium = false;
-    if (opts.from || opts.to) {
-      const date: Record<string, Date> = {};
-      if (opts.from) date.$gte = new Date(opts.from);
-      if (opts.to)   date.$lte = new Date(opts.to);
-      filter.published_at = date;
+      const filter: Record<string, unknown> = {
+        status: 'published',
+        $text:  { $search: query },
+      };
+      if (opts.type) filter.type = opts.type.toUpperCase();
+      if (opts.is_premium === 'true')  filter.is_premium = true;
+      if (opts.is_premium === 'false') filter.is_premium = false;
+      if (opts.from || opts.to) {
+        const date: Record<string, Date> = {};
+        if (opts.from) date.$gte = new Date(opts.from);
+        if (opts.to)   date.$lte = new Date(opts.to);
+        filter.published_at = date;
+      }
+
+      const docs = await PostModel.find(
+        filter,
+        { score: { $meta: 'textScore' } }
+      )
+        .sort({ score: { $meta: 'textScore' }, published_at: -1 })
+        .limit(30)
+        .lean();
+
+      return docs.map((doc) => ({
+        post:    toPost(doc as unknown as Record<string, unknown>),
+        snippet: buildSnippet(((doc as unknown as Record<string, unknown>).body as string) || '', query),
+        score:   ((doc as unknown as Record<string, unknown>).score as number) || 1,
+      }));
+    } catch (error) {
+      console.error('[standardSearch] falling back to in-memory search', error);
     }
-
-    const docs = await PostModel.find(
-      filter,
-      { score: { $meta: 'textScore' } }
-    )
-      .sort({ score: { $meta: 'textScore' }, published_at: -1 })
-      .limit(30)
-      .lean();
-
-    return docs.map((doc) => ({
-      post:    toPost(doc as unknown as Record<string, unknown>),
-      snippet: buildSnippet(((doc as unknown as Record<string, unknown>).body as string) || '', query),
-      score:   ((doc as unknown as Record<string, unknown>).score as number) || 1,
-    }));
   }
 
   // Fallback: in-memory

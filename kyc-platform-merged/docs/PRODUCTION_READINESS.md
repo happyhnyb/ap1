@@ -1,8 +1,8 @@
 # Production Readiness Checklist
 
-Last updated: 2026-04-09
+Last updated: 2026-04-13
 
-## Summary verdict: READY FOR CLOSED BETA
+## Summary verdict: READY FOR CLOSED BETA, RAZORPAY AUTO-ACTIVATION ADDED
 
 The platform is stable and can accept real paying users, but a handful of items must be addressed before a public launch. See "Remaining blockers" at the bottom.
 
@@ -22,6 +22,11 @@ The platform is stable and can accept real paying users, but a handful of items 
 - [x] Production guard in `lib/db/connect.ts` (exits if MONGODB_URI missing in production)
 
 ### Payments
+- [x] Hosted Razorpay checkout path can be enabled with `RAZORPAY_PAYMENT_LINK_URL`
+- [x] Razorpay Payment Links API checkout can create a unique link per logged-in user
+- [x] Razorpay webhook activation route (`POST /api/payment/razorpay/webhook`)
+- [x] Razorpay webhook signature validation (`x-razorpay-signature`)
+- [x] Session refresh endpoint to reflect upgraded access after asynchronous payment confirmation (`POST /api/auth/refresh`)
 - [x] Stripe Checkout integration (`POST /api/payment/checkout`)
 - [x] Stripe webhook handler (`POST /api/payment/webhook`)
 - [x] Stripe Billing Portal for self-service management (`POST /api/payment/portal`)
@@ -73,24 +78,27 @@ The platform is stable and can accept real paying users, but a handful of items 
 4. **No Stripe Products/Prices created yet**
    `STRIPE_PRICE_MONTHLY` and `STRIPE_PRICE_ANNUAL` are empty. You must create products in the Stripe Dashboard and paste the price IDs.
 
-5. **In-memory demo mode must not be reachable in production**
+5. **Razorpay dashboard configuration still must be completed**
+   The automated webhook route is implemented, but production activation still depends on setting `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, and registering `POST /api/payment/razorpay/webhook` in the Razorpay Dashboard with the correct events.
+
+6. **In-memory demo mode must not be reachable in production**
    Currently the production guard logs an error and lets the process continue. It should `process.exit(1)`. The guard in `lib/db/connect.ts` already does this; the one in `lib/adapters/users.ts` only logs. Consider tightening.
 
 ### Should fix before public launch
 
-6. **No email notifications**
+7. **No email notifications**
    `RESEND_API_KEY` / `CONTACT_EMAIL` are in .env.example but nothing sends email. Users get no receipt, no password reset, no notification of access change.
 
-7. **Password reset not implemented**
+8. **Password reset not implemented**
    There is no forgot-password flow. Users who lose their password cannot recover their account.
 
-8. **No CSRF protection on form endpoints**
+9. **No CSRF protection on form endpoints**
    The SameSite=Lax cookie provides partial CSRF mitigation, but there is no explicit CSRF token on POST endpoints. For highest security, add `csurf` or a double-submit cookie pattern.
 
-9. **File upload not implemented**
+10. **File upload not implemented**
    Hero images and inline images are referenced in the Post model but there is no upload endpoint. Posts cannot have images until this is wired to Cloudflare R2 or similar.
 
-10. **AI search has no cost controls**
+11. **AI search has no cost controls**
     OpenAI calls in `/api/ai-search` are rate-limited (10/min) but there is no daily spend cap. A burst of requests could generate unexpected API costs.
 
 ---

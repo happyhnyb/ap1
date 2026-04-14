@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { Article } from '@/components/post/Article';
 import { getPost } from '@/lib/api';
-import { getServerSession } from '@/lib/auth/jwt';
+import { getEffectiveServerSession } from '@/lib/auth/current-user';
 import { canAccessPost, isPremium } from '@/lib/auth/entitlement';
 import { postsAdapter } from '@/lib/adapters';
 
@@ -21,7 +21,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   // Increment view count (fire-and-forget)
   postsAdapter.incrementViews(slug).catch(() => {});
 
-  const session = await getServerSession();
+  const session = await getEffectiveServerSession();
   const canRead = canAccessPost(session, post.is_premium);
 
   // Fetch linked premium article if this story has one

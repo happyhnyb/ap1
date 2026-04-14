@@ -26,6 +26,7 @@ function toUser(doc: Record<string, unknown>): User {
     subscription: {
       status:     (sub?.status as User['subscription']['status']) ?? 'none',
       plan:       (sub?.plan   as User['subscription']['plan'])   ?? 'free',
+      payment_ref: (sub?.payment_ref as string | null) ?? null,
       expires_at: sub?.expires_at
         ? new Date(sub.expires_at as string).toISOString().slice(0, 10)
         : null,
@@ -66,18 +67,64 @@ const mongo = {
     });
     return toUser(doc.toObject() as unknown as Record<string, unknown>);
   },
-  async activatePremium(userId: string, plan: 'monthly' | 'annual') {
+  async findOrCreateAuthUser(input: { name: string; email: string; method: 'email' | 'google' }) {
     await connectDB();
+    const email = input.email.toLowerCase();
+    const existing = await UserModel.findOne({ email }).lean();
+    if (existing) {
+      const methods = new Set((existing.auth_methods as User['auth_methods']) ?? []);
+      methods.add(input.method);
+      if (!methods.has('email') && input.method === 'email') methods.add('email');
+      await UserModel.updateOne(
+        { email },
+        {
+          $set: { name: existing.name || input.name || email.split('@')[0] },
+          $addToSet: { auth_methods: input.method },
+        }
+      );
+      const updated = await UserModel.findOne({ email }).lean();
+      return toUser((updated ?? existing) as unknown as Record<string, unknown>);
+    }
+
+    const doc = await UserModel.create({
+      name: input.name,
+      email,
+      password_hash: null,
+      auth_methods: [input.method],
+      role: 'reader',
+      subscription: { status: 'none', plan: 'free', expires_at: null },
+    });
+    return toUser(doc.toObject() as unknown as Record<string, unknown>);
+  },
+  async activatePremium(userId: string, plan: 'monthly' | 'annual', opts?: { paymentRef?: string | null; effectiveAt?: Date }) {
+    await connectDB();
+    const existing = await UserModel.findById(userId).lean();
+    if (!existing) return null;
+
+    const nextPaymentRef = opts?.paymentRef ?? null;
+    const currentPaymentRef = existing.subscription?.payment_ref ?? null;
+    if (nextPaymentRef && currentPaymentRef === nextPaymentRef) {
+      return toUser(existing as unknown as Record<string, unknown>);
+    }
+
     const months = plan === 'annual' ? 12 : 1;
-    const expires = new Date();
+    const effectiveAt = opts?.effectiveAt ?? new Date();
+    const existingExpiry = existing.subscription?.expires_at ? new Date(existing.subscription.expires_at) : null;
+    const anchor = existingExpiry && existingExpiry > effectiveAt ? new Date(existingExpiry) : new Date(effectiveAt);
+    const expires = new Date(anchor);
     expires.setMonth(expires.getMonth() + months);
     await UserModel.findByIdAndUpdate(userId, {
       role:                        'premium',
       'subscription.status':       'active',
       'subscription.plan':         plan,
-      'subscription.started_at':   new Date(),
+      'subscription.started_at':   existing.subscription?.status === 'active' && existing.subscription?.started_at
+        ? existing.subscription.started_at
+        : effectiveAt,
       'subscription.expires_at':   expires,
+      'subscription.payment_ref':  nextPaymentRef,
     });
+    const updated = await UserModel.findById(userId).lean();
+    return updated ? toUser(updated as unknown as Record<string, unknown>) : null;
   },
 
   /** Set Stripe customer ID on a user (called at checkout creation). */
@@ -168,15 +215,62 @@ const memory = {
     memoryUsers = [user, ...memoryUsers];
     return user;
   },
-  async activatePremium(userId: string, plan: 'monthly' | 'annual') {
+  async findOrCreateAuthUser(input: { name: string; email: string; method: 'email' | 'google' }) {
+    const email = input.email.toLowerCase();
+    const existing = memoryUsers.find((u) => u.email.toLowerCase() === email);
+    if (existing) {
+      const methods = Array.from(new Set([...(existing.auth_methods ?? []), input.method])) as User['auth_methods'];
+      const updated: User = {
+        ...existing,
+        name: existing.name || input.name,
+        auth_methods: methods,
+      };
+      memoryUsers = memoryUsers.map((u) => (u._id === existing._id ? updated : u));
+      return updated;
+    }
+
+    const now = new Date().toISOString();
+    const user: User = {
+      _id: `u${Date.now()}`,
+      name: input.name,
+      email,
+      mobile: null,
+      password_hash: '',
+      auth_methods: [input.method],
+      role: 'reader',
+      subscription: { status: 'none', plan: 'free', expires_at: null },
+      created_at: now,
+    };
+    memoryUsers = [user, ...memoryUsers];
+    return user;
+  },
+  async activatePremium(userId: string, plan: 'monthly' | 'annual', opts?: { paymentRef?: string | null; effectiveAt?: Date }) {
+    const existing = memoryUsers.find((u) => u._id === userId) ?? null;
+    if (!existing) return null;
+    const nextPaymentRef = opts?.paymentRef ?? null;
+    if (nextPaymentRef && existing.subscription.payment_ref === nextPaymentRef) {
+      return existing;
+    }
+
     const months = plan === 'annual' ? 12 : 1;
-    const expires = new Date();
+    const effectiveAt = opts?.effectiveAt ?? new Date();
+    const existingExpiry = existing.subscription.expires_at ? new Date(existing.subscription.expires_at) : null;
+    const anchor = existingExpiry && existingExpiry > effectiveAt ? new Date(existingExpiry) : new Date(effectiveAt);
+    const expires = new Date(anchor);
     expires.setMonth(expires.getMonth() + months);
     memoryUsers = memoryUsers.map((u) => u._id !== userId ? u : {
       ...u,
       role:         'premium',
-      subscription: { status: 'active', plan, expires_at: expires.toISOString().slice(0, 10) },
+      subscription: {
+        ...u.subscription,
+        status: 'active',
+        plan,
+        started_at: u.subscription.status === 'active' ? u.subscription.started_at ?? effectiveAt.toISOString() : effectiveAt.toISOString(),
+        expires_at: expires.toISOString().slice(0, 10),
+        payment_ref: nextPaymentRef,
+      },
     } as User);
+    return memoryUsers.find((u) => u._id === userId) ?? null;
   },
   // Stripe methods are no-ops in demo mode — payments require MongoDB
   async setStripeCustomerId(_userId: string, _customerId: string) {
@@ -209,4 +303,76 @@ if (IS_PROD && !isMongoConfigured()) {
   );
 }
 
-export const usersAdapter = isMongoConfigured() ? mongo : memory;
+async function withUserFallback<T>(
+  label: string,
+  mongoOp: () => Promise<T>,
+  memoryOp: () => Promise<T>
+): Promise<T> {
+  if (!isMongoConfigured()) {
+    return memoryOp();
+  }
+
+  try {
+    return await mongoOp();
+  } catch (error) {
+    console.error(`[users:${label}] falling back to in-memory data`, error);
+    return memoryOp();
+  }
+}
+
+export const usersAdapter = {
+  async list() {
+    return withUserFallback('list', () => mongo.list(), () => memory.list());
+  },
+  async getByEmail(email: string) {
+    return withUserFallback('getByEmail', () => mongo.getByEmail(email), () => memory.getByEmail(email));
+  },
+  async login(email: string, password: string) {
+    return withUserFallback('login', () => mongo.login(email, password), () => memory.login(email, password));
+  },
+  async register(input: { name: string; email: string; password: string }) {
+    return withUserFallback('register', () => mongo.register(input), () => memory.register(input));
+  },
+  async findOrCreateAuthUser(input: { name: string; email: string; method: 'email' | 'google' }) {
+    return withUserFallback(
+      'findOrCreateAuthUser',
+      () => mongo.findOrCreateAuthUser(input),
+      () => memory.findOrCreateAuthUser(input)
+    );
+  },
+  async activatePremium(userId: string, plan: 'monthly' | 'annual', opts?: { paymentRef?: string | null; effectiveAt?: Date }) {
+    return withUserFallback(
+      'activatePremium',
+      () => mongo.activatePremium(userId, plan, opts),
+      () => memory.activatePremium(userId, plan, opts)
+    );
+  },
+  async setStripeCustomerId(userId: string, customerId: string) {
+    return withUserFallback(
+      'setStripeCustomerId',
+      () => mongo.setStripeCustomerId(userId, customerId),
+      () => memory.setStripeCustomerId(userId, customerId)
+    );
+  },
+  async getByStripeCustomerId(customerId: string) {
+    return withUserFallback(
+      'getByStripeCustomerId',
+      () => mongo.getByStripeCustomerId(customerId),
+      () => memory.getByStripeCustomerId(customerId)
+    );
+  },
+  async syncStripeSubscription(customerId: string, opts: Parameters<typeof mongo.syncStripeSubscription>[1]) {
+    return withUserFallback(
+      'syncStripeSubscription',
+      () => mongo.syncStripeSubscription(customerId, opts),
+      () => memory.syncStripeSubscription(customerId, opts)
+    );
+  },
+  async expireStaleSubscriptions() {
+    return withUserFallback(
+      'expireStaleSubscriptions',
+      () => mongo.expireStaleSubscriptions(),
+      () => memory.expireStaleSubscriptions()
+    );
+  },
+};
