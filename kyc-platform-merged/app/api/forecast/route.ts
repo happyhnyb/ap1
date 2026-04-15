@@ -50,18 +50,23 @@ export async function GET(req: NextRequest) {
   }
 
   const horizon = q.horizon ? Math.min(14, Math.max(1, parseInt(q.horizon, 10))) : 14;
+  const query = {
+    commodity,
+    state:     q.state    || undefined,
+    market:    q.market   || undefined,
+    district:  q.district || undefined,
+    horizon,
+  };
 
   try {
-    const query = {
-      commodity,
-      state:     q.state    || undefined,
-      market:    q.market   || undefined,
-      district:  q.district || undefined,
-      horizon,
-    };
+    const fast = await fallbackForecastResponse(query);
+    if (!fast.insufficient) {
+      return NextResponse.json(fast);
+    }
+
     const result = await Promise.race([
       forecastingEngine.forecast(query),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('forecast timeout')), 12000)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('forecast timeout')), 3000)),
     ]);
     return NextResponse.json(result);
   } catch (err) {

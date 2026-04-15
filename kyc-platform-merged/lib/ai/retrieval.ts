@@ -9,9 +9,34 @@ import type {
 import { createEmbeddings, isOpenAIConfigured } from './openai';
 import { getCached, setCached } from './cache';
 import { env } from '@/lib/env';
+import { allCommodityIds, normalizeCommodity } from '@/lib/forecasting/schema/commodity';
 
 function normalize(text: string) {
   return text.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+const STOPWORDS = new Set([
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'can', 'for', 'from', 'give',
+  'how', 'i', 'in', 'is', 'it', 'me', 'near', 'nearby', 'of', 'on', 'or', 'show',
+  'summary', 'tell', 'the', 'to', 'today', 'what', 'when', 'where', 'which', 'why',
+  'with',
+]);
+
+const COMMODITY_IDS = new Set(allCommodityIds());
+
+function queryTerms(query: string) {
+  const normalized = normalize(query).replace(/[^a-z0-9]+/g, ' ');
+  const terms = normalized
+    .split(' ')
+    .map((term) => term.trim())
+    .filter((term) => term.length > 2 && !STOPWORDS.has(term));
+
+  return Array.from(new Set(terms));
+}
+
+function detectCommodity(query: string) {
+  const commodity = normalizeCommodity(query);
+  return COMMODITY_IDS.has(commodity) ? commodity : null;
 }
 
 function chunkDocument(doc: AIKnowledgeDocument, chunkSize = 900, overlap = 120): AIChunkRecord[] {
@@ -79,16 +104,21 @@ export async function getCorpusChunks() {
 
 function lexicalScore(chunk: AIChunkRecord, query: string) {
   const haystack = normalize(`${chunk.title} ${chunk.excerpt} ${chunk.text} ${chunk.tags.join(' ')}`);
-  const terms = normalize(query).split(' ').filter(Boolean);
+  const terms = queryTerms(query);
   if (!terms.length) return 0;
 
   let score = 0;
+  let matched = 0;
   for (const term of terms) {
-    if (haystack.includes(term)) score += 1;
+    if (!haystack.includes(term)) continue;
+    matched += 1;
+    score += 1;
     if (normalize(chunk.title).includes(term)) score += 1.5;
-    if ((chunk.commodity && normalize(chunk.commodity).includes(term)) || normalize(chunk.tags.join(' ')).includes(term)) score += 0.8;
+    if ((chunk.commodity && normalize(chunk.commodity).includes(term)) || normalize(chunk.tags.join(' ')).includes(term)) score += 1.2;
   }
-  return score / terms.length;
+
+  if (!matched) return 0;
+  return (score / terms.length) * (matched / terms.length);
 }
 
 function cosineSimilarity(a: number[], b: number[]) {
@@ -134,6 +164,20 @@ function toCitation(chunk: AIChunkRecord, score: number): AICitation {
   };
 }
 
+function dedupeRankedItems(items: Array<{ chunk: AIChunkRecord; score: number }>, limit: number) {
+  const byDocument = new Map<string, { chunk: AIChunkRecord; score: number }>();
+  for (const item of items) {
+    const existing = byDocument.get(item.chunk.documentId);
+    if (!existing || item.score > existing.score) {
+      byDocument.set(item.chunk.documentId, item);
+    }
+  }
+
+  return Array.from(byDocument.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
 export async function semanticSearch(query: string, opts: {
   limit?: number;
   kinds?: string[];
@@ -141,10 +185,16 @@ export async function semanticSearch(query: string, opts: {
   disableEmbeddings?: boolean;
 } = {}): Promise<AISemanticSearchResult> {
   const limit = Math.min(12, Math.max(1, opts.limit ?? 6));
+  const detectedCommodity = opts.commodity ? normalizeCommodity(opts.commodity) : detectCommodity(query);
   const chunks = await getCorpusChunks();
   const filtered = chunks.filter((chunk) => {
     if (opts.kinds?.length && !opts.kinds.includes(chunk.kind)) return false;
-    if (opts.commodity && normalize(chunk.commodity || '').includes(normalize(opts.commodity)) === false) return false;
+    if (detectedCommodity) {
+      const chunkText = normalize(`${chunk.commodity || ''} ${chunk.tags.join(' ')} ${chunk.title} ${chunk.excerpt}`);
+      if (!chunkText.includes(detectedCommodity)) return false;
+    } else if (opts.commodity && normalize(chunk.commodity || '').includes(normalize(opts.commodity)) === false) {
+      return false;
+    }
     return true;
   });
 
@@ -159,7 +209,7 @@ export async function semanticSearch(query: string, opts: {
 
   if (isOpenAIConfigured() && !opts.disableEmbeddings) {
     try {
-      const shortlist = lexicalRanked.slice(0, Math.min(limit * 3, 18));
+      const shortlist = dedupeRankedItems(lexicalRanked, Math.min(limit * 3, 18));
       const vectors = await createEmbeddings([
         query,
         ...shortlist.map((item) => item.chunk.text.slice(0, 1800)),
@@ -183,8 +233,7 @@ export async function semanticSearch(query: string, opts: {
     }
   }
 
-  const scored = lexicalRanked
-    .slice(0, limit)
+  const scored = dedupeRankedItems(lexicalRanked, limit)
     .map(({ chunk, score }) => toCitation(chunk, score));
 
   return { query, results: scored, retrievalMode: 'lexical' };

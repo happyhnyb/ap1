@@ -51,12 +51,28 @@ function toPost(doc: Record<string, unknown>): Post {
   };
 }
 
+function postDedupeKey(post: Post) {
+  return (post.slug || post.title).toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function dedupePosts(posts: Post[]) {
+  const seen = new Set<string>();
+  const unique: Post[] = [];
+  for (const post of posts) {
+    const key = postDedupeKey(post);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(post);
+  }
+  return unique;
+}
+
 // ── Mongo implementation ─────────────────────────────────────────
 const mongo = {
   async listPublished() {
     await connectDB();
     const docs = await PostModel.find({ status: 'published' }).sort({ published_at: -1 }).lean();
-    return docs.map((d) => toPost(d as unknown as Record<string, unknown>));
+    return dedupePosts(docs.map((d) => toPost(d as unknown as Record<string, unknown>)));
   },
   async listPublishedPaged(page: number, limit: number, type?: string) {
     await connectDB();
@@ -67,12 +83,13 @@ const mongo = {
       PostModel.find(query).sort({ published_at: -1 }).skip(skip).limit(limit).lean(),
       PostModel.countDocuments(query),
     ]);
-    return { posts: docs.map((d) => toPost(d as unknown as Record<string, unknown>)), total };
+    const posts = dedupePosts(docs.map((d) => toPost(d as unknown as Record<string, unknown>)));
+    return { posts, total: Math.max(posts.length, total) };
   },
   async listAll() {
     await connectDB();
     const docs = await PostModel.find().sort({ updated_at: -1 }).lean();
-    return docs.map((d) => toPost(d as unknown as Record<string, unknown>));
+    return dedupePosts(docs.map((d) => toPost(d as unknown as Record<string, unknown>)));
   },
   async getBySlug(slug: string) {
     await connectDB();
@@ -85,7 +102,7 @@ const mongo = {
       { status: 'published', $text: { $search: query } },
       { score: { $meta: 'textScore' } }
     ).sort({ score: { $meta: 'textScore' } }).lean();
-    return docs.map((d) => toPost(d as unknown as Record<string, unknown>));
+    return dedupePosts(docs.map((d) => toPost(d as unknown as Record<string, unknown>)));
   },
   async incrementViews(slug: string) {
     await connectDB();
@@ -134,28 +151,29 @@ async function withPostFallback<T>(operation: string, fn: () => Promise<T>, fall
 // ── Memory implementation ────────────────────────────────────────
 const memory = {
   async listPublished() {
-    return memoryPosts.filter((p) => p.status === 'published').sort((a, b) => (b.published_at || '').localeCompare(a.published_at || ''));
+    return dedupePosts(memoryPosts.filter((p) => p.status === 'published').sort((a, b) => (b.published_at || '').localeCompare(a.published_at || '')));
   },
   async listPublishedPaged(page: number, limit: number, type?: string) {
     let filtered = memoryPosts.filter((p) => p.status === 'published');
     if (type) filtered = filtered.filter((p) => p.type === type);
     filtered.sort((a, b) => (b.published_at || '').localeCompare(a.published_at || ''));
+    filtered = dedupePosts(filtered);
     const start = (page - 1) * limit;
     return { posts: filtered.slice(start, start + limit), total: filtered.length };
   },
   async listAll() {
-    return [...memoryPosts].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    return dedupePosts([...memoryPosts].sort((a, b) => b.updated_at.localeCompare(a.updated_at)));
   },
   async getBySlug(slug: string) {
     return memoryPosts.find((p) => p.slug === slug) ?? null;
   },
   async search(query: string) {
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-    return memoryPosts.filter((p) => {
+    return dedupePosts(memoryPosts.filter((p) => {
       if (p.status !== 'published') return false;
       const haystack = [p.title, p.excerpt, p.body, ...p.tags].join(' ').toLowerCase();
       return terms.every((t) => haystack.includes(t));
-    });
+    }));
   },
   async incrementViews(slug: string) {
     memoryPosts = memoryPosts.map((p) => p.slug === slug ? { ...p, view_count: p.view_count + 1 } : p);

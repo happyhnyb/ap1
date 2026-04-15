@@ -52,9 +52,14 @@ export async function GET(req: NextRequest) {
       market:   q.market   || undefined,
       district: q.district || undefined,
     };
+    const fast = await fallbackQualityResponse(query);
+    if (fast.data_quality.real_days > 0) {
+      return NextResponse.json(fast);
+    }
+
     const result = await Promise.race([
       forecastingEngine.quality(query),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('quality timeout')), 10000)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('quality timeout')), 3000)),
     ]);
     return NextResponse.json(result);
   } catch (err) {

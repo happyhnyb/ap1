@@ -25,7 +25,11 @@ function PostMeta({ post }: { post: Post }) {
 }
 
 export default function Feed({ posts }: { posts: Post[] }) {
-  if (!posts.length) {
+  const uniquePosts = posts.filter((post, index, arr) =>
+    arr.findIndex((item) => item.slug === post.slug || item.title.toLowerCase() === post.title.toLowerCase()) === index
+  );
+
+  if (!uniquePosts.length) {
     return (
       <main className="container" style={{ padding: '80px 0', textAlign: 'center', color: 'var(--muted)' }}>
         <div style={{ fontSize: 40, marginBottom: 16 }}>🌾</div>
@@ -34,15 +38,18 @@ export default function Feed({ posts }: { posts: Post[] }) {
     );
   }
 
-  const hero     = posts[0];
-  const side     = posts.slice(1, 4);
-  const latest   = posts.slice(0, 6);
-  const analysis = posts.filter((p) => p.type !== 'SHORT').slice(0, 4);
-  const nonZeroViewPosts = posts.filter((p) => p.view_count > 0);
+  const hero     = uniquePosts[0];
+  const side     = uniquePosts.slice(1, 4);
+  const usedTopSlugs = new Set([hero.slug, ...side.map((post) => post.slug)]);
+  const latest   = uniquePosts.filter((post) => !usedTopSlugs.has(post.slug)).slice(0, 6);
+  const usedLatestSlugs = new Set([...usedTopSlugs, ...latest.map((post) => post.slug)]);
+  const analysis = uniquePosts.filter((p) => p.type !== 'SHORT' && !usedLatestSlugs.has(p.slug)).slice(0, 4);
+  const usedAnalysisSlugs = new Set([...usedLatestSlugs, ...analysis.map((post) => post.slug)]);
+  const nonZeroViewPosts = uniquePosts.filter((p) => p.view_count > 0);
   const hasReliableViewData = nonZeroViewPosts.length >= 20;
   const mostRead = hasReliableViewData
-    ? [...posts].sort((a, b) => b.view_count - a.view_count).slice(0, 5)
-    : latest.slice(0, 5);
+    ? uniquePosts.filter((post) => !usedAnalysisSlugs.has(post.slug)).sort((a, b) => b.view_count - a.view_count).slice(0, 5)
+    : uniquePosts.filter((post) => !usedAnalysisSlugs.has(post.slug)).slice(0, 5);
 
   return (
     <main className="container" style={{ paddingBottom: 24 }}>
@@ -106,7 +113,7 @@ export default function Feed({ posts }: { posts: Post[] }) {
           <h2 className="section-title">Analysis & Deep Dives</h2>
         </div>
         <div style={{ display: 'grid', gap: 10 }}>
-          {analysis.map((post) => (
+          {analysis.length ? analysis.map((post) => (
             <Link key={post._id} href={`/post/${post.slug}`} className="card post-card"
               style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: 14, alignItems: 'start', padding: 14 }}>
               <PostThumb label={post.img} src={post.hero_image} className="post-thumb"
@@ -121,7 +128,9 @@ export default function Feed({ posts }: { posts: Post[] }) {
                 <PostMeta post={post} />
               </div>
             </Link>
-          ))}
+          )) : (
+            <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>More deep dives will appear here as new analysis is published.</p>
+          )}
         </div>
       </section>
 

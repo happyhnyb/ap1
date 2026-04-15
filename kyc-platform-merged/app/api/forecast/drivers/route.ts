@@ -58,9 +58,14 @@ export async function GET(req: NextRequest) {
       district: q.district || undefined,
       horizon,
     };
+    const fast = await fallbackDriversResponse(query);
+    if (fast.openai_context.data_note) {
+      return NextResponse.json(fast);
+    }
+
     const result = await Promise.race([
       forecastingEngine.drivers(query),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('drivers timeout')), 10000)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('drivers timeout')), 3000)),
     ]);
     return NextResponse.json(result);
   } catch (err) {

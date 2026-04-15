@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import PriceChart, { type MarketPoint } from './PriceChart';
 import { PredictorAIExplain } from './PredictorAIExplain';
@@ -231,6 +231,7 @@ function QualityPanel({ quality, forecast }: { quality: QualityResult; forecast:
 }
 
 export default function PredictorClient() {
+  const storageReady = useRef(false);
   const [serviceUp,  setServiceUp]  = useState<boolean | null>(null);
   const [options,    setOptions]    = useState<MandiOptions | null>(null);
   const [commodity,  setCommodity]  = useState('Wheat');
@@ -251,7 +252,39 @@ export default function PredictorClient() {
     ? options.marketsByState[state]
     : (options?.markets ?? []);
 
-  useEffect(() => { setMarket(''); }, [state]);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('kyc_predictor_last_selection');
+      if (!raw) return;
+      const saved = JSON.parse(raw) as Partial<{
+        commodity: string;
+        state: string;
+        market: string;
+        horizon: number;
+        tab: 'chart' | 'markets' | 'forecast' | 'drivers' | 'quality';
+      }>;
+      if (saved.commodity) setCommodity(saved.commodity);
+      if (typeof saved.state === 'string') setState(saved.state);
+      if (typeof saved.market === 'string') setMarket(saved.market);
+      if (typeof saved.horizon === 'number') setHorizon(saved.horizon);
+      if (saved.tab) setTab(saved.tab);
+    } catch {
+      // Ignore invalid saved state.
+    } finally {
+      storageReady.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!storageReady.current) return;
+    window.localStorage.setItem('kyc_predictor_last_selection', JSON.stringify({
+      commodity,
+      state,
+      market,
+      horizon,
+      tab,
+    }));
+  }, [commodity, state, market, horizon, tab]);
 
   useEffect(() => {
     fetch('/api/predictor/status')
@@ -398,7 +431,7 @@ export default function PredictorClient() {
 
               <div className="form-group">
                 <label className="form-label">State</label>
-                <select className="select" value={state} onChange={(e) => setState(e.target.value)} disabled={optLoading}>
+                <select className="select" value={state} onChange={(e) => { setState(e.target.value); setMarket(''); }} disabled={optLoading}>
                   <option value="">All States</option>
                   {(options?.states ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>

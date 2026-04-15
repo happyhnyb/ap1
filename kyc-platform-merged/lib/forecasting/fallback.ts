@@ -1,5 +1,7 @@
 import { getHistoricalRecords, filterRecords, buildHistory, holtForecast, rollingBacktest, type MandiFilters } from '@/lib/mandi/engine';
 import type { DriversResponse, ForecastResponse, QualityResponse } from './schema/types';
+import { normalizeCommodity } from './schema/commodity';
+import seedSeries from './data/seed-series.json';
 
 const CACHE_TTL_MS = 1000 * 60 * 10;
 const FALLBACK_DAYS = 21;
@@ -11,10 +13,63 @@ type CachedSeries = {
   prices: number[];
 };
 
+type SeedRow = {
+  c: string;
+  s: string;
+  dist: string;
+  m: string;
+  d: string;
+  modal: number;
+  min: number | null;
+  max: number | null;
+  arrivals: number | null;
+};
+
 const seriesCache = new Map<string, { expiresAt: number; value: CachedSeries }>();
 
 function cacheKey(filters: MandiFilters) {
   return JSON.stringify(filters);
+}
+
+function sameFilter(actual: string, expected: string) {
+  return !expected || actual.trim().toLowerCase() === expected.trim().toLowerCase();
+}
+
+function loadSeedSeries(filters: MandiFilters): CachedSeries | null {
+  const commodity = normalizeCommodity(filters.commodity);
+  const rows = (seedSeries.rows as SeedRow[]).filter((row) =>
+    row.c === commodity
+    && sameFilter(row.s, filters.state)
+    && sameFilter(row.dist, filters.district)
+    && sameFilter(row.m, filters.market)
+  );
+
+  if (!rows.length) return null;
+
+  const records = rows.map((row) => ({
+    state: row.s,
+    district: row.dist,
+    market: row.m,
+    commodity,
+    variety: '',
+    grade: '',
+    arrival_date: row.d,
+    min_price: row.min,
+    max_price: row.max,
+    modal_price: row.modal,
+    arrivals: row.arrivals,
+  }));
+  const history = buildHistory(records);
+  const prices = history
+    .filter((row) => typeof row.avg_modal_price === 'number')
+    .map((row) => row.avg_modal_price as number);
+
+  return {
+    fetchedAt: `${seedSeries.to}T00:00:00.000Z`,
+    filters,
+    history,
+    prices,
+  };
 }
 
 async function loadSeries(filters: MandiFilters): Promise<CachedSeries> {
@@ -22,6 +77,12 @@ async function loadSeries(filters: MandiFilters): Promise<CachedSeries> {
   const now = Date.now();
   const cached = seriesCache.get(key);
   if (cached && cached.expiresAt > now) return cached.value;
+
+  const seeded = loadSeedSeries(filters);
+  if (seeded) {
+    seriesCache.set(key, { expiresAt: now + CACHE_TTL_MS, value: seeded });
+    return seeded;
+  }
 
   const { records, fetchedAt } = await getHistoricalRecords(filters, FALLBACK_DAYS);
   const filtered = filterRecords(records, filters);
