@@ -80,6 +80,38 @@ img, svg { display: block; max-width: 100%; }
 .page-shell { padding: 20px 0 40px; }
 @media (min-width: 768px)  { .page-shell { padding: 32px 0 60px; } }
 
+.blog-masthead {
+  padding-top: 34px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+@media (min-width: 768px) {
+  .blog-masthead {
+    padding-top: 48px;
+    padding-bottom: 24px;
+  }
+}
+.blog-kicker {
+  margin-bottom: 8px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.blog-title {
+  max-width: 760px;
+  font-size: clamp(32px, 7vw, 72px);
+  letter-spacing: -.04em;
+}
+.blog-subtitle {
+  max-width: 680px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: clamp(15px, 2vw, 19px);
+  line-height: 1.7;
+}
+
 /* ════════════════════════════════════════════════════════
    TYPOGRAPHY
 ════════════════════════════════════════════════════════ */
