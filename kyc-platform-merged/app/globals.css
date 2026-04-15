@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
+/* Fonts loaded via <link> in layout.tsx — avoids the double render-block of CSS @import */
 
 /* ════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -239,16 +239,44 @@ h1,h2,h3,h4 { line-height: 1.2; color: var(--text); }
 ════════════════════════════════════════════════════════ */
 .ticker {
   border-bottom: 1px solid var(--border);
-  font-size: 11px; color: var(--dim);
+  border-top: 1px solid rgba(76,175,80,.18);
+  background: rgba(0,0,0,.45);
+  height: 34px; display: flex; align-items: center;
   overflow: hidden; white-space: nowrap;
-  background: rgba(0,0,0,.25);
-  height: 28px; display: flex; align-items: center;
 }
+
+/* Placeholder shown while Ticker async component streams in */
+.ticker-placeholder {
+  height: 34px;
+  border-bottom: 1px solid var(--border);
+  border-top: 1px solid rgba(76,175,80,.18);
+  background: rgba(0,0,0,.45);
+}
+
+.ticker-badge {
+  flex-shrink: 0;
+  background: var(--green3);
+  color: var(--green);
+  border-right: 1px solid rgba(76,175,80,.3);
+  font-size: 9px; font-weight: 800;
+  letter-spacing: .12em; text-transform: uppercase;
+  padding: 0 14px; height: 100%;
+  display: flex; align-items: center;
+}
+
+.ticker-scroll {
+  flex: 1; overflow: hidden; height: 100%; display: flex; align-items: center;
+}
+
 .ticker-track {
-  display: inline-block; padding: 0;
-  animation: ticker 60s linear infinite;
+  display: inline-block;
+  font-size: 12px; font-weight: 500; color: var(--text2);
+  letter-spacing: .01em;
+  animation: ticker 70s linear infinite;
   will-change: transform;
+  padding-left: 24px;
 }
+
 @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
 /* ════════════════════════════════════════════════════════

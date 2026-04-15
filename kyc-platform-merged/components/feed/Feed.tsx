@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import type { Post } from '@/types/post';
 import { timeAgo } from '@/lib/utils';
@@ -165,7 +166,9 @@ export default function Feed({ posts }: { posts: Post[] }) {
           </div>
         </div>
 
-        <MandiWidget />
+        <Suspense fallback={<div className="card" style={{ padding: 18, height: 180, opacity: 0.4 }} />}>
+          <MandiWidget />
+        </Suspense>
       </section>
 
       {/* ── Premium CTA ──────────────────────────────── */}
