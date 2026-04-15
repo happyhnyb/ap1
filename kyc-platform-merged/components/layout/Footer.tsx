@@ -12,7 +12,7 @@ export function Footer() {
               <span style={{ fontFamily: 'Lora,serif', fontWeight: 700, fontSize: 15 }}>Know Your Commodity</span>
             </div>
             <p style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6, margin: 0 }}>
-              India's premium commodity intelligence platform. Real data, deep analysis, actionable insights.
+              Global commodity intelligence platform. Real data, deep analysis, actionable insights.
             </p>
           </div>
           <div>
