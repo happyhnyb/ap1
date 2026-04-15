@@ -247,6 +247,7 @@ export default function PredictorClient() {
   const [optLoading, setOptLoading] = useState(false);
   const [tab,        setTab]        = useState<'chart' | 'markets' | 'forecast' | 'drivers' | 'quality'>('chart');
   const [error,      setError]      = useState('');
+  const loadSeq = useRef(0);
 
   const availableMarkets = state && options?.marketsByState?.[state]
     ? options.marketsByState[state]
@@ -310,7 +311,14 @@ export default function PredictorClient() {
 
   const load = useCallback(async () => {
     if (!serviceUp) return;
+    const seq = ++loadSeq.current;
     setLoading(true);
+    setError('');
+    setSummary(null);
+    setHistory([]);
+    setForecast(null);
+    setQuality(null);
+    setDrivers(null);
     const params = new URLSearchParams();
     if (commodity) params.set('commodity', commodity);
     if (state)     params.set('state',     state);
@@ -325,15 +333,29 @@ export default function PredictorClient() {
         fetch(`/api/forecast/quality?${params}`),
         fetch(`/api/forecast/drivers?${params}`),
       ]);
-      if (sumRes.ok)     setSummary(await sumRes.json());
-      if (histRes.ok)    setHistory(await histRes.json());
-      if (foreRes.ok)    setForecast(await foreRes.json()); else setForecast(null);
-      if (qualityRes.ok) setQuality(await qualityRes.json()); else setQuality(null);
-      if (driversRes.ok) setDrivers(await driversRes.json()); else setDrivers(null);
+      const [sumData, histData, foreData, qualityData, driversData] = await Promise.all([
+        sumRes.ok ? sumRes.json() : null,
+        histRes.ok ? histRes.json() : null,
+        foreRes.ok ? foreRes.json() : null,
+        qualityRes.ok ? qualityRes.json() : null,
+        driversRes.ok ? driversRes.json() : null,
+      ]);
+      if (seq !== loadSeq.current) return;
+
+      setSummary(sumData);
+      setHistory(histData ?? []);
+      setForecast(foreData);
+      setQuality(qualityData);
+      setDrivers(driversData);
+      if (!sumRes.ok || !histRes.ok || !foreRes.ok) {
+        setError('Some predictor data could not be loaded for this selection.');
+      }
     } catch (e) {
+      if (seq !== loadSeq.current) return;
       console.error(e);
+      setError('Network error loading predictor data.');
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
   }, [serviceUp, commodity, state, market, horizon]);
 
@@ -421,7 +443,7 @@ export default function PredictorClient() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label className="form-label">Commodity</label>
-                <select className="select" value={commodity} onChange={(e) => setCommodity(e.target.value)} disabled={optLoading}>
+                <select className="select" value={commodity} onChange={(e) => { setCommodity(e.target.value); setMarket(''); }} disabled={optLoading}>
                   {(options?.commodities.length
                     ? options.commodities
                     : ['Wheat', 'Onion', 'Tomato', 'Soybean', 'Cotton', 'Rice', 'Maize']

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictor } from '@/lib/auth/entitlement';
 import { getRecords, buildOptions } from '@/lib/mandi/engine';
+import { buildSeedOptions } from '@/lib/forecasting/data/seed';
 
 export const maxDuration = 60;
 
@@ -9,6 +10,11 @@ export async function GET() {
   const session = await getServerSession();
   if (!canAccessPredictor(session)) {
     return NextResponse.json({ error: 'Premium access required.' }, { status: 403 });
+  }
+
+  const seedOptions = buildSeedOptions();
+  if (seedOptions.commodities.length) {
+    return NextResponse.json(seedOptions);
   }
 
   const { records, apiConfigured, error } = await getRecords();

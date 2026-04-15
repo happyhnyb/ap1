@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictor } from '@/lib/auth/entitlement';
 import { getHistoricalRecords, filterRecords, filtersFromQuery } from '@/lib/mandi/engine';
+import { getSeedRecords } from '@/lib/forecasting/data/seed';
 
 export const maxDuration = 60;
 
@@ -15,8 +16,10 @@ export async function GET(req: NextRequest) {
   req.nextUrl.searchParams.forEach((v, k) => { q[k] = v; });
 
   const filters = filtersFromQuery(q);
-  const { records } = await getHistoricalRecords(filters);
-  const filtered = filterRecords(records, filters);
+  const seedRecords = getSeedRecords(filters);
+  const filtered = seedRecords.length
+    ? seedRecords
+    : filterRecords((await getHistoricalRecords(filters)).records, filters);
 
   // Group by market — return per-market prices for the bar chart
   const marketMap = new Map<string, { modal: number[]; min: number[]; max: number[]; state: string; district: string }>();
