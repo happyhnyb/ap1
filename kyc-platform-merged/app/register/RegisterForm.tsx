@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
 import { EmailOTPCard } from '@/components/auth/EmailOTPCard';
 
-export default function RegisterForm() {
+export default function RegisterForm({ isDemo = false }: { isDemo?: boolean }) {
   const router = useRouter();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,6 +24,8 @@ export default function RegisterForm() {
 
     if (password !== confirm) { setError('Passwords do not match.'); setLoading(false); return; }
     if (password.length < 8) { setError('Password must be at least 8 characters.'); setLoading(false); return; }
+    if (!/[A-Z]/.test(password)) { setError('Password must contain at least one uppercase letter.'); setLoading(false); return; }
+    if (!/[0-9]/.test(password)) { setError('Password must contain at least one number.'); setLoading(false); return; }
 
     try {
       const res = await fetch('/api/auth/register', {
@@ -51,6 +53,12 @@ export default function RegisterForm() {
           <p className="form-sub">Free access to all public content</p>
         </div>
 
+        {isDemo && (
+          <div className="notice notice-gold" style={{ marginBottom: 18 }}>
+            <strong>Demo mode</strong> — new accounts are stored in memory and reset on server restart.
+            To enable persistent accounts, add <code style={{ fontSize: 11, background: 'rgba(0,0,0,.3)', padding: '1px 5px', borderRadius: 4 }}>MONGODB_URI</code> in Vercel environment variables.
+          </div>
+        )}
         {error && (
           <div className="notice notice-red" style={{ marginBottom: 18, textAlign: 'center' }}>{error}</div>
         )}
@@ -66,7 +74,7 @@ export default function RegisterForm() {
           </div>
           <div className="form-group">
             <label className="form-label">Password</label>
-            <input className="field" name="password" type="password" placeholder="Min. 8 characters" required autoComplete="new-password" />
+            <input className="field" name="password" type="password" placeholder="Min. 8 chars, 1 uppercase, 1 number" required autoComplete="new-password" />
           </div>
           <div className="form-group">
             <label className="form-label">Confirm password</label>

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
 import { EmailOTPCard } from '@/components/auth/EmailOTPCard';
 
-export default function LoginForm() {
+export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
   const router = useRouter();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,6 +46,12 @@ export default function LoginForm() {
           <p className="form-sub">Sign in to your KYC account</p>
         </div>
 
+        {isDemo && (
+          <div className="notice notice-gold" style={{ marginBottom: 18 }}>
+            <strong>Demo mode</strong> — new registrations reset when the server restarts.
+            Use a demo account below, or ask the admin to add <code style={{ fontSize: 11, background: 'rgba(0,0,0,.3)', padding: '1px 5px', borderRadius: 4 }}>MONGODB_URI</code> in Vercel to enable persistent accounts.
+          </div>
+        )}
         {error && (
           <div className="notice notice-red" style={{ marginBottom: 18, textAlign: 'center' }}>{error}</div>
         )}

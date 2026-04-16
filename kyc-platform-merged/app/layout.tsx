@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Ticker } from '@/components/layout/Ticker';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { AnimationProvider } from '@/components/layout/AnimationProvider';
 
 export const metadata: Metadata = {
   title: { default: 'Know Your Commodity', template: '%s · KYC' },
@@ -48,6 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {children}
         <Footer />
         <BottomNav session={session} />
+        <AnimationProvider />
       </body>
     </html>
   );

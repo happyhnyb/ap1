@@ -285,9 +285,10 @@ h1,h2,h3,h4 { line-height: 1.2; color: var(--text); }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
-  transition: border-color .2s, box-shadow .2s, transform .15s;
+  transition: border-color .2s, box-shadow .2s, transform .2s cubic-bezier(.22,1,.36,1);
 }
 .card:hover { border-color: var(--border2); box-shadow: var(--shadow); }
+a.card:hover { transform: translateY(-2px); }
 
 .card-elevated {
   background: linear-gradient(150deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.015) 100%);
@@ -859,3 +860,52 @@ h1,h2,h3,h4 { line-height: 1.2; color: var(--text); }
 .subscribe-included-icon  { font-size: 26px; margin-bottom: 10px; }
 .subscribe-included-title { font-weight: 600; font-size: 14px; margin-bottom: 6px; }
 .subscribe-included-desc  { font-size: 12px; color: var(--muted); line-height: 1.55; }
+
+/* ════════════════════════════════════════════════════════
+   ANIMATIONS — driven by AnimationProvider.tsx
+   All reveal classes are added via JS so content is always
+   visible without JavaScript (progressive enhancement).
+════════════════════════════════════════════════════════ */
+
+/* Page-load fade — CSS-only, no JS required */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+main { animation: fadeUp .4s cubic-bezier(.22,1,.36,1) both; }
+
+/* Scroll-reveal: sections slide up */
+.js-anim .anim-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity .55s cubic-bezier(.22,1,.36,1), transform .55s cubic-bezier(.22,1,.36,1);
+}
+.js-anim .anim-reveal.anim-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Stagger: grid children fade in sequentially */
+.js-anim .anim-stagger > * {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity .4s cubic-bezier(.22,1,.36,1), transform .4s cubic-bezier(.22,1,.36,1);
+}
+.js-anim .anim-stagger.anim-visible > *:nth-child(1) { transition-delay:   0ms; }
+.js-anim .anim-stagger.anim-visible > *:nth-child(2) { transition-delay:  65ms; }
+.js-anim .anim-stagger.anim-visible > *:nth-child(3) { transition-delay: 130ms; }
+.js-anim .anim-stagger.anim-visible > *:nth-child(4) { transition-delay: 195ms; }
+.js-anim .anim-stagger.anim-visible > *:nth-child(5) { transition-delay: 260ms; }
+.js-anim .anim-stagger.anim-visible > *:nth-child(6) { transition-delay: 325ms; }
+.js-anim .anim-stagger.anim-visible > * { opacity: 1; transform: none; }
+
+/* Header scroll shadow */
+.header { transition: box-shadow .3s ease, border-bottom-color .3s ease; }
+.header--scrolled { box-shadow: 0 4px 32px rgba(0,0,0,.7) !important; border-bottom-color: rgba(255,255,255,.05) !important; }
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  main { animation: none; }
+  .js-anim .anim-reveal,
+  .js-anim .anim-stagger > * { opacity: 1 !important; transform: none !important; transition: none !important; }
+}
