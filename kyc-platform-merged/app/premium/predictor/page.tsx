@@ -126,7 +126,7 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
 
       {/* ── Page header ──────────────────────────────────────────── */}
       <div style={{ paddingBottom: 16, borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div className="pred-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <h1 className="serif" style={{ fontSize: 'clamp(18px,4vw,26px)', margin: 0 }}>⚡ Price Predictor</h1>
@@ -139,7 +139,7 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
               Live Agmarknet · {horizon}-day horizon · {commodity}{state ? ` · ${state}` : ''}
             </p>
           </div>
-          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div className="pred-page-price" style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontSize: 'clamp(22px,5vw,30px)', fontFamily: 'Lora,serif', fontWeight: 700, lineHeight: 1, color: tc }}>
               {fmtCurrency(forecast.latest_price)}
             </div>
@@ -159,10 +159,10 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
         {/* ── Sidebar ────────────────────────────────────────────── */}
         <aside style={{ display: 'grid', gap: 12 }}>
           <div className="card" style={{ padding: 16 }}>
-            <details open className="pred-filter-details">
+            <details className="pred-filter-details">
               <summary className="pred-filter-summary">
-                <span style={{ fontFamily: 'Lora,serif', fontSize: 15, fontWeight: 600 }}>Filter data</span>
-                <span style={{ fontSize: 13, color: 'var(--dim)' }}>▾</span>
+                <span style={{ fontFamily: 'Lora,serif', fontSize: 15, fontWeight: 600 }}>Filters — {commodity}{state ? `, ${state.split(' ')[0]}` : ''}</span>
+                <span style={{ fontSize: 12, color: 'var(--green)', fontWeight: 600 }}>Tap to change ▾</span>
               </summary>
               <div className="pred-filter-body">
                 <form method="get" style={{ display: 'grid', gap: 10, marginTop: 4 }}>
@@ -219,15 +219,15 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
         <div style={{ display: 'grid', gap: 14 }}>
 
           {/* Metric cards row */}
-          <div className="grid-3" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+          <div className="pred-metric-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
             {[
-              { label: 'Modal Price',      val: fmtCurrency(summary.avgModalPrice), color: 'var(--text)' },
-              { label: 'Min–Max Range',    val: `${fmtCurrency(summary.avgMinPrice)}–${fmtCurrency(summary.avgMaxPrice)}`, color: 'var(--muted)' },
-              { label: 'Markets tracked',  val: summary.marketsCount.toLocaleString(), color: 'var(--green)' },
+              { label: 'Modal Price',     val: fmtCurrency(summary.avgModalPrice), color: 'var(--text)' },
+              { label: 'Range',           val: `${fmtCurrency(summary.avgMinPrice)}–${fmtCurrency(summary.avgMaxPrice)}`, color: 'var(--muted)' },
+              { label: 'Markets',         val: summary.marketsCount.toLocaleString(), color: 'var(--green)' },
             ].map((m) => (
               <div key={m.label} className="card metric-card">
                 <div className="metric-label">{m.label}</div>
-                <div className="metric-val" style={{ color: m.color, fontSize: 'clamp(16px,3.5vw,24px)' }}>{m.val}</div>
+                <div className="metric-val" style={{ color: m.color, fontSize: 'clamp(15px,3.5vw,22px)' }}>{m.val}</div>
               </div>
             ))}
           </div>
@@ -247,7 +247,7 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
           <div className="card-elevated" style={{ padding: '20px 20px', display: 'grid', gap: 18 }}>
 
             {/* Forecast header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div className="pred-forecast-header" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <span style={{ fontFamily: 'Lora,serif', fontSize: 16, fontWeight: 600 }}>{horizon}-Day Forecast</span>
               <span className="badge" style={{ color: tc, borderColor: `${tc}44`, background: `${tc}10`, fontSize: 12 }}>
                 {arrow} {forecast.direction === 'flat' ? 'Stable' : `${Math.abs(forecast.trend_pct).toFixed(1)}%`}
@@ -304,7 +304,7 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
                         ? Math.abs((diff / forecast.latest_price) * 100)
                         : 0;
                       return (
-                        <div key={point.date} style={{
+                        <div key={point.date} className="pred-day-card" style={{
                           padding: '12px 14px',
                           background: 'var(--bg3)',
                           borderRadius: 12,
@@ -368,12 +368,12 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
                     const barPct = Math.round(((row.modal_price ?? 0) / maxMarketPrice) * 100);
                     return (
                       <div key={row.market}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4, gap: 8 }}>
-                          <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55%' }}>
+                        <div className="pred-market-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4, gap: 8 }}>
+                          <div className="pred-market-name" style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55%' }}>
                             {row.market}
                           </div>
-                          <div style={{ fontSize: 11, color: 'var(--dim)', flexShrink: 0 }}>{row.district}</div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', flexShrink: 0 }}>
+                          <div className="pred-market-district" style={{ fontSize: 11, color: 'var(--dim)', flexShrink: 0 }}>{row.district}</div>
+                          <div className="pred-market-value" style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', flexShrink: 0 }}>
                             {fmtCurrency(row.modal_price)}
                           </div>
                         </div>
