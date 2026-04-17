@@ -1,0 +1,74 @@
+name: Refresh Mandi Data
+
+# ── Triggers ──────────────────────────────────────────────────────────────────
+on:
+  # Daily at 00:30 IST (19:00 UTC previous day) — before Indian market open
+  schedule:
+    - cron: '0 19 * * *'
+
+  # Allow manual trigger from GitHub UI or Vercel Cron dispatch
+  workflow_dispatch:
+    inputs:
+      days_back:
+        description: 'Days of history to fetch (default 45)'
+        required: false
+        default: '45'
+
+# ── Jobs ──────────────────────────────────────────────────────────────────────
+jobs:
+  refresh:
+    name: Fetch Agmarknet → regenerate seed → deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: write  # needed to commit seed-series.json
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 2. Node setup ────────────────────────────────────────────────────────
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 3. Regenerate seed ───────────────────────────────────────────────────
+      - name: Regenerate seed-series.json
+        env:
+          DATAGOV_API_KEY: ${{ secrets.DATAGOV_API_KEY }}
+        run: npx tsx scripts/regenerate-seed.ts
+
+      # ── 4. Commit if changed ─────────────────────────────────────────────────
+      - name: Check for changes
+        id: diff
+        run: |
+          git diff --quiet lib/forecasting/data/seed-series.json \
+            && echo "changed=false" >> "$GITHUB_OUTPUT" \
+            || echo "changed=true"  >> "$GITHUB_OUTPUT"
+
+      - name: Commit updated seed data
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add lib/forecasting/data/seed-series.json
+          git commit -m "chore: refresh mandi seed data [$(date -u '+%Y-%m-%d')]"
+          git push origin main
+
+      # ── 5. Deploy to Vercel ──────────────────────────────────────────────────
+      #   Runs regardless of whether the seed changed so we always get a fresh
+      #   build (picks up any other merged code too).
+      - name: Deploy to Vercel (production)
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel --prod --token "$VERCEL_TOKEN" --yes
