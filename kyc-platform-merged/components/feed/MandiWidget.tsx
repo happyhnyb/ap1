@@ -99,9 +99,9 @@ export async function MandiWidget() {
       </div>
       <div>
         {hasLiveData ? rows.map((item) => (
-          <div key={item.label} className="mandi-row">
+          <div key={item.label} className="mandi-row mandi-widget-row">
             <span style={{ fontSize: 13, fontWeight: 500 }}>{item.label}</span>
-            <div style={{ textAlign: 'right' }}>
+            <div className="mandi-widget-meta" style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 13, fontWeight: 600 }}>{formatPrice(item.price)}</div>
               <div style={{ fontSize: 11, color: item.changePct == null || item.changePct >= 0 ? 'var(--green)' : 'var(--red)' }}>
                 {formatChange(item.changePct)}

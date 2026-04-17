@@ -130,13 +130,13 @@ export default function ForecastLineChart({ historySeries, forecast, latestPrice
   const tickFmt = (v: number) => v >= 1000 ? `₹${(v / 1000).toFixed(1)}k` : `₹${v}`;
 
   return (
-    <div>
+    <div className="pred-chart-block">
       {/* Legend */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontFamily: 'Lora,serif', fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+      <div className="pred-chart-legend" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10, flexWrap: 'wrap' }}>
+        <span className="pred-chart-title" style={{ fontFamily: 'Lora,serif', fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
           {commodity} · History + Forecast
         </span>
-        <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--dim)', marginLeft: 'auto' }}>
+        <div className="pred-chart-legend-items" style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--dim)', marginLeft: 'auto' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <svg width="18" height="2"><line x1="0" y1="1" x2="18" y2="1" stroke="var(--muted)" strokeWidth="2"/></svg>
             History
