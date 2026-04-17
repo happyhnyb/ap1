@@ -55,6 +55,29 @@ export default function Feed({ posts }: { posts: Post[] }) {
   return (
     <main className="container" style={{ paddingBottom: 24 }}>
 
+      {/* ── Latest (first — newest articles immediately visible) ── */}
+      <section className="section" style={{ marginTop: 0, paddingTop: 0 }}>
+        <div className="section-header">
+          <h2 className="section-title">Latest</h2>
+          <Link href="/feed" className="btn btn-sm" style={{ fontSize: 12 }}>All stories →</Link>
+        </div>
+        <div className="grid-3">
+          {latest.map((post) => (
+            <Link key={post._id} href={`/post/${post.slug}`} className="card post-card"
+              style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <PostThumb label={post.img} src={post.hero_image} className="post-thumb post-thumb-card" />
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <span className="badge" style={{ fontSize: 9 }}>{post.category}</span>
+                <TypeBadge type={post.type} />
+              </div>
+              <h3 className="post-title post-title-sm truncate-2">{post.title}</h3>
+              <p className="post-excerpt truncate-2">{post.excerpt}</p>
+              <PostMeta post={post} />
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* ── Hero ─────────────────────────────────────── */}
       <section className="feed-hero">
         <Link href={`/post/${hero.slug}`} className="card-elevated post-card-lg"
@@ -79,29 +102,6 @@ export default function Feed({ posts }: { posts: Post[] }) {
                 <TypeBadge type={post.type} />
               </div>
               <h2 className="post-title post-title-sm truncate-2">{post.title}</h2>
-              <PostMeta post={post} />
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Latest ───────────────────────────────────── */}
-      <section className="section">
-        <div className="section-header">
-          <h2 className="section-title">Latest</h2>
-          <Link href="/feed" className="btn btn-sm" style={{ fontSize: 12 }}>All stories →</Link>
-        </div>
-        <div className="grid-3">
-          {latest.map((post) => (
-            <Link key={post._id} href={`/post/${post.slug}`} className="card post-card"
-              style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <PostThumb label={post.img} src={post.hero_image} className="post-thumb post-thumb-card" />
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <span className="badge" style={{ fontSize: 9 }}>{post.category}</span>
-                <TypeBadge type={post.type} />
-              </div>
-              <h3 className="post-title post-title-sm truncate-2">{post.title}</h3>
-              <p className="post-excerpt truncate-2">{post.excerpt}</p>
               <PostMeta post={post} />
             </Link>
           ))}

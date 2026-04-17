@@ -3,7 +3,6 @@ import { unstable_noStore as noStore } from 'next/cache';
 import type { Metadata } from 'next';
 import { getEffectiveServerSession } from '@/lib/auth/current-user';
 import PredictorPaywall from '@/components/predictor/PredictorPaywall';
-import { PredictorDisclaimer } from '@/components/predictor/PredictorDisclaimer';
 import ForecastLineChart from '@/components/predictor/ForecastLineChart';
 import { canAccessPredictorRelease, getPredictorReleaseMode } from '@/lib/product/predictor';
 import { buildSeedOptions, buildSeedSummary, getSeedRecords } from '@/lib/forecasting/data/seed';
@@ -150,8 +149,9 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
         </div>
       </div>
 
-      <div style={{ marginBottom: 16 }} className="pred-disclaimer-top">
-        <PredictorDisclaimer />
+      <div className="notice notice-yellow" style={{ marginBottom: 16, fontSize: 13, lineHeight: 1.6, padding: '10px 14px' }}>
+        <strong style={{ display: 'inline', marginRight: 4 }}>AI overview:</strong>
+        This is an AI generated forecast analysis based on different data sources. It is not financial advice. Kindly recheck and confirm before making any financial decisions.
       </div>
 
       <div className="predictor-grid">
