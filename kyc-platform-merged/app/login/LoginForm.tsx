@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
 import { EmailOTPCard } from '@/components/auth/EmailOTPCard';
 
@@ -41,7 +42,7 @@ export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
     <main style={{ display: 'grid', placeItems: 'center', minHeight: 'calc(100vh - 120px)', padding: '40px 16px' }}>
       <div className="card-elevated form-wrap" style={{ width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <img src="/logo.png" alt="KYC" width={56} height={56} style={{ margin: '0 auto 14px', display: 'block', borderRadius: '50%', filter: 'brightness(1.2) drop-shadow(0 0 8px rgba(76,175,80,.3))' }} />
+          <Image src="/logo.png" alt="KYC" width={56} height={56} style={{ margin: '0 auto 14px', display: 'block', borderRadius: '50%', filter: 'brightness(1.2) drop-shadow(0 0 8px rgba(76,175,80,.3))' }} />
           <h1 className="form-title">Welcome back</h1>
           <p className="form-sub">Sign in to your KYC account</p>
         </div>
@@ -82,38 +83,40 @@ export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
           <Link href="/register" style={{ color: 'var(--green)', fontWeight: 500 }}>Create one free</Link>
         </p>
 
-        <div className="notice" style={{ marginTop: 20, fontSize: 12 }}>
-          <div style={{ fontWeight: 600, marginBottom: 8, color: 'var(--muted)' }}>Demo accounts — click to fill</div>
-          <div style={{ display: 'grid', gap: 6 }}>
-            {[
-              { email: 'admin@kyc.news',  pass: 'admin123',  label: 'Admin',  color: 'var(--green)' },
-              { email: 'reader@kyc.news', pass: 'reader123', label: '★ Pro',  color: 'var(--gold)' },
-              { email: 'free@kyc.news',   pass: 'free123',   label: 'Free',   color: 'var(--dim)' },
-            ].map(({ email, pass, label, color }) => (
-              <button
-                key={email}
-                type="button"
-                onClick={() => {
-                  const form = document.querySelector('form');
-                  if (!form) return;
-                  (form.querySelector('[name=email]') as HTMLInputElement).value = email;
-                  (form.querySelector('[name=password]') as HTMLInputElement).value = pass;
-                }}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  background: 'rgba(255,255,255,.03)', border: '1px solid var(--border)',
-                  borderRadius: 8, padding: '7px 10px', cursor: 'pointer', textAlign: 'left',
-                  transition: 'border-color .15s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-              >
-                <span style={{ fontFamily: 'monospace', color: 'var(--muted)', fontSize: 11.5 }}>{email}</span>
-                <span style={{ fontSize: 10, fontWeight: 600, color, letterSpacing: '.04em', marginLeft: 8 }}>{label}</span>
-              </button>
-            ))}
+        {isDemo && (
+          <div className="notice" style={{ marginTop: 20, fontSize: 12 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8, color: 'var(--muted)' }}>Demo accounts — click to fill</div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              {[
+                { email: 'admin@kyc.news', pass: 'admin123', label: 'Admin', color: 'var(--green)' },
+                { email: 'reader@kyc.news', pass: 'reader123', label: 'Reader', color: 'var(--muted)' },
+                { email: 'free@kyc.news', pass: 'free123', label: 'Free', color: 'var(--dim)' },
+              ].map(({ email, pass, label, color }) => (
+                <button
+                  key={email}
+                  type="button"
+                  onClick={() => {
+                    const form = document.querySelector('form');
+                    if (!form) return;
+                    (form.querySelector('[name=email]') as HTMLInputElement).value = email;
+                    (form.querySelector('[name=password]') as HTMLInputElement).value = pass;
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'rgba(255,255,255,.03)', border: '1px solid var(--border)',
+                    borderRadius: 8, padding: '7px 10px', cursor: 'pointer', textAlign: 'left',
+                    transition: 'border-color .15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+                >
+                  <span style={{ fontFamily: 'monospace', color: 'var(--muted)', fontSize: 11.5 }}>{email}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color, letterSpacing: '.04em', marginLeft: 8 }}>{label}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </main>
   );

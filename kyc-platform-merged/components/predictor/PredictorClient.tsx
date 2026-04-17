@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import PriceChart, { type MarketPoint } from './PriceChart';
+import ForecastLineChart from './ForecastLineChart';
 import { PredictorAIExplain } from './PredictorAIExplain';
+import { PredictorDisclaimer } from './PredictorDisclaimer';
 
 interface MandiOptions {
   commodities: string[];
@@ -53,6 +55,7 @@ interface ForecastResult {
   state: string;
   latest_price: number | null;
   latest_date: string | null;
+  history_series?: { date: string; price: number }[];
   forecast: { date: string; horizon_days: number; point: number; lower: number; upper: number }[];
   direction: 'up' | 'down' | 'flat';
   trend_pct: number;
@@ -230,162 +233,44 @@ function QualityPanel({ quality, forecast }: { quality: QualityResult; forecast:
   );
 }
 
-export default function PredictorClient() {
-  const storageReady = useRef(false);
-  const [serviceUp,  setServiceUp]  = useState<boolean | null>(null);
-  const [options,    setOptions]    = useState<MandiOptions | null>(null);
-  const [commodity,  setCommodity]  = useState('Wheat');
-  const [state,      setState]      = useState('');
-  const [market,     setMarket]     = useState('');
-  const [horizon,    setHorizon]    = useState(14);
-  const [summary,    setSummary]    = useState<Summary | null>(null);
-  const [history,    setHistory]    = useState<MarketPoint[]>([]);
-  const [forecast,   setForecast]   = useState<ForecastResult | null>(null);
-  const [quality,    setQuality]    = useState<QualityResult | null>(null);
-  const [drivers,    setDrivers]    = useState<DriversResult | null>(null);
-  const [loading,    setLoading]    = useState(false);
-  const [optLoading, setOptLoading] = useState(false);
+export default function PredictorClient({
+  initialOptions = null,
+  initialCommodity = 'Wheat',
+  initialState = '',
+  initialMarket = '',
+  initialHorizon = 14,
+  initialSummary = null,
+  initialHistory = [],
+  initialForecast = null,
+  initialQuality = null,
+  initialDrivers = null,
+}: {
+  initialOptions?: MandiOptions | null;
+  initialCommodity?: string;
+  initialState?: string;
+  initialMarket?: string;
+  initialHorizon?: number;
+  initialSummary?: Summary | null;
+  initialHistory?: MarketPoint[];
+  initialForecast?: ForecastResult | null;
+  initialQuality?: QualityResult | null;
+  initialDrivers?: DriversResult | null;
+}) {
+  const [options]    = useState<MandiOptions | null>(initialOptions);
+  const [commodity,  setCommodity]  = useState(initialCommodity);
+  const [state,      setState]      = useState(initialState);
+  const [market,     setMarket]     = useState(initialMarket);
+  const [horizon,    setHorizon]    = useState(initialHorizon);
+  const summary = initialSummary;
+  const history = initialHistory;
+  const forecast = initialForecast;
+  const quality = initialQuality;
+  const drivers = initialDrivers;
   const [tab,        setTab]        = useState<'chart' | 'markets' | 'forecast' | 'drivers' | 'quality'>('chart');
-  const [error,      setError]      = useState('');
-  const loadSeq = useRef(0);
 
   const availableMarkets = state && options?.marketsByState?.[state]
     ? options.marketsByState[state]
     : (options?.markets ?? []);
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem('kyc_predictor_last_selection');
-      if (!raw) return;
-      const saved = JSON.parse(raw) as Partial<{
-        commodity: string;
-        state: string;
-        market: string;
-        horizon: number;
-        tab: 'chart' | 'markets' | 'forecast' | 'drivers' | 'quality';
-      }>;
-      if (saved.commodity) setCommodity(saved.commodity);
-      if (typeof saved.state === 'string') setState(saved.state);
-      if (typeof saved.market === 'string') setMarket(saved.market);
-      if (typeof saved.horizon === 'number') setHorizon(saved.horizon);
-      if (saved.tab) setTab(saved.tab);
-    } catch {
-      // Ignore invalid saved state.
-    } finally {
-      storageReady.current = true;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!storageReady.current) return;
-    window.localStorage.setItem('kyc_predictor_last_selection', JSON.stringify({
-      commodity,
-      state,
-      market,
-      horizon,
-      tab,
-    }));
-  }, [commodity, state, market, horizon, tab]);
-
-  useEffect(() => {
-    fetch('/api/predictor/status')
-      .then((r) => {
-        if (r.status === 403) { setServiceUp(false); setError('Premium access required.'); return; }
-        setServiceUp(r.ok);
-      })
-      .catch(() => { setServiceUp(false); setError('Could not reach server.'); });
-  }, []);
-
-  useEffect(() => {
-    if (!serviceUp) return;
-    setOptLoading(true);
-    fetch('/api/predictor/options')
-      .then(async (r) => {
-        const d = await r.json();
-        if (!r.ok) { setError(d?.error || 'Failed to load market data.'); return; }
-        setOptions(d);
-      })
-      .catch(() => setError('Network error loading market data.'))
-      .finally(() => setOptLoading(false));
-  }, [serviceUp]);
-
-  const load = useCallback(async () => {
-    if (!serviceUp) return;
-    const seq = ++loadSeq.current;
-    setLoading(true);
-    setError('');
-    setSummary(null);
-    setHistory([]);
-    setForecast(null);
-    setQuality(null);
-    setDrivers(null);
-    const params = new URLSearchParams();
-    if (commodity) params.set('commodity', commodity);
-    if (state)     params.set('state',     state);
-    if (market)    params.set('market',    market);
-    params.set('horizon', String(horizon));
-
-    try {
-      const [sumRes, histRes, foreRes, qualityRes, driversRes] = await Promise.all([
-        fetch(`/api/predictor/summary?${params}`),
-        fetch(`/api/predictor/history?${params}`),
-        fetch(`/api/forecast?${params}`),
-        fetch(`/api/forecast/quality?${params}`),
-        fetch(`/api/forecast/drivers?${params}`),
-      ]);
-      const [sumData, histData, foreData, qualityData, driversData] = await Promise.all([
-        sumRes.ok ? sumRes.json() : null,
-        histRes.ok ? histRes.json() : null,
-        foreRes.ok ? foreRes.json() : null,
-        qualityRes.ok ? qualityRes.json() : null,
-        driversRes.ok ? driversRes.json() : null,
-      ]);
-      if (seq !== loadSeq.current) return;
-
-      setSummary(sumData);
-      setHistory(histData ?? []);
-      setForecast(foreData);
-      setQuality(qualityData);
-      setDrivers(driversData);
-      if (!sumRes.ok || !histRes.ok || !foreRes.ok) {
-        setError('Some predictor data could not be loaded for this selection.');
-      }
-    } catch (e) {
-      if (seq !== loadSeq.current) return;
-      console.error(e);
-      setError('Network error loading predictor data.');
-    } finally {
-      if (seq === loadSeq.current) setLoading(false);
-    }
-  }, [serviceUp, commodity, state, market, horizon]);
-
-  useEffect(() => { load(); }, [load]);
-
-  // ── Loading / error states ───────────────────────────────────────────────
-  if (serviceUp === null) {
-    return (
-      <main className="predictor-shell">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '60px 20px', justifyContent: 'center', color: 'var(--muted)' }}>
-          <span style={{ fontSize: 18 }}>⏳</span> Checking access…
-        </div>
-      </main>
-    );
-  }
-
-  if (serviceUp === false) {
-    return (
-      <main className="predictor-shell">
-        <div className="notice notice-red" style={{ marginBottom: 24 }}>
-          <strong>{error || 'Predictor unavailable.'}</strong>{' '}
-          {error === 'Premium access required.' ? (
-            <Link href="/subscribe" style={{ color: 'var(--gold)' }}>Upgrade to Pro →</Link>
-          ) : (
-            'Please try again in a moment.'
-          )}
-        </div>
-      </main>
-    );
-  }
 
   const dirColor = forecast
     ? forecast.direction === 'up' ? 'var(--green)' : forecast.direction === 'down' ? 'var(--red)' : 'var(--muted)'
@@ -406,7 +291,7 @@ export default function PredictorClient() {
               <h1 className="serif" style={{ fontSize: 'clamp(20px,4vw,28px)', margin: 0 }}>
                 ⚡ Price Predictor
               </h1>
-              <span className="badge badge-gold" style={{ fontSize: 9 }}>★ Pro</span>
+              <span className="badge badge-gold" style={{ fontSize: 9 }}>AI-assisted</span>
               {forecast && !forecast.insufficient && (
                 <span className="badge" style={{ color: dirColor, borderColor: dirColor + '44', background: dirColor + '12', fontSize: 11 }}>
                   {dirArrow} {Math.abs(forecast.trend_pct).toFixed(1)}%
@@ -414,7 +299,7 @@ export default function PredictorClient() {
               )}
             </div>
             <p style={{ color: 'var(--muted)', margin: '4px 0 0', fontSize: 13 }}>
-              Live Agmarknet data · GBRT champion model · {horizon}-day horizon
+              Live Agmarknet data · model-based directional forecast · {horizon}-day horizon
             </p>
           </div>
 
@@ -432,6 +317,10 @@ export default function PredictorClient() {
         </div>
       </div>
 
+      <div style={{ marginBottom: 18 }}>
+        <PredictorDisclaimer />
+      </div>
+
       <div className="predictor-grid">
         {/* ── Sidebar ─────────────────────────────────────────── */}
         <aside style={{ display: 'grid', gap: 12 }}>
@@ -440,10 +329,11 @@ export default function PredictorClient() {
               Filter data
             </div>
 
+            <form method="get">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label className="form-label">Commodity</label>
-                <select className="select" value={commodity} onChange={(e) => { setCommodity(e.target.value); setMarket(''); }} disabled={optLoading}>
+                <select name="commodity" className="select" value={commodity} onChange={(e) => { setCommodity(e.target.value); setMarket(''); }}>
                   {(options?.commodities.length
                     ? options.commodities
                     : ['Wheat', 'Onion', 'Tomato', 'Soybean', 'Cotton', 'Rice', 'Maize']
@@ -453,7 +343,7 @@ export default function PredictorClient() {
 
               <div className="form-group">
                 <label className="form-label">State</label>
-                <select className="select" value={state} onChange={(e) => { setState(e.target.value); setMarket(''); }} disabled={optLoading}>
+                <select name="state" className="select" value={state} onChange={(e) => { setState(e.target.value); setMarket(''); }}>
                   <option value="">All States</option>
                   {(options?.states ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -463,7 +353,7 @@ export default function PredictorClient() {
                 <label className="form-label">
                   Market{state && <span style={{ color: 'var(--dim)', fontWeight: 400, marginLeft: 4, fontSize: 10 }}>({state})</span>}
                 </label>
-                <select className="select" value={market} onChange={(e) => setMarket(e.target.value)} disabled={optLoading}>
+                <select name="market" className="select" value={market} onChange={(e) => setMarket(e.target.value)}>
                   <option value="">All</option>
                   {availableMarkets.map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
@@ -471,27 +361,23 @@ export default function PredictorClient() {
 
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label className="form-label">Horizon</label>
-                <select className="select" value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>
+                <select name="horizon" className="select" value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>
                   {[3, 5, 7, 10, 14].map((d) => <option key={d} value={d}>{d} days</option>)}
                 </select>
               </div>
             </div>
 
-            <button onClick={load} className="btn btn-primary btn-full" disabled={loading || optLoading}>
-              {loading ? 'Loading…' : optLoading ? 'Fetching…' : '↻ Refresh'}
+            <button type="submit" className="btn btn-primary btn-full">
+              Apply Filters
             </button>
-            {optLoading && (
-              <p style={{ fontSize: 11, color: 'var(--dim)', textAlign: 'center', marginTop: 8 }}>
-                Fetching live data…
-              </p>
-            )}
+            </form>
           </div>
 
           {/* Model info */}
           {forecast && (
             <div className="card" style={{ padding: 16 }}>
               <div style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 600 }}>
-                Champion Model
+                Forecast model
               </div>
               <div style={{ fontFamily: 'Lora,serif', fontSize: 15, fontWeight: 600, marginBottom: 4 }}>
                 {forecast.model_used}
@@ -546,24 +432,6 @@ export default function PredictorClient() {
         {/* ── Main panel ──────────────────────────────────────── */}
         <div style={{ display: 'grid', gap: 16 }}>
 
-          {/* Error banner */}
-          {error && !loading && (
-            <div className="notice notice-gold">
-              <strong>Data error:</strong> {error}
-            </div>
-          )}
-
-          {/* Initial loading */}
-          {(loading || optLoading) && !summary && !error && (
-            <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
-              <div style={{ fontWeight: 500, marginBottom: 6 }}>Loading market data…</div>
-              <div style={{ fontSize: 13, color: 'var(--dim)' }}>
-                Fetching live data from Agmarknet — takes a few seconds on first load.
-              </div>
-            </div>
-          )}
-
           {/* ── Metric row ──────────────────────────────────── */}
           {summary && (
             <div className="grid-3" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
@@ -582,7 +450,8 @@ export default function PredictorClient() {
 
           {/* ── Forecast banner ─────────────────────────────── */}
           {forecast && !forecast.insufficient && (
-            <div className="card-elevated" style={{ padding: '20px 22px', display: 'grid', gap: 16 }}>
+            <div className="card-elevated" style={{ padding: '20px 22px', display: 'grid', gap: 20 }}>
+              {/* Header row */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ fontFamily: 'Lora,serif', fontSize: 16, fontWeight: 600 }}>
                   {horizon}-Day Forecast
@@ -596,6 +465,34 @@ export default function PredictorClient() {
                   </span>
                 )}
               </div>
+
+              {/* Plain-English summary */}
+              <div style={{ padding: '14px 16px', background: 'var(--bg3)', borderRadius: 10, border: `1px solid ${dirColor}33` }}>
+                <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600, marginBottom: 6 }}>
+                  What the model says
+                </div>
+                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--text)' }}>
+                  {forecast.direction === 'flat'
+                    ? `${forecast.commodity} prices appear stable. The model projects minimal movement over the next ${horizon} days, staying near the current ₹${(forecast.latest_price ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}/quintal.`
+                    : `The model projects a ${forecast.direction === 'up' ? 'rise' : 'fall'} of ${Math.abs(forecast.trend_pct).toFixed(1)}% for ${forecast.commodity} over the next ${horizon} days`
+                      + (forecast.forecast.at(-1) ? ` — reaching an estimated ₹${forecast.forecast.at(-1)!.point.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/quintal by ${new Date(forecast.forecast.at(-1)!.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.` : '.')
+                  }
+                  {forecast.meta?.backtest.smape != null && ` Historical error (sMAPE): ${forecast.meta.backtest.smape.toFixed(1)}%.`}
+                </p>
+              </div>
+
+              {/* Time-series line chart */}
+              {(forecast.history_series?.length ?? 0) > 0 && (
+                <ForecastLineChart
+                  historySeries={forecast.history_series ?? []}
+                  forecast={forecast.forecast}
+                  latestPrice={forecast.latest_price}
+                  commodity={forecast.commodity}
+                  direction={forecast.direction}
+                />
+              )}
+
+              {/* Day-cell grid */}
               <div className="grid-3" style={{ gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
                 {forecast.forecast.slice(0, 6).map((f) => {
                   const diff = f.point - (forecast.latest_price ?? f.point);
@@ -618,6 +515,26 @@ export default function PredictorClient() {
                   );
                 })}
               </div>
+
+              {/* Before you act */}
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+                <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600, marginBottom: 10 }}>
+                  Before you act
+                </div>
+                <ul style={{ margin: 0, padding: '0 0 0 18px', display: 'grid', gap: 6 }}>
+                  <li style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+                    <strong style={{ color: 'var(--text)' }}>Cross-check locally.</strong> Agmarknet data can have a 24–48 hour lag. Call your nearest mandi or check with a commission agent before acting on this forecast.
+                  </li>
+                  <li style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+                    <strong style={{ color: 'var(--text)' }}>Use the confidence band.</strong> The shaded range (lower–upper) reflects model uncertainty. Wider bands mean less certainty — factor that into any decision.
+                  </li>
+                  <li style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+                    <strong style={{ color: 'var(--text)' }}>This is a research tool, not financial advice.</strong> Do not base sole trading or storage decisions on this forecast. Consult a qualified agricultural market expert.
+                  </li>
+                </ul>
+              </div>
+
+              <PredictorDisclaimer compact />
             </div>
           )}
 
@@ -657,7 +574,7 @@ export default function PredictorClient() {
                   <PriceChart data={history} commodity={commodity} />
                 ) : (
                   <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
-                    {loading ? 'Loading market data…' : 'No price data. Try a broader filter.'}
+                    No price data. Try a broader filter.
                   </div>
                 )
               )}
@@ -689,7 +606,7 @@ export default function PredictorClient() {
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
-                    {loading ? 'Loading…' : 'No market data available.'}
+                    No market data available.
                   </div>
                 )
               )}
@@ -714,6 +631,17 @@ export default function PredictorClient() {
                           </div>
                         ))}
                       </div>
+
+                      {/* Time-series chart in full-forecast tab */}
+                      {(forecast.history_series?.length ?? 0) > 0 && (
+                        <ForecastLineChart
+                          historySeries={forecast.history_series ?? []}
+                          forecast={forecast.forecast}
+                          latestPrice={forecast.latest_price}
+                          commodity={forecast.commodity}
+                          direction={forecast.direction}
+                        />
+                      )}
 
                       {/* Forecast table */}
                       <div className="table-wrap">
@@ -748,15 +676,17 @@ export default function PredictorClient() {
                         horizon={horizon}
                       />
 
+                      <PredictorDisclaimer compact />
+
                       <p style={{ fontSize: 11, color: 'var(--dim)', lineHeight: 1.6 }}>
                         {forecast.meta.model_description} · {forecast.meta.data_points} daily points ·
-                        Not a guarantee — use alongside fundamental market knowledge.
+                        Use as a research aid, not a sole decision tool.
                       </p>
                     </div>
                   )
                 ) : (
                   <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
-                    {loading ? 'Loading…' : 'No forecast for this selection.'}
+                    No forecast for this selection.
                   </div>
                 )
               )}
@@ -767,7 +697,7 @@ export default function PredictorClient() {
                   <DriversPanel drivers={drivers} />
                 ) : (
                   <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
-                    {loading ? 'Loading drivers…' : 'No driver data for this selection.'}
+                    No driver data for this selection.
                   </div>
                 )
               )}
@@ -778,7 +708,7 @@ export default function PredictorClient() {
                   <QualityPanel quality={quality} forecast={forecast} />
                 ) : (
                   <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
-                    {loading ? 'Loading quality report…' : 'No quality data for this selection.'}
+                    No quality data for this selection.
                   </div>
                 )
               )}

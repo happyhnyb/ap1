@@ -194,6 +194,8 @@ export interface ForecastResponse {
   latest_price: number | null;
   latest_date: string | null;
   forecast: ForecastPoint[];
+  /** Recent historical prices for chart rendering (up to 30 days). */
+  history_series?: { date: string; price: number }[];
   direction: 'up' | 'down' | 'flat';
   trend_pct: number;
   model_used: string;

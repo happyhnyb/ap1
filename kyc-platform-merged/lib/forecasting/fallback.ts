@@ -172,6 +172,11 @@ export async function fallbackForecastResponse(input: {
     throw new Error('Fallback forecast unavailable.');
   }
 
+  const historySeries = history
+    .filter((row) => typeof row.avg_modal_price === 'number')
+    .slice(-30)
+    .map((row) => ({ date: row.arrival_date, price: row.avg_modal_price as number }));
+
   return {
     commodity: input.commodity,
     commodity_id: input.commodity.toLowerCase().replace(/\s+/g, '-'),
@@ -180,6 +185,7 @@ export async function fallbackForecastResponse(input: {
     state,
     latest_price: latestPrice,
     latest_date: history.at(-1)?.arrival_date ?? null,
+    history_series: historySeries,
     forecast: result.forecast.map((point, index) => ({
       date: point.date,
       horizon_days: index + 1,

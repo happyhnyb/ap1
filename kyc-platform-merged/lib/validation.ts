@@ -103,7 +103,7 @@ export function parseQuery<T extends z.ZodTypeAny>(
 ): { data: z.infer<T> } | { error: string } {
   const result = schema.safeParse(params);
   if (!result.success) {
-    const issues = result.error.issues ?? (result.error as any).errors ?? [];
+    const issues = result.error.issues ?? (result.error as unknown as { errors?: z.ZodIssue[] }).errors ?? [];
     const first = issues[0];
     return { error: first ? `${first.path.join('.')}: ${first.message}` : 'Invalid query parameters.' };
   }
@@ -123,7 +123,7 @@ export async function parseBody<T extends z.ZodTypeAny>(
   }
   const result = schema.safeParse(raw);
   if (!result.success) {
-    const issues = result.error.issues ?? (result.error as any).errors ?? [];
+    const issues = result.error.issues ?? (result.error as unknown as { errors?: z.ZodIssue[] }).errors ?? [];
     const first = issues[0];
     return { error: first ? `${first.path.join('.')}: ${first.message}` : 'Validation failed.' };
   }

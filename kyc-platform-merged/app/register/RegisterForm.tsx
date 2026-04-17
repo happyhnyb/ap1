@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
 import { EmailOTPCard } from '@/components/auth/EmailOTPCard';
 
@@ -48,7 +49,7 @@ export default function RegisterForm({ isDemo = false }: { isDemo?: boolean }) {
     <main style={{ display: 'grid', placeItems: 'center', minHeight: 'calc(100vh - 120px)', padding: '40px 16px' }}>
       <div className="card-elevated form-wrap" style={{ width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <img src="/logo.png" alt="KYC" width={56} height={56} style={{ margin: '0 auto 14px', display: 'block', borderRadius: '50%', filter: 'brightness(1.2) drop-shadow(0 0 8px rgba(76,175,80,.3))' }} />
+          <Image src="/logo.png" alt="KYC" width={56} height={56} style={{ margin: '0 auto 14px', display: 'block', borderRadius: '50%', filter: 'brightness(1.2) drop-shadow(0 0 8px rgba(76,175,80,.3))' }} />
           <h1 className="form-title">Create your account</h1>
           <p className="form-sub">Free access to all public content</p>
         </div>
@@ -98,7 +99,7 @@ export default function RegisterForm({ isDemo = false }: { isDemo?: boolean }) {
         </p>
 
         <div style={{ marginTop: 20, padding: '14px 16px', borderRadius: 10, border: '1px solid var(--border)', fontSize: 12, color: 'var(--dim)', lineHeight: 1.6 }}>
-          After registering, <Link href="/subscribe" style={{ color: 'var(--gold)' }}>upgrade to KYC Pro</Link> to unlock premium articles, AI search, and the mandi predictor.
+          Create your account to save reading history, use eligible research tools, and receive product updates as additional access tiers roll out.
         </div>
       </div>
     </main>
