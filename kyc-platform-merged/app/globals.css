@@ -690,21 +690,24 @@ a:hover .post-thumb img {
 .pred-day-card {
   padding: 10px 11px; background: var(--bg3); border-radius: 12px;
   flex-shrink: 0; scroll-snap-align: start;
-  min-width: 108px;
+  min-width: 90px;
 }
 .pred-day-date  { font-size: 10px; color: var(--dim); line-height: 1.4; }
-.pred-day-price { font-weight: 700; font-size: 15px; font-family: Lora,serif; margin: 5px 0 2px; color: var(--text); }
+.pred-day-price { font-weight: 700; font-size: 14px; font-family: Lora,serif; margin: 5px 0 2px; color: var(--text); }
 .pred-day-pct   { font-size: 11px; font-weight: 600; }
-.pred-day-range { font-size: 10px; color: var(--dim); margin-top: 2px; }
+/* Range (CI low–high) hidden on mobile — chart already shows the band */
+.pred-day-range { font-size: 10px; color: var(--dim); margin-top: 2px; display: none; }
 @media (min-width: 480px) {
-  .pred-day-card  { min-width: 128px; padding: 12px 13px; }
-  .pred-day-price { font-size: 17px; }
+  .pred-day-card  { min-width: 120px; padding: 12px 13px; }
+  .pred-day-price { font-size: 16px; }
   .pred-day-pct   { font-size: 12px; }
+  .pred-day-range { display: block; }
 }
 @media (min-width: 900px) {
   .pred-day-strip { flex-wrap: wrap; overflow-x: visible; }
   .pred-day-card  { flex: 0 0 calc(20% - 8px); min-width: unset; }
   .pred-day-price { font-size: 16px; }
+  .pred-day-range { display: block; }
 }
 
 /* ── Predictor page header ─────────────────────────────── */
@@ -716,8 +719,14 @@ a:hover .post-thumb img {
   font-size: clamp(28px, 5vw, 40px);
   font-family: Lora,serif; font-weight: 700; line-height: 1;
 }
+/* Right block (price + freshness) — right-aligned on desktop, left on mobile */
+.pred-header-right {
+  text-align: right;
+  flex-shrink: 0;
+}
 @media (max-width: 599px) {
-  .pred-header-row { flex-direction: column; gap: 10px; }
+  .pred-header-row  { flex-direction: column; gap: 8px; }
+  .pred-header-right { text-align: left; width: 100%; flex-shrink: unset; }
   .pred-header-price { font-size: clamp(26px,8vw,34px); }
 }
 
@@ -795,10 +804,13 @@ a:hover .post-thumb img {
   box-shadow: 0 0 0 3px rgba(76,175,80,.25);
 }
 
-/* ── Chart container ─────────────────────────────────── */
+/* ── Chart container — responsive height ────────────────── */
 .pred-chart-wrap {
   width: 100%; overflow: hidden;
+  height: 220px;
 }
+@media (min-width: 640px)  { .pred-chart-wrap { height: 260px; } }
+@media (min-width: 900px)  { .pred-chart-wrap { height: 300px; } }
 .pred-chart-wrap .recharts-responsive-container { width: 100% !important; }
 
 /* ── Freshness badge ─────────────────────────────────── */

@@ -150,7 +150,7 @@ export default function ForecastLineChart({ historySeries, forecast, latestPrice
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={180}>
+      <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={merged} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
 

@@ -165,7 +165,7 @@ export default async function PredictorPage({ searchParams }: Props) {
           </div>
 
           {/* Price + freshness */}
-          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div className="pred-header-right">
             <div className="pred-header-price" style={{ color: tc, lineHeight: 1, marginBottom: 4 }}>
               {fmtCurrency(forecast.latest_price)}
             </div>
