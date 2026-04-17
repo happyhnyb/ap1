@@ -280,15 +280,13 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
 
                 {/* Time-series line chart */}
                 {(forecast.history_series?.length ?? 0) > 0 && (
-                  <div style={{ margin: '0 -4px' }}>
-                    <ForecastLineChart
-                      historySeries={forecast.history_series!}
-                      forecast={forecast.forecast}
-                      latestPrice={forecast.latest_price}
-                      commodity={commodity}
-                      direction={forecast.direction}
-                    />
-                  </div>
+                  <ForecastLineChart
+                    historySeries={forecast.history_series!}
+                    forecast={forecast.forecast}
+                    latestPrice={forecast.latest_price}
+                    commodity={commodity}
+                    direction={forecast.direction}
+                  />
                 )}
 
                 {/* Day-card scrollable strip */}

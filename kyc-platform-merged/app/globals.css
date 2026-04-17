@@ -42,8 +42,10 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden; /* prevent any overflowing child from scaling page out on mobile */
 }
 body {
+  overflow-x: hidden;
   background: var(--bg);
   background-image:
     radial-gradient(ellipse 120% 50% at 50% -10%, rgba(76,175,80,.07) 0%, transparent 60%);
@@ -767,14 +769,14 @@ details.pred-filter-details:not([open]) .pred-filter-body { display: none; }
   .predictor-shell {
     padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   }
-  .pred-day-strip {
-    margin: 0 -8px;
-    padding-inline: 8px;
-  }
   .pred-chart-block .recharts-responsive-container {
     min-height: 196px;
   }
 }
+
+/* Ensure recharts never causes horizontal overflow */
+.pred-chart-block { overflow: hidden; width: 100%; }
+.pred-chart-block .recharts-surface { overflow: visible; }
 
 /* ── Range gauge ─────────────────────────────────────────────── */
 .pred-range-track {
