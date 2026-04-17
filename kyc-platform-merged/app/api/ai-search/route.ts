@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession();
   if (!session) {
     return NextResponse.json(
-      { error: 'AI search is available for KYC Pro subscribers only.' },
+      { error: 'Sign in with an eligible research-access account to use AI search.' },
       { status: 403 }
     );
   }
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
 
   if (!hasPremiumAccess) {
     return NextResponse.json(
-      { error: 'AI search is available for KYC Pro subscribers only.' },
+      { error: 'AI search is currently limited to eligible research-access accounts.' },
       { status: 403 }
     );
   }

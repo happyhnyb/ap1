@@ -14,7 +14,6 @@ const OUTLIER_ZSCORE    = 3.0;     // |z| threshold for outlier flag
 const PRICE_GAP_PCT     = 40;      // % day-over-day change → gap flag
 const STALE_MIN_RUNS    = 3;       // consecutive identical prices → stale
 const ROLLING_WINDOW    = 28;      // days for rolling z-score
-const OUTLIER_CLIP_IQR  = 4.5;    // IQR multiplier for clipping (conservative)
 
 // ── Numeric helpers ────────────────────────────────────────────────────────────
 
@@ -36,14 +35,6 @@ function nanMedian(vals: number[]): number {
   if (!clean.length) return NaN;
   const mid = Math.floor(clean.length / 2);
   return clean.length % 2 ? clean[mid] : (clean[mid - 1] + clean[mid]) / 2;
-}
-
-function nanIQR(vals: number[]): number {
-  const clean = vals.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
-  if (clean.length < 4) return NaN;
-  const q1 = clean[Math.floor(clean.length * 0.25)];
-  const q3 = clean[Math.floor(clean.length * 0.75)];
-  return q3 - q1;
 }
 
 // ── Quality detection ──────────────────────────────────────────────────────────

@@ -177,15 +177,15 @@ export default function Feed({ posts }: { posts: Post[] }) {
           padding: '32px 24px', textAlign: 'center',
           background: 'linear-gradient(135deg, rgba(76,175,80,.07) 0%, rgba(255,179,0,.04) 100%)'
         }}>
-          <span className="badge badge-gold" style={{ marginBottom: 14, display: 'inline-flex' }}>★ KYC Pro</span>
+          <span className="badge badge-gold" style={{ marginBottom: 14, display: 'inline-flex' }}>Research tools</span>
           <h2 className="serif" style={{ fontSize: 'clamp(20px,4vw,28px)', marginBottom: 10 }}>
-            Unlock deep analysis &amp; commodity forecasting
+            Explore research access and forecast analysis tools
           </h2>
           <p style={{ color: 'var(--muted)', marginBottom: 22, maxWidth: 480, marginInline: 'auto', fontSize: 14 }}>
-            Premium subscribers get full article access, AI-powered search, and real-time mandi price predictions.
+            Use the predictor for AI-assisted forecast analysis, review access rollout status, and open relevant market research from one place.
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/subscribe"          className="btn btn-gold btn-lg">Subscribe from ₹499/mo</Link>
+            <Link href="/subscribe"          className="btn btn-gold btn-lg">View access options</Link>
             <Link href="/premium/predictor"  className="btn btn-lg">View Predictor</Link>
           </div>
         </div>
@@ -194,5 +194,3 @@ export default function Feed({ posts }: { posts: Post[] }) {
     </main>
   );
 }
-
-import React from 'react';

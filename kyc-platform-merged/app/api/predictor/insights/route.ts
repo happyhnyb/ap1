@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
-import { canAccessPredictor } from '@/lib/auth/entitlement';
+import { canAccessPredictorRelease, predictorAccessError } from '@/lib/product/predictor';
 import { getHistoricalRecords, filterRecords, buildHistory, holtForecast, filtersFromQuery } from '@/lib/mandi/engine';
 
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession();
-  if (!canAccessPredictor(session)) {
-    return NextResponse.json({ error: 'Premium access required.' }, { status: 403 });
+  if (!canAccessPredictorRelease(session)) {
+    return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });
   }
 
   const openaiKey = process.env.OPENAI_API_KEY;

@@ -30,16 +30,11 @@ import type {
 import type { ExternalFeatureHooks } from './features/index';
 import { defaultHooks } from './features/index';
 import { normalizeCommodity, displayName, normalizeLabel } from './schema/commodity';
-import { buildTimeSeries, filterTimeSeries } from './preprocessing/pipeline';
+import { buildTimeSeries } from './preprocessing/pipeline';
 import { summarizeQuality } from './preprocessing/quality';
 import { loadRecords } from './data/loader';
 import { runChampionChallenger, getChampionForecast } from './selection/selector';
-import { enrichExplanation, buildOpenAIContext } from './explainability/builder';
-import { rollbacktest } from './evaluation/backtester';
-import { SeasonalNaiveModel } from './models/baseline/seasonal-naive';
-import { HoltWintersModel }   from './models/baseline/holt-winters';
-import { SMAModel }           from './models/baseline/sma';
-import { GBRTModel }          from './models/challenger/gbrt';
+import { enrichExplanation } from './explainability/builder';
 
 // ── Query types ───────────────────────────────────────────────────────────────
 

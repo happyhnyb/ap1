@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getServerSession } from '@/lib/auth/jwt';
-import { canAccessPredictor } from '@/lib/auth/entitlement';
 import { assertSafeUserText } from '@/lib/ai/moderation';
 import { explainForecast } from '@/lib/ai/service';
+import { canAccessPredictorRelease, predictorAccessError } from '@/lib/product/predictor';
 
 const BodySchema = z.object({
   commodity: z.string().min(1),
@@ -16,8 +16,8 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession();
-  if (!session || !canAccessPredictor(session)) {
-    return NextResponse.json({ error: 'Premium access required.' }, { status: 403 });
+  if (!canAccessPredictorRelease(session)) {
+    return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });
   }
 
   try {
@@ -30,4 +30,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Forecast explanation failed.' }, { status: 400 });
   }
 }
-

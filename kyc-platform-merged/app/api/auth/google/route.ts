@@ -4,6 +4,7 @@ import { verifyGoogleCredential } from '@/lib/auth/google';
 import { usersAdapter } from '@/lib/adapters/users';
 import { signToken, COOKIE_NAME, cookieOptions, sessionPayloadFromUser } from '@/lib/auth/jwt';
 import { checkRateLimit, getClientId, LIMITS } from '@/lib/ratelimit';
+import { AuthStoreUnavailableError } from '@/lib/adapters/users';
 
 const BodySchema = z.object({
   credential: z.string().min(1),
@@ -31,6 +32,9 @@ export async function POST(req: NextRequest) {
     return res;
   } catch (error) {
     console.error('[POST /api/auth/google]', error);
+    if (error instanceof AuthStoreUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Google sign-in failed.' }, { status: 400 });
   }
 }

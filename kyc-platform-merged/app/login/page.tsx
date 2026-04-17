@@ -5,5 +5,5 @@ import { env } from '@/lib/env';
 export const metadata: Metadata = { title: 'Sign In' };
 
 export default function LoginPage() {
-  return <LoginForm isDemo={env.IS_DEMO} />;
+  return <LoginForm isDemo={env.IS_DEV && env.ENABLE_DEMO_AUTH && env.IS_DEMO} />;
 }

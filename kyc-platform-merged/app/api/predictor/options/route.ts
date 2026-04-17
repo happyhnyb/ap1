@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
-import { canAccessPredictor } from '@/lib/auth/entitlement';
+import { canAccessPredictorRelease, predictorAccessError } from '@/lib/product/predictor';
 import { getRecords, buildOptions } from '@/lib/mandi/engine';
 import { buildSeedOptions } from '@/lib/forecasting/data/seed';
 
 export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   const session = await getServerSession();
-  if (!canAccessPredictor(session)) {
-    return NextResponse.json({ error: 'Premium access required.' }, { status: 403 });
+  if (!canAccessPredictorRelease(session)) {
+    return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });
   }
 
   const seedOptions = buildSeedOptions();

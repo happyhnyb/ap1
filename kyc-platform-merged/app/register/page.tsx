@@ -5,5 +5,5 @@ import { env } from '@/lib/env';
 export const metadata: Metadata = { title: 'Create Account' };
 
 export default function RegisterPage() {
-  return <RegisterForm isDemo={env.IS_DEMO} />;
+  return <RegisterForm isDemo={env.IS_DEV && env.ENABLE_DEMO_AUTH && env.IS_DEMO} />;
 }

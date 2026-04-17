@@ -7,13 +7,15 @@ import { Footer } from '@/components/layout/Footer';
 import { Ticker } from '@/components/layout/Ticker';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { AnimationProvider } from '@/components/layout/AnimationProvider';
+import { env } from '@/lib/env';
 
 export const metadata: Metadata = {
   title: { default: 'Know Your Commodity', template: '%s · KYC' },
-  description: 'Premium commodity intelligence platform for India. Deep analysis, real-time mandi data, and AI-powered price forecasting.',
+  metadataBase: new URL(env.BASE_URL),
+  description: 'Global commodity intelligence platform with market reporting, source-backed research, and AI-assisted forecast analysis.',
   openGraph: {
     title: 'Know Your Commodity',
-    description: 'Premium commodity intelligence platform for India.',
+    description: 'Global commodity intelligence platform with market reporting, research tools, and AI-assisted forecast analysis.',
     type: 'website',
   },
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'KYC' },
@@ -28,6 +30,7 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession();
+  const predictorPublic = env.PREDICTOR_RELEASE_MODE === 'public';
 
   return (
     <html lang="en">
@@ -45,10 +48,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Suspense fallback={<div className="ticker-placeholder" />}>
           <Ticker />
         </Suspense>
-        <Header session={session} />
+        <Header session={session} predictorPublic={predictorPublic} billingEnabled={env.PAYMENTS_ENABLED} />
         {children}
-        <Footer />
-        <BottomNav session={session} />
+        <Footer predictorPublic={predictorPublic} />
+        <BottomNav session={session} predictorPublic={predictorPublic} billingEnabled={env.PAYMENTS_ENABLED} />
         <AnimationProvider />
       </body>
     </html>

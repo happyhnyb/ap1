@@ -1,32 +1,36 @@
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { FlatCompat } from '@eslint/eslintrc';
+import nextPlugin from '@next/eslint-plugin-next';
+import tseslint from 'typescript-eslint';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = dirname(__filename);
+const __dirname = dirname(__filename);
 
-const compat = new FlatCompat({ baseDirectory: __dirname });
-
-const config = [
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+export default tseslint.config(
   {
+    ignores: ['.next/**', 'node_modules/**', 'public/uploads/**', 'components/layout/dist/**', 'lib/search/dist/**', 'mandi-service/**', 'tests/**', 'scripts/**', 'next-env.d.ts'],
+  },
+  nextPlugin.configs['core-web-vitals'],
+  ...tseslint.configs.recommended,
+  {
+    files: ['**/*.{ts,tsx}'],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: __dirname,
+      },
+    },
     rules: {
-      // Prevent accidental console.log left in production code
-      'no-console':               ['warn', { allow: ['warn', 'error', 'info'] }],
-      // Unused variables are almost always bugs
+      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-      // Explicit any is occasionally necessary — warn but don't block
       '@typescript-eslint/no-explicit-any': 'warn',
     },
   },
   {
-    // Relax rules for test files
     files: ['tests/**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'off',
     },
-  },
-];
-
-export default config;
+  }
+);

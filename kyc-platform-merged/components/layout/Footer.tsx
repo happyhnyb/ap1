@@ -1,7 +1,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
 
-export function Footer() {
+export function Footer({
+  predictorPublic = false,
+}: {
+  predictorPublic?: boolean;
+}) {
+  const predictorHref = predictorPublic ? '/premium/predictor' : '/login?from=/premium/predictor';
+
   return (
     <footer className="footer">
       <div className="container">
@@ -18,7 +24,7 @@ export function Footer() {
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.08em', color: 'var(--dim)', textTransform: 'uppercase', marginBottom: 12 }}>Platform</div>
             <div style={{ display: 'grid', gap: 8 }}>
-              {[['/', 'Feed'], ['/search', 'Search'], ['/premium/predictor', 'Predictor'], ['/subscribe', 'Subscribe']].map(([href, label]) => (
+              {[['/', 'Feed'], ['/search', 'Search'], [predictorHref, 'Predictor'], ['/subscribe', 'Access']].map(([href, label]) => (
                 <Link key={href} href={href} style={{ fontSize: 13, color: 'var(--muted)' }}>{label}</Link>
               ))}
             </div>
@@ -26,7 +32,7 @@ export function Footer() {
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.08em', color: 'var(--dim)', textTransform: 'uppercase', marginBottom: 12 }}>Company</div>
             <div style={{ display: 'grid', gap: 8 }}>
-              {[['/about', 'About'], ['/contact', 'Contact']].map(([href, label]) => (
+              {[['/about', 'About'], ['/contact', 'Contact'], ['/privacy', 'Privacy'], ['/terms', 'Terms'], ['/disclaimer', 'Methodology'], ['/billing-policy', 'Billing policy']].map(([href, label]) => (
                 <Link key={href} href={href} style={{ fontSize: 13, color: 'var(--muted)' }}>{label}</Link>
               ))}
             </div>

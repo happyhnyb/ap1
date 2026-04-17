@@ -9,7 +9,6 @@ import type {
   TimeSeries,
   ForecastPoint,
   ModelExplanation,
-  BacktestMetrics,
 } from '../schema/types';
 import type { ExternalFeatureHooks } from '../features/index';
 

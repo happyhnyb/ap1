@@ -3,13 +3,13 @@ import mongoose from 'mongoose';
 const MONGODB_URI = process.env.MONGODB_URI || '';
 const IS_PROD = process.env.NODE_ENV === 'production';
 
-// Warn when running without a DB in production — app falls back to in-memory demo mode.
+// Production must not imply demo persistence when the database is missing.
 if (IS_PROD && !MONGODB_URI) {
-  console.warn('[db] WARNING: MONGODB_URI is not set — running in in-memory demo mode. Data will not persist.');
+  console.error('[db] ERROR: MONGODB_URI is not set. Persistent data features will be unavailable.');
 }
 
 // Cache the connection across Next.js hot-reloads in development
-let cached: { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null } =
+const cached: { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null } =
   (global as unknown as { _mongooseCache?: typeof cached })._mongooseCache ?? { conn: null, promise: null };
 
 (global as unknown as { _mongooseCache: typeof cached })._mongooseCache = cached;

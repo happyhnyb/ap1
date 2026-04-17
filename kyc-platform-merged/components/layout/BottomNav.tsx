@@ -4,7 +4,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { SessionPayload } from '@/lib/auth/jwt';
 
-export function BottomNav({ session }: { session: SessionPayload | null }) {
+export function BottomNav({
+  session,
+  predictorPublic = false,
+  billingEnabled = false,
+}: {
+  session: SessionPayload | null;
+  predictorPublic?: boolean;
+  billingEnabled?: boolean;
+}) {
   const pathname = usePathname();
   const active = (href: string) => pathname === href || (href !== '/' && pathname.startsWith(href));
 
@@ -22,7 +30,7 @@ export function BottomNav({ session }: { session: SessionPayload | null }) {
         <span className="bottom-nav-icon">🔍</span>
         <span>Search</span>
       </Link>
-      {session ? (
+      {session || predictorPublic ? (
         <Link href="/premium/predictor" className={`bottom-nav-item bottom-nav-item-gold${active('/premium/predictor') ? ' active' : ''}`}>
           <span className="bottom-nav-icon">⚡</span>
           <span>Predictor</span>
@@ -30,7 +38,7 @@ export function BottomNav({ session }: { session: SessionPayload | null }) {
       ) : (
         <Link href="/subscribe" className="bottom-nav-item bottom-nav-item-gold">
           <span className="bottom-nav-icon">★</span>
-          <span>Get Pro</span>
+          <span>{billingEnabled ? 'Plans' : 'Access'}</span>
         </Link>
       )}
       {session ? (

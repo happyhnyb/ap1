@@ -135,7 +135,7 @@ function cosineSimilarity(a: number[], b: number[]) {
   return dot / (Math.sqrt(magA) * Math.sqrt(magB));
 }
 
-async function getEmbeddedChunkIndex() {
+async function _getEmbeddedChunkIndex() {
   const chunks = await getCorpusChunks();
   if (!isOpenAIConfigured()) return null;
 

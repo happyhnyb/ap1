@@ -11,36 +11,23 @@
  *   district   (optional)
  *   horizon    (optional) — 1–14 (default 14)
  *
- * Auth: Premium required.
+ * Auth: Controlled by predictor release mode.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
-import { isPremiumUser } from '@/lib/auth/entitlement';
-import { usersAdapter } from '@/lib/adapters';
 import { forecastingEngine } from '@/lib/forecasting/engine';
 import { fallbackForecastResponse } from '@/lib/forecasting/fallback';
+import { canAccessPredictorRelease, predictorAccessError, PREDICTOR_DISCLAIMER } from '@/lib/product/predictor';
 
 export const maxDuration = 60;
-
-async function checkPremium(): Promise<boolean> {
-  const session = await getServerSession();
-  if (!session) return false;
-  const hasSessionAccess = session.role === 'admin'
-    || session.role === 'editor'
-    || (session.role === 'premium' && session.sub_status === 'active');
-  if (hasSessionAccess) return true;
-  try {
-    const user = await usersAdapter.getByEmail(session.email);
-    return isPremiumUser(user);
-  } catch {
-    return hasSessionAccess;
-  }
-}
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
-  if (!await checkPremium()) {
-    return NextResponse.json({ error: 'Premium access required.' }, { status: 403 });
+  const session = await getServerSession();
+  if (!canAccessPredictorRelease(session)) {
+    return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });
   }
 
   const q = Object.fromEntries(req.nextUrl.searchParams);
@@ -61,6 +48,7 @@ export async function GET(req: NextRequest) {
   try {
     const fast = await fallbackForecastResponse(query);
     if (!fast.insufficient) {
+      fast.meta.disclaimer = PREDICTOR_DISCLAIMER;
       return NextResponse.json(fast);
     }
 
@@ -68,6 +56,7 @@ export async function GET(req: NextRequest) {
       forecastingEngine.forecast(query),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('forecast timeout')), 3000)),
     ]);
+    result.meta.disclaimer = PREDICTOR_DISCLAIMER;
     return NextResponse.json(result);
   } catch (err) {
     console.error('[/api/forecast] primary engine failed, using fast fallback', err);
@@ -79,6 +68,7 @@ export async function GET(req: NextRequest) {
         district: q.district || undefined,
         horizon,
       });
+      fallback.meta.disclaimer = PREDICTOR_DISCLAIMER;
       return NextResponse.json(fallback);
     } catch (fallbackError) {
       console.error('[/api/forecast] fallback failed', fallbackError);

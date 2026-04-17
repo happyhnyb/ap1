@@ -328,8 +328,14 @@ export function buildOptions(records: MandiRecord[]) {
   const dbs: Record<string, string[]> = {};
   for (const r of records) {
     if (r.state) {
-      if (r.market)   (mbs[r.state] ??= []).includes(r.market)   || (mbs[r.state] ??= []).push(r.market);
-      if (r.district) (dbs[r.state] ??= []).includes(r.district) || (dbs[r.state] ??= []).push(r.district);
+      if (r.market) {
+        const markets = (mbs[r.state] ??= []);
+        if (!markets.includes(r.market)) markets.push(r.market);
+      }
+      if (r.district) {
+        const districts = (dbs[r.state] ??= []);
+        if (!districts.includes(r.district)) districts.push(r.district);
+      }
     }
   }
   Object.keys(mbs).forEach((s) => mbs[s].sort((a, b) => a.localeCompare(b)));

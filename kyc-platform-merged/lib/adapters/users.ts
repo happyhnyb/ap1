@@ -10,8 +10,17 @@ import { INITIAL_USERS } from '@/mocks/data';
 import { isMongoConfigured, connectDB } from '@/lib/db/connect';
 import { UserModel } from '@/lib/db/models/User';
 import bcrypt from 'bcryptjs';
+import { env } from '@/lib/env';
 
 const IS_PROD = process.env.NODE_ENV === 'production';
+const DEMO_AUTH_ENABLED = env.IS_DEMO;
+
+export class AuthStoreUnavailableError extends Error {
+  constructor(message = 'Authentication is temporarily unavailable.') {
+    super(message);
+    this.name = 'AuthStoreUnavailableError';
+  }
+}
 
 function toUser(doc: Record<string, unknown>): User {
   const sub = doc.subscription as Record<string, unknown>;
@@ -175,8 +184,8 @@ const mongo = {
   },
 };
 
-// ── In-memory implementation (demo / dev only) ───────────────────
-let memoryUsers: User[] = [...INITIAL_USERS];
+// ── In-memory implementation (local demo only) ───────────────────
+let memoryUsers: User[] = DEMO_AUTH_ENABLED ? [...INITIAL_USERS] : [];
 
 const memory = {
   async list() { return [...memoryUsers]; },
@@ -189,7 +198,7 @@ const memory = {
 
     // Seed/demo users store plaintext passwords (not bcrypt hashes).
     // Detect by checking if the stored value looks like a bcrypt hash ($2a/$2b prefix).
-    // This allows the in-memory demo to work in production (e.g. Vercel without MongoDB).
+    // This allows the local in-memory demo to work without MongoDB.
     const isBcrypt = user.password_hash?.startsWith('$2');
     if (!isBcrypt) {
       return user.password_hash === password ? user : null;
@@ -309,13 +318,19 @@ async function withUserFallback<T>(
   memoryOp: () => Promise<T>
 ): Promise<T> {
   if (!isMongoConfigured()) {
+    if (IS_PROD || !DEMO_AUTH_ENABLED) {
+      throw new AuthStoreUnavailableError('Authentication is temporarily unavailable. Please try again shortly.');
+    }
     return memoryOp();
   }
 
   try {
     return await mongoOp();
   } catch (error) {
-    console.error(`[users:${label}] falling back to in-memory data`, error);
+    console.error(`[users:${label}] auth store operation failed`, error);
+    if (IS_PROD || !DEMO_AUTH_ENABLED) {
+      throw new AuthStoreUnavailableError('Authentication is temporarily unavailable. Please try again shortly.');
+    }
     return memoryOp();
   }
 }

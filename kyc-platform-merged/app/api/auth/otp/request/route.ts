@@ -4,6 +4,7 @@ import { checkRateLimit, getClientId, LIMITS } from '@/lib/ratelimit';
 import { usersAdapter } from '@/lib/adapters/users';
 import { createOTPChallenge, sendOTPEmail } from '@/lib/auth/email-otp';
 import { env } from '@/lib/env';
+import { AuthStoreUnavailableError } from '@/lib/adapters/users';
 
 const BodySchema = z.object({
   email: z.string().email().max(254).transform((value) => value.toLowerCase()),
@@ -46,10 +47,13 @@ export async function POST(req: NextRequest) {
       ok: true,
       challenge_token: challenge.token,
       expires_in_sec: challenge.expiresInSec,
-      dev_preview_code: env.IS_DEV ? challenge.code : undefined,
+      dev_preview_code: env.IS_DEMO ? challenge.code : undefined,
     });
   } catch (error) {
     console.error('[POST /api/auth/otp/request]', error);
+    if (error instanceof AuthStoreUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Could not send verification code.' }, { status: 400 });
   }
 }

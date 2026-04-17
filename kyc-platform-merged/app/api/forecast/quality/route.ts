@@ -7,36 +7,23 @@
  *   - Recommended model
  *   - Warnings (high imputation ratio, stale data, etc.)
  *
- * Auth: Premium required.
+ * Auth: Controlled by predictor release mode.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
-import { isPremiumUser } from '@/lib/auth/entitlement';
-import { usersAdapter } from '@/lib/adapters';
 import { forecastingEngine } from '@/lib/forecasting/engine';
 import { fallbackQualityResponse } from '@/lib/forecasting/fallback';
+import { canAccessPredictorRelease, predictorAccessError } from '@/lib/product/predictor';
 
 export const maxDuration = 60;
-
-async function checkPremium(): Promise<boolean> {
-  const session = await getServerSession();
-  if (!session) return false;
-  const hasSessionAccess = session.role === 'admin'
-    || session.role === 'editor'
-    || (session.role === 'premium' && session.sub_status === 'active');
-  if (hasSessionAccess) return true;
-  try {
-    const user = await usersAdapter.getByEmail(session.email);
-    return isPremiumUser(user);
-  } catch {
-    return hasSessionAccess;
-  }
-}
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
-  if (!await checkPremium()) {
-    return NextResponse.json({ error: 'Premium access required.' }, { status: 403 });
+  const session = await getServerSession();
+  if (!canAccessPredictorRelease(session)) {
+    return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });
   }
 
   const q = Object.fromEntries(req.nextUrl.searchParams);

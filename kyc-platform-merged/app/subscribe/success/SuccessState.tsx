@@ -5,15 +5,18 @@ import { useEffect, useState } from 'react';
 
 type RefreshState = 'idle' | 'checking' | 'active' | 'pending' | 'error';
 
-export function SuccessState({ provider }: { provider?: string }) {
-  const [state, setState] = useState<RefreshState>(provider === 'razorpay' ? 'checking' : 'active');
+export function SuccessState({ provider, billingEnabled }: { provider?: string; billingEnabled: boolean }) {
+  const [state, setState] = useState<RefreshState>(billingEnabled && provider === 'razorpay' ? 'checking' : 'idle');
   const [message, setMessage] = useState(
-    provider === 'razorpay'
+    !billingEnabled
+      ? 'Online billing is not active yet. This page does not confirm a live payment or paid subscription.'
+      : provider === 'razorpay'
       ? 'We are confirming your Razorpay payment and upgrading your access.'
       : 'Your subscription is active. You now have full access to premium articles, price forecasting, AI search, and all analytical reports.'
   );
 
   useEffect(() => {
+    if (!billingEnabled) return;
     if (provider !== 'razorpay') return;
 
     let attempts = 0;
@@ -40,7 +43,7 @@ export function SuccessState({ provider }: { provider?: string }) {
     }, 2000);
 
     return () => window.clearInterval(interval);
-  }, [provider]);
+  }, [billingEnabled, provider]);
 
   return (
     <>
@@ -57,14 +60,19 @@ export function SuccessState({ provider }: { provider?: string }) {
           If access does not update shortly, reload this page once. The webhook will keep retrying automatically.
         </p>
       )}
+      {!billingEnabled && (
+        <p style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 24 }}>
+          Use the contact page if you need assisted onboarding or custom access while billing remains offline.
+        </p>
+      )}
       {state === 'error' && (
         <p style={{ fontSize: 13, color: 'var(--red, #d32f2f)', marginBottom: 24 }}>
           We could not verify your access automatically. Please try again in a moment.
         </p>
       )}
       <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <Link href="/premium/predictor" className="btn btn-gold">
-          Open Price Predictor
+        <Link href={billingEnabled ? '/premium/predictor' : '/subscribe'} className="btn btn-gold">
+          {billingEnabled ? 'Open Price Predictor' : 'View access page'}
         </Link>
         <Link href="/" className="btn">
           Browse Articles

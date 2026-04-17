@@ -25,7 +25,6 @@ import {
   imputeVector,
   N_FEATURES,
   FEATURE_NAMES,
-  type ExternalFeatureHooks,
 } from '../../features/index';
 
 const MIN_TRAIN_SAMPLES = 10;

@@ -17,7 +17,7 @@ import type { MandiRecord } from '../../mandi/types';
 import type { TimeSeriesPoint, TimeSeries, DataQualityFlags } from '../schema/types';
 import { normalizeCommodity, buildMandiId, displayName } from '../schema/commodity';
 import { buildQualityFlags, clipOutliers } from './quality';
-import { interpolateGaps, countMissing } from './imputer';
+import { interpolateGaps } from './imputer';
 import { DEFAULT_QUALITY } from '../schema/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

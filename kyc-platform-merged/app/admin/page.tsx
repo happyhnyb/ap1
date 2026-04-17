@@ -10,8 +10,6 @@ import { ImageUpload } from '@/components/cms/ImageUpload';
 
 export const metadata: Metadata = { title: 'CMS Admin' };
 
-const CHAR_LIMITS: Record<string, number> = { SHORT: 1000, STORY: 3000, ARTICLE: 10000 };
-
 async function createPost(formData: FormData) {
   'use server';
   const session = await getServerSession();

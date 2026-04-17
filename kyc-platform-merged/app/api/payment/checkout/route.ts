@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { isPremium } from '@/lib/auth/entitlement';
-import { getStripe, mapStripePlan } from '@/lib/payments/stripe';
+import { getStripe } from '@/lib/payments/stripe';
 import { getPaymentProvider, getRazorpayPaymentLink } from '@/lib/payments/provider';
 import { createRazorpayPaymentLink } from '@/lib/payments/razorpay';
 import { usersAdapter } from '@/lib/adapters';
@@ -18,6 +18,13 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  if (!env.PAYMENTS_ENABLED) {
+    return NextResponse.json(
+      { error: 'Online billing is not active yet. Please contact KYC for access questions.' },
+      { status: 503 }
+    );
+  }
+
   const session = await getServerSession();
   if (!session) {
     return NextResponse.json({ error: 'Login required to subscribe.' }, { status: 401 });
@@ -110,7 +117,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
 
-    let customerId = (user as any).stripe_customer_id as string | null ?? null;
+    const stripeCustomerId = (user as { stripe_customer_id?: string | null }).stripe_customer_id;
+    let customerId = stripeCustomerId ?? null;
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: session.email,

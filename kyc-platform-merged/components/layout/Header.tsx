@@ -8,9 +8,13 @@ import type { SessionPayload } from '@/lib/auth/jwt';
 import { tierLabel, isEditor } from '@/lib/auth/entitlement';
 import LogoutButton from './LogoutButton';
 
-interface Props { session: SessionPayload | null }
+interface Props {
+  session: SessionPayload | null;
+  predictorPublic?: boolean;
+  billingEnabled?: boolean;
+}
 
-export function Header({ session }: Props) {
+export function Header({ session, predictorPublic = false, billingEnabled = false }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const tier = tierLabel(session);
@@ -29,7 +33,7 @@ export function Header({ session }: Props) {
     { href: '/search',            icon: '🔍', label: 'Search' },
     { href: '/about',             icon: 'ℹ️', label: 'About' },
     { href: '/contact',           icon: '✉️', label: 'Contact' },
-    ...(session ? [{ href: '/premium/predictor', icon: '⚡', label: 'Predictor', gold: true }] : []),
+    ...((session || predictorPublic) ? [{ href: '/premium/predictor', icon: '⚡', label: 'Predictor', gold: true }] : []),
     ...(isEditor(session) ? [{ href: '/admin', icon: '⚙️', label: 'CMS' }] : []),
   ];
 
@@ -78,7 +82,9 @@ export function Header({ session }: Props) {
               ) : (
                 <>
                   <Link href="/login" className="btn btn-sm desktop-auth-only">Sign in</Link>
-                  <Link href="/subscribe" className="btn btn-sm btn-gold" style={{ fontSize: 12 }}>Get Pro</Link>
+                  <Link href="/subscribe" className="btn btn-sm btn-gold" style={{ fontSize: 12 }}>
+                    {billingEnabled ? 'Plans' : 'Access'}
+                  </Link>
                 </>
               )}
 
@@ -125,7 +131,9 @@ export function Header({ session }: Props) {
         ) : (
           <div style={{ display: 'grid', gap: 10, padding: '8px 0' }}>
             <Link href="/login"     className="btn btn-full" onClick={() => setOpen(false)}>Sign in</Link>
-            <Link href="/subscribe" className="btn btn-gold btn-full" onClick={() => setOpen(false)}>★ Get Pro access</Link>
+            <Link href="/subscribe" className="btn btn-gold btn-full" onClick={() => setOpen(false)}>
+              {billingEnabled ? 'View plans' : 'Research access'}
+            </Link>
           </div>
         )}
       </nav>

@@ -368,8 +368,8 @@ export default function SearchInterface({ initialQuery, canAISearch }: { initial
 
             {!canAISearch && (
               <div className="notice notice-gold" style={{ textAlign: 'center' }}>
-                AI search is available for KYC Pro subscribers.
-                <Link href="/subscribe" style={{ marginLeft: 8, color: 'var(--gold)', fontWeight: 600 }}>Upgrade →</Link>
+                AI search is currently limited to eligible research-access accounts.
+                <Link href="/subscribe" style={{ marginLeft: 8, color: 'var(--gold)', fontWeight: 600 }}>Access info →</Link>
               </div>
             )}
           </div>
@@ -413,10 +413,10 @@ export default function SearchInterface({ initialQuery, canAISearch }: { initial
         {!canAISearch && query && searched && (
           <div style={{ marginTop: 24, padding: '20px 24px', borderRadius: 14, border: '1px solid rgba(255,193,7,.25)', background: 'rgba(255,193,7,.04)', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>✦ AI Search available with KYC Pro</div>
-              <div style={{ fontSize: 13, color: 'var(--muted)' }}>Get synthesized answers with source citations — not just links.</div>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>✦ AI Search is being rolled out in stages</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>When enabled for your account, it returns grounded answers with source citations.</div>
             </div>
-            <Link href="/subscribe" className="btn btn-gold btn-sm" style={{ flexShrink: 0 }}>Upgrade to Pro</Link>
+            <Link href="/subscribe" className="btn btn-gold btn-sm" style={{ flexShrink: 0 }}>View access info</Link>
           </div>
         )}
       </div>

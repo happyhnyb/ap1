@@ -61,7 +61,6 @@ export type FeatureName = typeof FEATURE_NAMES[number];
 export const N_FEATURES = FEATURE_NAMES.length; // 27
 
 const LAG_OFFSETS = [1, 2, 3, 5, 7, 14, 21, 28];
-const ROLL_WINDOWS = [3, 7, 14, 28];
 
 // ── Numeric helpers ───────────────────────────────────────────────────────────
 

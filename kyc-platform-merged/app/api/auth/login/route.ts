@@ -3,6 +3,7 @@ import { usersAdapter } from '@/lib/adapters/users';
 import { signToken, COOKIE_NAME, cookieOptions, sessionPayloadFromUser } from '@/lib/auth/jwt';
 import { parseBody, LoginSchema } from '@/lib/validation';
 import { checkRateLimit, getClientId, LIMITS } from '@/lib/ratelimit';
+import { AuthStoreUnavailableError } from '@/lib/adapters/users';
 
 export async function POST(req: NextRequest) {
   const rl = checkRateLimit(getClientId(req), 'login', LIMITS.auth);
@@ -31,6 +32,9 @@ export async function POST(req: NextRequest) {
     return res;
   } catch (err) {
     console.error('[POST /api/auth/login]', err);
+    if (err instanceof AuthStoreUnavailableError) {
+      return NextResponse.json({ error: err.message }, { status: 503 });
+    }
     return NextResponse.json({ error: 'Login failed. Please try again.' }, { status: 500 });
   }
 }

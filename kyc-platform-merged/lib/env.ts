@@ -25,13 +25,18 @@ export const env = {
   NODE_ENV:         process.env.NODE_ENV ?? 'development',
   IS_PROD:          isProd,
   IS_DEV:           !isProd,
+  ENABLE_DEMO_AUTH: process.env.ENABLE_DEMO_AUTH === 'true',
+  PREDICTOR_RELEASE_MODE: (process.env.PREDICTOR_RELEASE_MODE === 'public' || process.env.PREDICTOR_RELEASE_MODE === 'auth' || process.env.PREDICTOR_RELEASE_MODE === 'premium'
+    ? process.env.PREDICTOR_RELEASE_MODE
+    : 'public') as 'public' | 'auth' | 'premium',
+  BILLING_ENABLED_FLAG: process.env.BILLING_ENABLED === 'true',
 
   // Auth — required in production
   JWT_SECRET:       requireEnv('JWT_SECRET', 'kyc-dev-secret-unsafe-change-for-production'),
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '',
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? '',
 
-  // Database — optional: app runs in demo mode without it
+  // Database
   MONGODB_URI:      process.env.MONGODB_URI ?? '',
 
   // Predictor sidecar
@@ -78,8 +83,8 @@ export const env = {
   R2_BUCKET:            process.env.R2_BUCKET            ?? '',
   R2_PUBLIC_URL:        process.env.R2_PUBLIC_URL        ?? '',
 
-  // Demo mode: true when DB is not configured
-  get IS_DEMO(): boolean { return !this.MONGODB_URI; },
+  // Demo auth is an explicit local-only opt-in.
+  get IS_DEMO(): boolean { return this.IS_DEV && this.ENABLE_DEMO_AUTH && !this.MONGODB_URI; },
   // Stripe mode: true when Stripe key is present
   get STRIPE_ENABLED(): boolean { return !!process.env.STRIPE_SECRET_KEY; },
   // Razorpay hosted-link mode: true when a live payment link is present
@@ -88,8 +93,10 @@ export const env = {
   get RAZORPAY_API_ENABLED(): boolean {
     return !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
   },
-  // Payments are enabled when any configured provider can accept a checkout
-  get PAYMENTS_ENABLED(): boolean { return this.RAZORPAY_API_ENABLED || this.RAZORPAY_ENABLED || this.STRIPE_ENABLED; },
+  // Payments are enabled only when online billing is explicitly turned on.
+  get PAYMENTS_ENABLED(): boolean {
+    return this.BILLING_ENABLED_FLAG && (this.RAZORPAY_API_ENABLED || this.RAZORPAY_ENABLED || this.STRIPE_ENABLED);
+  },
   // Hosted Razorpay link takes precedence for fast rollout; Stripe remains as fallback
   get PAYMENT_PROVIDER(): 'razorpay' | 'stripe' | 'none' {
     if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) return 'razorpay';

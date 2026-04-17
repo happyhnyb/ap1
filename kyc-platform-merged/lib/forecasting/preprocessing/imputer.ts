@@ -33,7 +33,7 @@ export function interpolateGaps(
     if (result[i] !== null) { i++; continue; }
 
     // Find the extent of this null run
-    let gapStart = i;
+    const gapStart = i;
     while (i < n && result[i] === null) i++;
     const gapEnd = i; // exclusive
 

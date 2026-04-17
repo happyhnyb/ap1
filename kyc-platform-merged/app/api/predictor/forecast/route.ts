@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
-import { isPremiumUser } from '@/lib/auth/entitlement';
-import { usersAdapter } from '@/lib/adapters';
 import {
   getHistoricalRecords, filterRecords, buildHistory,
   holtForecast, rollingBacktest, filtersFromQuery,
 } from '@/lib/mandi/engine';
+import { canAccessPredictorRelease, predictorAccessError, PREDICTOR_DISCLAIMER } from '@/lib/product/predictor';
 
 export const maxDuration = 60;
 
@@ -13,18 +12,8 @@ const MIN_REAL_DATA = 7;
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Premium access required.' }, { status: 403 });
-  }
-  try {
-    const user = await usersAdapter.getByEmail(session.email);
-    if (!isPremiumUser(user)) {
-      return NextResponse.json({ error: 'Premium access required.' }, { status: 403 });
-    }
-  } catch {
-    if (!['admin', 'editor', 'premium'].includes(session.role) || session.sub_status !== 'active') {
-      return NextResponse.json({ error: 'Premium access required.' }, { status: 403 });
-    }
+  if (!canAccessPredictorRelease(session)) {
+    return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });
   }
 
   const q: Record<string, string> = {};
@@ -82,9 +71,7 @@ export async function GET(req: NextRequest) {
       synthetic_ratio:    0,
       has_synthetic_data: false,
       disclaimer:
-        'These are experimental price estimates based on historical trend extrapolation. ' +
-        'They are not financial advice. Actual prices may differ significantly. ' +
-        `Based on ${prices.length} daily data points. Last fetched: ${fetchedAt?.slice(0, 10) ?? 'unknown'}.`,
+        `${PREDICTOR_DISCLAIMER} Based on ${prices.length} daily data points. Last fetched: ${fetchedAt?.slice(0, 10) ?? 'unknown'}.`,
     };
 
     return NextResponse.json({

@@ -3,13 +3,20 @@
  * Creates a Stripe Billing Portal session so users can manage/cancel their subscription.
  * Requires authentication with an active subscription.
  */
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { getStripe } from '@/lib/payments/stripe';
 import { usersAdapter } from '@/lib/adapters';
 import { env } from '@/lib/env';
 
-export async function POST(req: NextRequest) {
+export async function POST() {
+  if (!env.PAYMENTS_ENABLED) {
+    return NextResponse.json(
+      { error: 'Billing management is not available because online billing is not active yet.' },
+      { status: 503 }
+    );
+  }
+
   const session = await getServerSession();
   if (!session) {
     return NextResponse.json({ error: 'Login required.' }, { status: 401 });
@@ -21,7 +28,7 @@ export async function POST(req: NextRequest) {
   }
 
   const user = await usersAdapter.getByEmail(session.email);
-  const customerId = (user as any)?.stripe_customer_id as string | null;
+  const customerId = (user as { stripe_customer_id?: string | null } | null)?.stripe_customer_id ?? null;
   if (!customerId) {
     return NextResponse.json({ error: 'No billing account found for this user.' }, { status: 404 });
   }

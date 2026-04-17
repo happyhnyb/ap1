@@ -97,13 +97,13 @@ export function Article({
 
                 {/* Paywall prompt */}
                 <div style={{ marginTop: 32, padding: '28px 24px', borderRadius: 16, border: '1px solid rgba(255,193,7,.25)', background: 'linear-gradient(135deg,rgba(255,193,7,.05),rgba(76,175,80,.05))', textAlign: 'center' }}>
-                  <span className="badge badge-gold" style={{ marginBottom: 14, display: 'inline-flex' }}>★ KYC Pro</span>
-                  <h3 style={{ fontFamily: 'Lora,serif', fontSize: 22, margin: '0 0 8px' }}>Continue reading with Pro</h3>
+                  <span className="badge badge-gold" style={{ marginBottom: 14, display: 'inline-flex' }}>Research access</span>
+                  <h3 style={{ fontFamily: 'Lora,serif', fontSize: 22, margin: '0 0 8px' }}>Continue reading with KYC access</h3>
                   <p style={{ color: 'var(--muted)', fontSize: 14, margin: '0 0 20px' }}>
-                    This {post.type.toLowerCase()} is available to KYC Pro subscribers. Unlock full access, AI search, and commodity forecasting.
+                    This {post.type.toLowerCase()} is available through staged research access. Sign in or review the current access rollout to continue.
                   </p>
                   <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <Link href="/subscribe" className="btn btn-gold">Subscribe from ₹499/month</Link>
+                    <Link href="/subscribe" className="btn btn-gold">View access options</Link>
                     <Link href="/login" className="btn">Sign in</Link>
                   </div>
                 </div>
@@ -127,7 +127,7 @@ export function Article({
           {/* Predictor CTA */}
           {canRead && post.tags.some((t) => ['wheat', 'rice', 'soybean', 'cotton', 'onion', 'tomato', 'mustard', 'maize'].includes(t.toLowerCase())) && (
             <div style={{ marginTop: 20, padding: '16px 20px', borderRadius: 14, border: '1px solid var(--border2)', background: 'rgba(76,175,80,.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 14, color: 'var(--muted)' }}>⚡ See live mandi prices & forecasts for commodities in this story</span>
+              <span style={{ fontSize: 14, color: 'var(--muted)' }}>⚡ See live mandi prices and AI-assisted forecast analysis for commodities in this story</span>
               <Link href="/premium/predictor" className="btn btn-sm" style={{ fontSize: 12 }}>Open Predictor</Link>
             </div>
           )}
@@ -136,5 +136,3 @@ export function Article({
     </div>
   );
 }
-
-import React from 'react';

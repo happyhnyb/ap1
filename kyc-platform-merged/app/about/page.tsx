@@ -1,3 +1,10 @@
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'About',
+  description: 'Learn about Know Your Commodity, its mission, leadership, and approach to market intelligence.',
+};
+
 const LEADERSHIP = [
   {
     name: 'Deepak Pareek',

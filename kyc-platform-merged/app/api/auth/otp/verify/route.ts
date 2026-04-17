@@ -4,6 +4,7 @@ import { verifyOTPChallenge } from '@/lib/auth/email-otp';
 import { usersAdapter } from '@/lib/adapters/users';
 import { signToken, COOKIE_NAME, cookieOptions, sessionPayloadFromUser } from '@/lib/auth/jwt';
 import { checkRateLimit, getClientId, LIMITS } from '@/lib/ratelimit';
+import { AuthStoreUnavailableError } from '@/lib/adapters/users';
 
 const BodySchema = z.object({
   code: z.string().regex(/^\d{6}$/),
@@ -33,6 +34,9 @@ export async function POST(req: NextRequest) {
     return res;
   } catch (error) {
     console.error('[POST /api/auth/otp/verify]', error);
+    if (error instanceof AuthStoreUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid verification code.' }, { status: 400 });
   }
 }
