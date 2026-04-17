@@ -42,8 +42,10 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden; /* prevent any overflowing child from scaling page out on mobile */
 }
 body {
+  overflow-x: hidden;
   background: var(--bg);
   background-image:
     radial-gradient(ellipse 120% 50% at 50% -10%, rgba(76,175,80,.07) 0%, transparent 60%);
@@ -86,6 +88,7 @@ img, svg { display: block; max-width: 100%; }
   margin: 0 auto;
   padding: 0 16px;
 }
+@media (max-width: 479px) { .container { padding: 0 14px; } }
 @media (min-width: 640px)  { .container { padding: 0 24px; } }
 @media (min-width: 1024px) { .container { padding: 0 32px; } }
 
@@ -192,6 +195,7 @@ h1,h2,h3,h4 { line-height: 1.2; color: var(--text); }
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border-bottom: 1px solid var(--border);
 }
+@media (max-width: 479px) { .header { height: 56px; } }
 .header-inner {
   height: 100%;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -208,6 +212,11 @@ h1,h2,h3,h4 { line-height: 1.2; color: var(--text); }
 @media (min-width: 480px) {
   .logo-text span:first-child,
   .logo-text span:last-child { font-size: 15px; }
+}
+@media (max-width: 399px) {
+  .logo { gap: 6px; }
+  .logo-text span:first-child,
+  .logo-text span:last-child { font-size: 12px; }
 }
 
 /* Desktop nav */
@@ -252,6 +261,7 @@ h1,h2,h3,h4 { line-height: 1.2; color: var(--text); }
   overflow-y: auto;
   border-top: 1px solid var(--border);
   animation: slideDown .2s ease;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 }
 .mobile-nav.open { display: flex; }
 @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
@@ -391,6 +401,11 @@ a.card:hover { transform: translateY(-2px); }
   transition: all .15s ease; white-space: nowrap;
   min-height: 40px; /* accessible touch target */
 }
+@media (max-width: 479px) {
+  .btn { white-space: normal; text-align: center; line-height: 1.25; }
+  .header-auth .btn,
+  .mobile-nav .btn { white-space: nowrap; }
+}
 .btn:hover  { border-color: var(--border2); background: rgba(255,255,255,.08); }
 .btn:active { opacity: .85; transform: scale(.97); }
 
@@ -460,7 +475,7 @@ a.card:hover { transform: translateY(-2px); }
 .feed-hero-side { display: flex; flex-direction: column; gap: 10px; }
 @media (max-width: 767px) {
   .feed-hero-side { flex-direction: row; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
-  .feed-hero-side > * { min-width: 260px; scroll-snap-align: start; }
+  .feed-hero-side > * { min-width: min(260px, 84vw); scroll-snap-align: start; }
 }
 
 .post-card    { padding: 16px; }
@@ -520,6 +535,9 @@ a:hover .post-thumb img {
   margin-bottom: 14px; padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
+@media (max-width: 639px) {
+  .section-header { flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+}
 .section-title { font-family: Lora,serif; font-size: 20px; font-weight: 600; }
 @media (min-width: 768px) { .section-title { font-size: 22px; } }
 
@@ -548,6 +566,7 @@ a:hover .post-thumb img {
 .notice        { padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); font-size: 13.5px; line-height: 1.5; }
 .notice-green  { background: rgba(76,175,80,.07); border-color: rgba(76,175,80,.25); color: #81c784; }
 .notice-gold   { background: rgba(255,179,0,.07);  border-color: rgba(255,179,0,.25);  color: #ffd54f; }
+.notice-yellow { background: rgba(255,179,0,.07);  border-color: rgba(255,179,0,.25);  color: #ffd54f; }
 .notice-red    { background: rgba(239,83,80,.07);  border-color: rgba(239,83,80,.25);  color: #ef9a9a; }
 
 /* ════════════════════════════════════════════════════════
@@ -610,6 +629,7 @@ a:hover .post-thumb img {
   width: 100%; max-width: 1180px; margin: 0 auto;
   padding: 16px 16px 40px;
 }
+@media (max-width: 479px) { .predictor-shell { padding: 12px 12px 32px; } }
 @media (min-width: 768px) { .predictor-shell { padding: 28px 24px 60px; } }
 
 .predictor-grid {
@@ -617,11 +637,163 @@ a:hover .post-thumb img {
 }
 @media (min-width: 900px) { .predictor-grid { grid-template-columns: 260px 1fr; gap: 18px; } }
 
-.metric-card { padding: 14px 16px; display: grid; gap: 4px; }
+/* On mobile: show main content first, filter sidebar at bottom */
+@media (max-width: 899px) {
+  .predictor-grid > aside  { order: 10; }
+  .predictor-grid > div    { order: 1;  }
+}
+
+@media (max-width: 639px) {
+  /* 2-col metric cards on mobile: MODAL PRICE full width, RANGE + MARKETS in row 2 */
+  .predictor-shell .pred-metric-row {
+    grid-template-columns: repeat(2,1fr) !important;
+    gap: 10px;
+  }
+  .predictor-shell .pred-metric-row > :first-child {
+    grid-column: 1 / -1; /* MODAL PRICE spans full row */
+  }
+  .predictor-shell .pred-metric-row > :last-child {
+    grid-column: auto !important; /* reset previous rule — sits in col 2 */
+  }
+  .predictor-shell .table-wrap {
+    margin: 0 -4px;
+  }
+}
+
+.metric-card { padding: 14px 16px; display: grid; gap: 5px; }
 @media (min-width: 640px) { .metric-card { padding: 18px 20px; } }
-.metric-val   { font-size: 22px; font-weight: 700; font-family: Lora,serif; }
+.metric-val   { font-size: 22px; font-weight: 700; font-family: Lora,serif; line-height: 1.1; }
 .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 @media (min-width: 640px) { .metric-val { font-size: 28px; } }
+
+/* Predictor section labels (uppercase heading inside cards) */
+.pred-section-label {
+  font-size: 11px; color: var(--dim); letter-spacing: .06em;
+  text-transform: uppercase; font-weight: 600;
+}
+
+/* ── Predictor day-card scrollable strip ─────────────────────── */
+.pred-day-strip {
+  display: flex; gap: 10px;
+}
+@media (max-width: 599px) {
+  .pred-day-strip {
+    overflow-x: auto; scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px; margin: 0 -2px; padding-inline: 2px;
+    scrollbar-width: none;
+  }
+  .pred-day-strip::-webkit-scrollbar { display: none; }
+  .pred-day-strip > * { scroll-snap-align: start; flex-shrink: 0; }
+}
+@media (min-width: 600px) {
+  .pred-day-strip { flex-wrap: wrap; }
+  .pred-day-strip > * { flex: 0 0 calc(33.33% - 8px); }
+}
+
+/* ── Collapsible filter sidebar ──────────────────────────────── */
+/* Mobile: toggle visible, starts collapsed (no `open` attr on <details>) */
+.pred-filter-summary {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; list-style: none; user-select: none; padding: 2px 0;
+}
+.pred-filter-summary::-webkit-details-marker { display: none; }
+.pred-filter-body { margin-top: 14px; }
+details.pred-filter-details:not([open]) .pred-filter-body { display: none; }
+
+/* Desktop (≥900px): always show form, hide toggle */
+@media (min-width: 900px) {
+  .pred-filter-summary { display: none !important; }
+  /* Force body visible even when <details> is not [open] */
+  details.pred-filter-details .pred-filter-body { display: block !important; margin-top: 0; }
+}
+
+/* ── Bottom info grid (stacks on mobile) ─────────────────────── */
+.pred-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.8fr;
+  gap: 14px; align-items: start;
+}
+@media (max-width: 700px) {
+  .pred-bottom-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 639px) {
+  .pred-page-header { gap: 10px; }
+  .pred-page-price  { width: 100%; text-align: left !important; }
+
+  .pred-forecast-header { align-items: flex-start !important; }
+  .pred-forecast-header > :last-child { width: 100%; margin-left: 0 !important; }
+
+  /* Compact day cards */
+  .pred-day-card {
+    min-width: min(120px, 56vw) !important;
+    padding: 10px 11px !important;
+  }
+
+  /* Market rows — 2-col grid */
+  .pred-market-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "name value" "district district";
+    align-items: start !important;
+    gap: 1px 8px !important;
+  }
+  .pred-market-name     { grid-area: name; max-width: none !important; font-size: 12px !important; }
+  .pred-market-district { grid-area: district; font-size: 10px !important; }
+  .pred-market-value    { grid-area: value; justify-self: end; font-size: 12px !important; }
+
+  /* Chart legend */
+  .pred-chart-legend       { gap: 6px !important; margin-bottom: 6px !important; }
+  .pred-chart-title        { width: 100%; font-size: 12px !important; }
+  .pred-chart-legend-items { width: 100%; margin-left: 0 !important; flex-wrap: wrap; gap: 6px 10px !important; font-size: 10px !important; }
+
+  /* Compact typography — readable but space-efficient */
+  .pred-section-label  { font-size: 10px !important; margin-bottom: 8px !important; }
+  .pred-model-summary  { font-size: 13px !important; line-height: 1.6 !important; }
+  .pred-action-item    { font-size: 12px !important; line-height: 1.55 !important; padding-left: 12px !important; }
+  .pred-range-labels   { font-size: 11px !important; margin-top: 6px !important; }
+
+  /* Bottom grid — compact */
+  .pred-bottom-grid > .card { padding: 12px 14px !important; }
+  .pred-quality-stat   { font-size: 12px !important; padding-bottom: 5px !important; }
+  .pred-driver-row     { font-size: 12px !important; margin-bottom: 3px !important; }
+
+  /* Compact metric cards */
+  .metric-card  { padding: 10px 12px !important; gap: 3px !important; }
+  .metric-val   { font-size: 18px !important; }
+  .metric-label { font-size: 10px !important; }
+}
+
+@media (max-width: 479px) {
+  .predictor-shell {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Shorter chart on small phones */
+  .pred-chart-block { height: 175px; }
+}
+
+/* Ensure recharts never causes horizontal overflow */
+.pred-chart-block { overflow: hidden; width: 100%; }
+.pred-chart-block .recharts-surface { overflow: visible; }
+
+/* ── Range gauge ─────────────────────────────────────────────── */
+.pred-range-track {
+  position: relative; height: 7px;
+  background: var(--bg3); border-radius: 99px; overflow: visible;
+}
+.pred-range-fill {
+  position: absolute; left: 0; top: 0; height: 100%;
+  background: linear-gradient(90deg, var(--green3), var(--green));
+  border-radius: 99px;
+  transition: width .6s cubic-bezier(.22,1,.36,1);
+}
+.pred-range-marker {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--green); border: 2px solid var(--bg2);
+  box-shadow: 0 0 0 3px rgba(76,175,80,.25);
+}
 
 /* ════════════════════════════════════════════════════════
    ADMIN
@@ -638,6 +810,10 @@ a:hover .post-thumb img {
 .table td { padding: 11px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
 .table tr:last-child td { border-bottom: none; }
 .table tr:hover td { background: rgba(255,255,255,.02); }
+@media (max-width: 639px) {
+  .table th { padding: 8px 8px; font-size: 10px; }
+  .table td { padding: 9px 8px; font-size: 12px; }
+}
 
 /* Scrollable tables on mobile */
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -676,6 +852,15 @@ a:hover .post-thumb img {
 
 .mandi-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .mandi-row:last-child { border-bottom: none; }
+@media (max-width: 479px) {
+  .mandi-widget-row {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .mandi-widget-meta {
+    max-width: 62%;
+  }
+}
 
 /* ════════════════════════════════════════════════════════
    FOOTER
@@ -1041,4 +1226,652 @@ main { animation: fadeUp .4s cubic-bezier(.22,1,.36,1) both; }
   main { animation: none; }
   .js-anim .anim-reveal,
   .js-anim .anim-stagger > * { opacity: 1 !important; transform: none !important; transition: none !important; }
+}
+
+
+/* =========================================================
+   PREDICTOR MOBILE RESCUE OVERRIDES
+   Paste at the VERY END of global.css
+========================================================= */
+
+.predictor-shell,
+.predictor-grid,
+.pred-bottom-grid,
+.pred-day-strip,
+.pred-chart-block,
+.table-wrap,
+.metric-card,
+.pred-day-card,
+.pred-market-row,
+.pred-forecast-header,
+.pred-page-header {
+  min-width: 0;
+}
+
+.predictor-shell * {
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.predictor-shell .card,
+.predictor-shell .card-elevated {
+  overflow: hidden;
+}
+
+.predictor-shell .btn,
+.predictor-shell .badge,
+.predictor-shell .field,
+.predictor-shell .select {
+  max-width: 100%;
+}
+
+/* Slightly better default readability */
+.predictor-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 18px 16px 110px;
+}
+
+.predictor-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .predictor-grid {
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 20px;
+  }
+}
+
+/* Main content first on mobile, filters later */
+@media (max-width: 899px) {
+  .predictor-grid > aside { order: 2; }
+  .predictor-grid > div,
+  .predictor-grid > main,
+  .predictor-grid > section { order: 1; }
+}
+
+/* Better mobile spacing */
+@media (max-width: 767px) {
+  .predictor-shell {
+    padding: 14px 14px calc(92px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .predictor-shell .card,
+  .predictor-shell .card-elevated {
+    border-radius: 12px;
+  }
+}
+
+/* ---------------------------------------------------------
+   PAGE HEADER
+--------------------------------------------------------- */
+.pred-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.pred-page-price {
+  margin-left: auto;
+  text-align: right;
+  min-width: 0;
+}
+
+@media (max-width: 639px) {
+  .pred-page-header {
+    gap: 10px;
+  }
+
+  .pred-page-price {
+    width: 100%;
+    margin-left: 0;
+    text-align: left !important;
+  }
+
+  .pred-page-header .badge {
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------------------------------------------------------
+   FILTER PANEL
+--------------------------------------------------------- */
+.pred-filter-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 2px 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.pred-filter-summary::-webkit-details-marker {
+  display: none;
+}
+
+.pred-filter-summary::after {
+  content: "▾";
+  font-size: 13px;
+  color: var(--muted);
+  transition: transform .2s ease;
+}
+
+details.pred-filter-details[open] > .pred-filter-summary::after {
+  transform: rotate(180deg);
+}
+
+.pred-filter-body {
+  margin-top: 14px;
+}
+
+details.pred-filter-details:not([open]) .pred-filter-body {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .pred-filter-summary {
+    display: none !important;
+  }
+
+  details.pred-filter-details .pred-filter-body {
+    display: block !important;
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 899px) {
+  details.pred-filter-details {
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: linear-gradient(150deg, rgba(255,255,255,.028) 0%, rgba(255,255,255,.01) 100%);
+  }
+
+  .pred-filter-body .form-grid,
+  .pred-filter-body .grid-2,
+  .pred-filter-body .grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+
+/* ---------------------------------------------------------
+   METRIC CARDS
+--------------------------------------------------------- */
+.pred-metric-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric-card {
+  padding: 16px 16px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.metric-label {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.metric-val {
+  font-size: clamp(20px, 5vw, 28px);
+  line-height: 1.08;
+}
+
+@media (max-width: 767px) {
+  .pred-metric-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .metric-card {
+    padding: 14px 14px;
+  }
+
+  .metric-val {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 479px) {
+  .metric-card {
+    padding: 12px 12px;
+  }
+
+  .metric-label {
+    font-size: 10px;
+  }
+
+  .metric-val {
+    font-size: 20px;
+  }
+}
+
+/* ---------------------------------------------------------
+   FORECAST HEADER / SUMMARY
+--------------------------------------------------------- */
+.pred-forecast-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.pred-model-summary {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text2);
+}
+
+@media (max-width: 639px) {
+  .pred-forecast-header {
+    gap: 10px;
+  }
+
+  .pred-forecast-header > :last-child {
+    width: 100%;
+    margin-left: 0 !important;
+  }
+
+  .pred-model-summary {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+}
+
+/* ---------------------------------------------------------
+   DAY FORECAST CARDS
+--------------------------------------------------------- */
+.pred-day-strip {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pred-day-card {
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .pred-day-strip {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 8px;
+    margin: 0 -2px;
+    padding-inline: 2px;
+    scrollbar-width: none;
+  }
+
+  .pred-day-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pred-day-strip > * {
+    scroll-snap-align: start;
+    flex: 0 0 min(200px, 78vw);
+  }
+
+  .pred-day-card {
+    min-width: min(200px, 78vw) !important;
+    padding: 12px 12px !important;
+  }
+}
+
+@media (max-width: 479px) {
+  .pred-day-strip > * {
+    flex-basis: min(184px, 82vw);
+  }
+
+  .pred-day-card {
+    min-width: min(184px, 82vw) !important;
+    padding: 11px 11px !important;
+  }
+}
+
+/* ---------------------------------------------------------
+   CHARTS
+--------------------------------------------------------- */
+.pred-chart-block {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.pred-chart-block .recharts-wrapper,
+.pred-chart-block .recharts-responsive-container {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.pred-chart-block .recharts-surface {
+  overflow: visible;
+}
+
+.pred-chart-legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.pred-chart-title {
+  min-width: 0;
+}
+
+.pred-chart-legend-items {
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+@media (max-width: 639px) {
+  .pred-chart-block {
+    height: 220px !important;
+  }
+
+  .pred-chart-legend {
+    gap: 6px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .pred-chart-title {
+    width: 100%;
+    font-size: 12px !important;
+  }
+
+  .pred-chart-legend-items {
+    width: 100%;
+    margin-left: 0 !important;
+    gap: 6px 10px !important;
+    font-size: 10px !important;
+  }
+}
+
+@media (max-width: 479px) {
+  .pred-chart-block {
+    height: 185px !important;
+  }
+}
+
+/* ---------------------------------------------------------
+   RANGE / POSITION GAUGE
+--------------------------------------------------------- */
+.pred-range-track {
+  position: relative;
+  height: 8px;
+  background: var(--bg3);
+  border-radius: 999px;
+  overflow: visible;
+}
+
+.pred-range-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--green3), var(--green));
+}
+
+.pred-range-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 2px solid var(--bg2);
+  box-shadow: 0 0 0 3px rgba(76,175,80,.24);
+}
+
+.pred-range-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+@media (max-width: 639px) {
+  .pred-range-labels {
+    font-size: 11px !important;
+    margin-top: 6px !important;
+  }
+}
+
+/* ---------------------------------------------------------
+   MARKET LIST
+--------------------------------------------------------- */
+.pred-market-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pred-market-name,
+.pred-market-district,
+.pred-market-value {
+  min-width: 0;
+}
+
+.pred-market-name {
+  font-size: 13px;
+}
+
+.pred-market-district {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.pred-market-value {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+@media (max-width: 639px) {
+  .pred-market-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name value"
+      "district district";
+    align-items: start !important;
+    gap: 2px 8px !important;
+  }
+
+  .pred-market-name {
+    grid-area: name;
+    font-size: 12px !important;
+  }
+
+  .pred-market-district {
+    grid-area: district;
+    font-size: 10px !important;
+  }
+
+  .pred-market-value {
+    grid-area: value;
+    justify-self: end;
+    font-size: 12px !important;
+  }
+}
+
+/* ---------------------------------------------------------
+   BOTTOM GRID
+--------------------------------------------------------- */
+.pred-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.15fr .9fr .9fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.pred-bottom-grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .pred-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 639px) {
+  .pred-bottom-grid {
+    gap: 10px;
+  }
+
+  .pred-bottom-grid > .card,
+  .pred-bottom-grid > .card-elevated {
+    padding: 12px 14px !important;
+  }
+
+  .pred-quality-stat {
+    font-size: 12px !important;
+    padding-bottom: 5px !important;
+  }
+
+  .pred-driver-row {
+    font-size: 12px !important;
+    margin-bottom: 4px !important;
+  }
+}
+
+/* ---------------------------------------------------------
+   TABLES / DATA BLOCKS
+--------------------------------------------------------- */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.predictor-shell .table {
+  width: 100%;
+  min-width: 560px;
+}
+
+@media (max-width: 639px) {
+  .predictor-shell .table {
+    min-width: 520px;
+  }
+
+  .table-wrap {
+    margin: 0 -2px;
+    padding-bottom: 2px;
+  }
+}
+
+/* ---------------------------------------------------------
+   NOTICES / DISCLAIMERS
+--------------------------------------------------------- */
+.predictor-shell .notice,
+.predictor-shell .notice-gold,
+.predictor-shell .notice-yellow,
+.predictor-shell .notice-green,
+.predictor-shell .notice-red {
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 12px 14px;
+}
+
+@media (max-width: 479px) {
+  .predictor-shell .notice,
+  .predictor-shell .notice-gold,
+  .predictor-shell .notice-yellow,
+  .predictor-shell .notice-green,
+  .predictor-shell .notice-red {
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 11px 12px;
+  }
+}
+
+/* ---------------------------------------------------------
+   TYPOGRAPHY DENSITY TUNE
+--------------------------------------------------------- */
+@media (max-width: 639px) {
+  .pred-section-label {
+    font-size: 10px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .pred-action-item {
+    font-size: 12px !important;
+    line-height: 1.55 !important;
+    padding-left: 12px !important;
+  }
+
+  .predictor-shell h1 {
+    font-size: 22px;
+    line-height: 1.15;
+  }
+
+  .predictor-shell h2 {
+    font-size: 18px;
+    line-height: 1.2;
+  }
+
+  .predictor-shell h3 {
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  .predictor-shell p,
+  .predictor-shell li {
+    font-size: 13px;
+    line-height: 1.65;
+  }
+}
+
+/* ---------------------------------------------------------
+   TOUCH TARGETS
+--------------------------------------------------------- */
+@media (max-width: 767px) {
+  .predictor-shell .btn,
+  .predictor-shell .field,
+  .predictor-shell .select,
+  .predictor-shell button,
+  .predictor-shell [role="button"] {
+    min-height: 44px;
+  }
+}
+
+/* ---------------------------------------------------------
+   FINAL SMALL-PHONE HARDENING
+--------------------------------------------------------- */
+@media (max-width: 399px) {
+  .predictor-shell {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .metric-val {
+    font-size: 18px;
+  }
+
+  .pred-model-summary,
+  .predictor-shell p,
+  .predictor-shell li {
+    font-size: 12.5px;
+  }
 }
