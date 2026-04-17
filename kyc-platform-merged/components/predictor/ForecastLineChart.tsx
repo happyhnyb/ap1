@@ -132,28 +132,26 @@ export default function ForecastLineChart({ historySeries, forecast, latestPrice
   return (
     <div className="pred-chart-block">
       {/* Legend */}
-      <div className="pred-chart-legend" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10, flexWrap: 'wrap' }}>
-        <span className="pred-chart-title" style={{ fontFamily: 'Lora,serif', fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
-          {commodity} · History + Forecast
-        </span>
-        <div className="pred-chart-legend-items" style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--dim)', marginLeft: 'auto' }}>
+      <div className="pred-chart-legend">
+        <span className="pred-chart-title">{commodity} · History + Forecast</span>
+        <div className="pred-chart-legend-items">
           <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <svg width="18" height="2"><line x1="0" y1="1" x2="18" y2="1" stroke="var(--muted)" strokeWidth="2"/></svg>
+            <svg width="16" height="2"><line x1="0" y1="1" x2="16" y2="1" stroke="var(--muted)" strokeWidth="2"/></svg>
             History
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <svg width="18" height="2"><line x1="0" y1="1" x2="18" y2="1" stroke={dirColor} strokeWidth="2" strokeDasharray="5 2"/></svg>
+            <svg width="16" height="2"><line x1="0" y1="1" x2="16" y2="1" stroke={dirColor} strokeWidth="2" strokeDasharray="5 2"/></svg>
             Forecast
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 12, height: 8, background: dirColor, opacity: 0.18, borderRadius: 2, display: 'inline-block' }} />
-            CI band
+            <span style={{ width: 10, height: 7, background: dirColor, opacity: 0.18, borderRadius: 2, display: 'inline-block' }} />
+            CI
           </span>
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={220}>
-        <ComposedChart data={merged} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={180}>
+        <ComposedChart data={merged} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
 
           <XAxis
@@ -166,12 +164,12 @@ export default function ForecastLineChart({ historySeries, forecast, latestPrice
             minTickGap={40}
           />
           <YAxis
-            tick={{ fill: 'var(--dim)', fontSize: 10 }}
+            tick={{ fill: 'var(--dim)', fontSize: 9 }}
             tickLine={false}
             axisLine={false}
             tickFormatter={tickFmt}
             domain={[domainMin, domainMax]}
-            width={54}
+            width={44}
           />
 
           <Tooltip content={<CustomTooltip />} />

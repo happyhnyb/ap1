@@ -234,18 +234,22 @@ export default async function PredictorPage({ searchParams }: Props) {
         {/* ── Main content ───────────────────────────────────────────────── */}
         <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
 
-          {/* KPI cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-            {[
-              { label: 'Modal Price', val: fmtCurrency(summary.avgModalPrice), color: 'var(--text)' },
-              { label: 'Range',       val: `${fmtCurrency(summary.avgMinPrice)}–${fmtCurrency(summary.avgMaxPrice)}`, color: 'var(--muted)' },
-              { label: 'Markets',     val: summary.marketsCount.toLocaleString(), color: 'var(--green)' },
-            ].map((m) => (
-              <div key={m.label} className="card metric-card">
-                <div className="metric-label">{m.label}</div>
-                <div className="metric-val" style={{ color: m.color }}>{m.val}</div>
+          {/* KPI cards — 2-col mobile (Range spans full width), 3-col 480px+ */}
+          <div className="pred-kpi-grid">
+            <div className="card metric-card">
+              <div className="metric-label">Modal Price</div>
+              <div className="metric-val" style={{ color: 'var(--text)' }}>{fmtCurrency(summary.avgModalPrice)}</div>
+            </div>
+            <div className="card metric-card">
+              <div className="metric-label">Markets</div>
+              <div className="metric-val" style={{ color: 'var(--green)' }}>{summary.marketsCount.toLocaleString()}</div>
+            </div>
+            <div className="card metric-card pred-kpi-wide">
+              <div className="metric-label">Price Range</div>
+              <div className="metric-val" style={{ color: 'var(--muted)', fontSize: 'clamp(12px,3.5vw,17px)' }}>
+                {fmtCurrency(summary.avgMinPrice)} – {fmtCurrency(summary.avgMaxPrice)}
               </div>
-            ))}
+            </div>
           </div>
 
           {/* Price position gauge */}
@@ -319,22 +323,18 @@ export default async function PredictorPage({ searchParams }: Props) {
                       const pctChange = forecast.latest_price
                         ? Math.abs((diff / forecast.latest_price) * 100) : 0;
                       return (
-                        <div key={point.date} style={{
-                          padding: '12px 14px', background: 'var(--bg3)', borderRadius: 12, minWidth: 130,
-                          border: `1px solid ${up ? 'rgba(76,175,80,.2)' : 'rgba(239,83,80,.15)'}`,
-                        }}>
-                          <div style={{ fontSize: 10, color: 'var(--dim)', lineHeight: 1.4 }}>
+                        <div key={point.date} className="pred-day-card"
+                          style={{ border: `1px solid ${up ? 'rgba(76,175,80,.2)' : 'rgba(239,83,80,.15)'}` }}>
+                          <div className="pred-day-date">
                             {new Date(point.date).toLocaleDateString('en-IN', { weekday: 'short' })}
                             <br />
                             {new Date(point.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                           </div>
-                          <div style={{ fontWeight: 700, fontSize: 17, fontFamily: 'Lora,serif', margin: '6px 0 3px', color: 'var(--text)' }}>
-                            {fmtCurrency(point.point)}
-                          </div>
-                          <div style={{ fontSize: 12, color: up ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                          <div className="pred-day-price">{fmtCurrency(point.point)}</div>
+                          <div className="pred-day-pct" style={{ color: up ? 'var(--green)' : 'var(--red)' }}>
                             {up ? '↑' : '↓'} {pctChange.toFixed(1)}%
                           </div>
-                          <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>
+                          <div className="pred-day-range">
                             {fmtCurrency(point.lower)}–{fmtCurrency(point.upper)}
                           </div>
                         </div>
