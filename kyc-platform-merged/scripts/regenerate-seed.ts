@@ -14,16 +14,9 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 
-// Load env from .env.local then .env
-try {
-  const dotenv = await import('dotenv');
-  dotenv.config({ path: join(process.cwd(), '.env.local') });
-  dotenv.config({ path: join(process.cwd(), '.env') });
-} catch {
-  // dotenv not required — env may be injected by CI
-}
-
 // ── Config ────────────────────────────────────────────────────────────────────
+// Env vars are injected by CI. For local use:
+//   DATAGOV_API_KEY=xxx npx tsx scripts/regenerate-seed.ts
 
 const RESOURCE_ID = '9ef84268-d588-465a-a308-a864a43d0070';
 const BASE_URL    = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
