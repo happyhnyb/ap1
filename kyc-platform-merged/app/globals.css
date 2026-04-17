@@ -42,8 +42,11 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  /* Prevent any overflow child from forcing the browser to zoom out on mobile */
+  overflow-x: hidden;
 }
 body {
+  overflow-x: hidden;
   background: var(--bg);
   background-image:
     radial-gradient(ellipse 120% 50% at 50% -10%, rgba(76,175,80,.07) 0%, transparent 60%);
@@ -605,24 +608,165 @@ a:hover .post-thumb img {
 }
 
 /* ════════════════════════════════════════════════════════
-   PREDICTOR — mobile first
+   PREDICTOR — mobile-first, desktop-optimised
 ════════════════════════════════════════════════════════ */
 .predictor-shell {
-  width: 100%; max-width: 1180px; margin: 0 auto;
-  padding: 16px 16px 40px;
+  width: 100%; max-width: 1280px; margin: 0 auto;
+  padding: 16px 14px 60px;
 }
-@media (min-width: 768px) { .predictor-shell { padding: 28px 24px 60px; } }
+@media (min-width: 640px)  { .predictor-shell { padding: 20px 20px 60px; } }
+@media (min-width: 900px)  { .predictor-shell { padding: 28px 28px 80px; } }
+@media (min-width: 1200px) { .predictor-shell { padding: 36px 40px 100px; } }
 
+/* Two-column grid: sidebar + content */
 .predictor-grid {
-  display: grid; grid-template-columns: 1fr; gap: 14px; align-items: start;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  align-items: start;
 }
-@media (min-width: 900px) { .predictor-grid { grid-template-columns: 260px 1fr; gap: 18px; } }
+@media (min-width: 900px) {
+  .predictor-grid {
+    grid-template-columns: 280px 1fr;
+    gap: 24px;
+  }
+}
+@media (min-width: 1200px) {
+  .predictor-grid {
+    grid-template-columns: 300px 1fr;
+    gap: 28px;
+  }
+}
 
+/* On mobile: main content first, sidebar (filters) at bottom */
+@media (max-width: 899px) {
+  .predictor-grid > aside { order: 10; }
+  .predictor-grid > div   { order: 1; }
+}
+
+/* ── Metric cards ──────────────────────────────────────── */
 .metric-card { padding: 14px 16px; display: grid; gap: 4px; }
-@media (min-width: 640px) { .metric-card { padding: 18px 20px; } }
-.metric-val   { font-size: 22px; font-weight: 700; font-family: Lora,serif; }
+@media (min-width: 640px)  { .metric-card { padding: 18px 20px; } }
+@media (min-width: 1200px) { .metric-card { padding: 22px 24px; } }
+
+.metric-val   { font-size: 22px; font-weight: 700; font-family: Lora,serif; line-height: 1.1; }
 .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-@media (min-width: 640px) { .metric-val { font-size: 28px; } }
+@media (min-width: 640px) { .metric-val { font-size: 26px; } }
+@media (min-width: 900px) { .metric-val { font-size: 28px; } }
+
+/* ── Predictor page header ─────────────────────────────── */
+.pred-header-row {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.pred-header-price {
+  font-size: clamp(28px, 5vw, 40px);
+  font-family: Lora,serif; font-weight: 700; line-height: 1;
+}
+@media (max-width: 599px) {
+  .pred-header-row { flex-direction: column; gap: 10px; }
+  .pred-header-price { font-size: clamp(26px,8vw,34px); }
+}
+
+/* ── Forecast card internals ──────────────────────────── */
+.pred-forecast-card { padding: 20px; }
+@media (min-width: 640px)  { .pred-forecast-card { padding: 24px; } }
+@media (min-width: 1200px) { .pred-forecast-card { padding: 28px 32px; } }
+
+/* ── Bottom info grid ─────────────────────────────────── */
+.pred-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  align-items: start;
+}
+@media (min-width: 600px) {
+  .pred-bottom-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 900px) {
+  .pred-bottom-grid { grid-template-columns: 1.3fr 1fr 1fr; }
+}
+
+/* ── Day-card strip ───────────────────────────────────── */
+.pred-day-strip {
+  display: flex; gap: 10px;
+  overflow-x: auto; scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+}
+.pred-day-strip::-webkit-scrollbar { display: none; }
+.pred-day-strip > * { scroll-snap-align: start; flex-shrink: 0; }
+
+@media (min-width: 900px) {
+  .pred-day-strip { flex-wrap: wrap; overflow-x: visible; }
+  .pred-day-strip > * { flex: 0 0 calc(20% - 8px); min-width: 100px; }
+}
+
+/* ── Filter sidebar ───────────────────────────────────── */
+.pred-filter-card { padding: 18px; }
+@media (min-width: 900px) {
+  .pred-filter-card { position: sticky; top: 80px; }
+}
+
+/* Filter collapse (mobile only) */
+.pred-filter-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; padding: 0; background: none; border: none;
+  width: 100%; color: inherit; text-align: left;
+}
+@media (min-width: 900px) {
+  .pred-filter-toggle { pointer-events: none; }
+  .pred-filter-toggle .pred-filter-chevron { display: none; }
+}
+.pred-filter-body-wrap { overflow: hidden; }
+@media (max-width: 899px) {
+  .pred-filter-body-wrap[data-open="false"] { display: none; }
+}
+
+/* ── Section label ───────────────────────────────────── */
+.pred-label {
+  font-size: 10px; color: var(--dim); letter-spacing: .07em;
+  text-transform: uppercase; font-weight: 700; margin-bottom: 10px;
+}
+
+/* ── Range gauge ─────────────────────────────────────── */
+.pred-range-track {
+  position: relative; height: 6px;
+  background: var(--bg3); border-radius: 99px; overflow: visible;
+}
+.pred-range-fill {
+  position: absolute; left: 0; top: 0; height: 100%;
+  background: linear-gradient(90deg, var(--green3,#2e7d32), var(--green));
+  border-radius: 99px;
+  transition: width .5s cubic-bezier(.22,1,.36,1);
+}
+.pred-range-marker {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--green); border: 2px solid var(--bg2);
+  box-shadow: 0 0 0 3px rgba(76,175,80,.25);
+}
+
+/* ── Chart container ─────────────────────────────────── */
+.pred-chart-wrap {
+  width: 100%; overflow: hidden;
+}
+.pred-chart-wrap .recharts-responsive-container { width: 100% !important; }
+
+/* ── Freshness badge ─────────────────────────────────── */
+.pred-freshness {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--dim);
+  padding: 4px 10px; border-radius: 99px;
+  border: 1px solid var(--border); background: var(--bg3);
+}
+.pred-freshness-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(76,175,80,.2);
+}
+.pred-freshness-dot.stale { background: var(--gold); box-shadow: 0 0 0 2px rgba(255,179,0,.2); }
 
 /* ════════════════════════════════════════════════════════
    ADMIN
