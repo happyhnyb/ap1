@@ -642,24 +642,33 @@ a:hover .post-thumb img {
 }
 
 @media (max-width: 639px) {
-  /* 2-col metric cards on mobile, 3rd spans both */
+  /* 2-col metric cards on mobile: MODAL PRICE full width, RANGE + MARKETS in row 2 */
   .predictor-shell .pred-metric-row {
     grid-template-columns: repeat(2,1fr) !important;
     gap: 10px;
   }
+  .predictor-shell .pred-metric-row > :first-child {
+    grid-column: 1 / -1; /* MODAL PRICE spans full row */
+  }
   .predictor-shell .pred-metric-row > :last-child {
-    grid-column: 1 / -1;
+    grid-column: auto !important; /* reset previous rule — sits in col 2 */
   }
   .predictor-shell .table-wrap {
     margin: 0 -4px;
   }
 }
 
-.metric-card { padding: 14px 16px; display: grid; gap: 4px; }
+.metric-card { padding: 14px 16px; display: grid; gap: 5px; }
 @media (min-width: 640px) { .metric-card { padding: 18px 20px; } }
-.metric-val   { font-size: 22px; font-weight: 700; font-family: Lora,serif; }
+.metric-val   { font-size: 22px; font-weight: 700; font-family: Lora,serif; line-height: 1.1; }
 .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 @media (min-width: 640px) { .metric-val { font-size: 28px; } }
+
+/* Predictor section labels (uppercase heading inside cards) */
+.pred-section-label {
+  font-size: 11px; color: var(--dim); letter-spacing: .06em;
+  text-transform: uppercase; font-weight: 600;
+}
 
 /* ── Predictor day-card scrollable strip ─────────────────────── */
 .pred-day-strip {
@@ -708,57 +717,50 @@ details.pred-filter-details:not([open]) .pred-filter-body { display: none; }
 }
 
 @media (max-width: 639px) {
-  .pred-page-header {
-    gap: 14px;
-  }
-  .pred-page-price {
-    width: 100%;
-    text-align: left !important;
-  }
-  .pred-forecast-header {
-    align-items: flex-start !important;
-  }
-  .pred-forecast-header > :last-child {
-    width: 100%;
-    margin-left: 0 !important;
-  }
+  .pred-page-header { gap: 14px; }
+  .pred-page-price  { width: 100%; text-align: left !important; }
+
+  .pred-forecast-header { align-items: flex-start !important; }
+  .pred-forecast-header > :last-child { width: 100%; margin-left: 0 !important; }
+
+  /* Day card — taller touch target */
   .pred-day-card {
-    min-width: min(164px, 76vw) !important;
-    padding: 12px !important;
+    min-width: min(160px, 72vw) !important;
+    padding: 14px 14px !important;
   }
+
+  /* Market rows on mobile — 2-col grid layout */
   .pred-market-row {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "name value"
-      "district district";
+    grid-template-areas: "name value" "district district";
     align-items: start !important;
     gap: 2px 10px !important;
   }
-  .pred-market-name {
-    grid-area: name;
-    max-width: none !important;
-  }
-  .pred-market-district {
-    grid-area: district;
-    font-size: 10px !important;
-  }
-  .pred-market-value {
-    grid-area: value;
-    justify-self: end;
-  }
-  .pred-chart-legend {
-    gap: 8px !important;
-  }
-  .pred-chart-title {
-    width: 100%;
-  }
-  .pred-chart-legend-items {
-    width: 100%;
-    margin-left: 0 !important;
-    flex-wrap: wrap;
-    gap: 8px 12px !important;
-  }
+  .pred-market-name     { grid-area: name; max-width: none !important; font-size: 13.5px !important; }
+  .pred-market-district { grid-area: district; font-size: 11px !important; }
+  .pred-market-value    { grid-area: value; justify-self: end; font-size: 13.5px !important; }
+
+  /* Chart legend wraps cleanly */
+  .pred-chart-legend       { gap: 8px !important; }
+  .pred-chart-title        { width: 100%; }
+  .pred-chart-legend-items { width: 100%; margin-left: 0 !important; flex-wrap: wrap; gap: 8px 12px !important; }
+
+  /* Typography boosts — key reading sections */
+  .pred-section-label  { font-size: 12px !important; letter-spacing: .05em !important; }
+  .pred-model-summary  { font-size: 15px !important; line-height: 1.75 !important; }
+  .pred-action-item    { font-size: 14px !important; line-height: 1.65 !important; padding-left: 16px !important; }
+  .pred-range-labels   { font-size: 13px !important; }
+
+  /* Bottom grid cards — more spacious on mobile */
+  .pred-bottom-grid > .card { padding: 18px !important; }
+  .pred-quality-stat   { font-size: 13px !important; padding-bottom: 8px !important; }
+  .pred-driver-row     { font-size: 13px !important; margin-bottom: 6px !important; }
+
+  /* Metric card full-width first item */
+  .metric-card { padding: 16px 18px !important; }
+  .metric-val  { font-size: 24px !important; }
+  .metric-label{ font-size: 11px !important; }
 }
 
 @media (max-width: 479px) {

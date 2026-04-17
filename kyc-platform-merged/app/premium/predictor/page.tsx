@@ -64,10 +64,10 @@ function PriceRangeBar({ min, current, max }: { min: number; current: number; ma
         <div className="pred-range-fill" style={{ width: `${pct}%` }} />
         <div className="pred-range-marker" style={{ left: `${pct}%` }} />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--dim)', marginTop: 8 }}>
-        <span>{fmtCurrency(min)} <span style={{ color: 'var(--dim)', fontSize: 10 }}>min</span></span>
-        <span style={{ color: 'var(--text)', fontWeight: 600 }}>{fmtCurrency(current)} <span style={{ color: 'var(--green)', fontSize: 10 }}>({pct}th pct)</span></span>
-        <span><span style={{ color: 'var(--dim)', fontSize: 10 }}>max</span> {fmtCurrency(max)}</span>
+      <div className="pred-range-labels" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--dim)', marginTop: 10 }}>
+        <span>{fmtCurrency(min)} <span style={{ fontSize: 10 }}>min</span></span>
+        <span style={{ color: 'var(--text)', fontWeight: 600 }}>{fmtCurrency(current)} <span style={{ color: 'var(--green)', fontSize: 11 }}>({pct}th%)</span></span>
+        <span><span style={{ fontSize: 10 }}>max</span> {fmtCurrency(max)}</span>
       </div>
     </div>
   );
@@ -150,7 +150,7 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
         </div>
       </div>
 
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 16 }} className="pred-disclaimer-top">
         <PredictorDisclaimer />
       </div>
 
@@ -158,7 +158,7 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
 
         {/* ── Sidebar ────────────────────────────────────────────── */}
         <aside style={{ display: 'grid', gap: 12 }}>
-          <div className="card" style={{ padding: 16 }}>
+          <div className="card" style={{ padding: '16px 18px' }}>
             <details className="pred-filter-details">
               <summary className="pred-filter-summary">
                 <span style={{ fontFamily: 'Lora,serif', fontSize: 15, fontWeight: 600 }}>Filters — {commodity}{state ? `, ${state.split(' ')[0]}` : ''}</span>
@@ -197,8 +197,8 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
             </details>
           </div>
 
-          <div className="card" style={{ padding: 16 }}>
-            <div style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 600 }}>
+          <div className="card" style={{ padding: '16px 18px' }}>
+            <div className="pred-section-label" style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 600 }}>
               Data status
             </div>
             {([
@@ -235,8 +235,8 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
           {/* Price range gauge */}
           {summary.avgMinPrice != null && summary.avgMaxPrice != null && summary.avgModalPrice != null
             && summary.avgMaxPrice > summary.avgMinPrice && (
-            <div className="card" style={{ padding: '14px 18px' }}>
-              <div style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 12 }}>
+            <div className="card" style={{ padding: '16px 18px' }}>
+              <div className="pred-section-label" style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 12 }}>
                 Current price position
               </div>
               <PriceRangeBar min={summary.avgMinPrice} current={summary.avgModalPrice} max={summary.avgMaxPrice} />
@@ -265,10 +265,10 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
               <>
                 {/* Plain-English summary */}
                 <div style={{ padding: '12px 16px', background: 'var(--bg3)', borderRadius: 10, border: `1px solid ${tc}33` }}>
-                  <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 6 }}>
+                  <div className="pred-section-label" style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 8 }}>
                     What the model says
                   </div>
-                  <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.65, color: 'var(--text)' }}>
+                  <p className="pred-model-summary" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.65, color: 'var(--text)' }}>
                     {forecast.direction === 'flat'
                       ? `${commodity} prices look stable. The model expects minimal movement over the next ${horizon} days, hovering near ${fmtCurrency(forecast.latest_price)}/quintal.`
                       : `The model projects a ${forecast.direction === 'up' ? 'rise' : 'fall'} of ${Math.abs(forecast.trend_pct).toFixed(1)}% for ${commodity} over the next ${horizon} days`
@@ -293,7 +293,7 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
 
                 {/* Day-card scrollable strip */}
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>
+                  <div className="pred-section-label" style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 }}>
                     Daily forecast
                   </div>
                   <div className="pred-day-strip">
@@ -333,16 +333,16 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
 
                 {/* Before you act */}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-                  <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 10 }}>
+                  <div className="pred-section-label" style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 12 }}>
                     Before you act
                   </div>
-                  <div style={{ display: 'grid', gap: 8 }}>
+                  <div style={{ display: 'grid', gap: 10 }}>
                     {[
                       { title: 'Cross-check locally.', body: 'Agmarknet data can lag 24–48 hours. Call your nearest mandi before acting.' },
                       { title: 'Use the confidence band.', body: 'The shaded range in the chart shows uncertainty. Wider = less reliable.' },
                       { title: 'Research tool only.', body: 'Not financial advice. Consult a qualified market expert before trading decisions.' },
                     ].map((item) => (
-                      <div key={item.title} style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.55, paddingLeft: 14, borderLeft: `2px solid ${tc}55` }}>
+                      <div key={item.title} className="pred-action-item" style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, paddingLeft: 14, borderLeft: `2px solid ${tc}55` }}>
                         <strong style={{ color: 'var(--text)' }}>{item.title}</strong> {item.body}
                       </div>
                     ))}
@@ -351,15 +351,14 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
               </>
             )}
 
-            <PredictorDisclaimer compact />
           </div>
 
           {/* ── Bottom info grid ──────────────────────────────── */}
           <div className="pred-bottom-grid">
 
             {/* Top markets with price bars */}
-            <div className="card" style={{ padding: 16 }}>
-              <div style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 12, fontWeight: 600 }}>
+            <div className="card" style={{ padding: '16px 18px' }}>
+              <div className="pred-section-label" style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 12, fontWeight: 600 }}>
                 Top markets
               </div>
               {marketRows.length ? (
@@ -390,8 +389,8 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
             </div>
 
             {/* Data quality with visual */}
-            <div className="card" style={{ padding: 16 }}>
-              <div style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 12, fontWeight: 600 }}>
+            <div className="card" style={{ padding: '16px 18px' }}>
+              <div className="pred-section-label" style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 12, fontWeight: 600 }}>
                 Data quality
               </div>
               {(() => {
@@ -426,7 +425,7 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
                       ['Outlier days', dq.outlier_days],
                       ['Stale runs',   dq.stale_days],
                     ].map(([label, val]) => (
-                      <div key={String(label)} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>
+                      <div key={String(label)} className="pred-quality-stat" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>
                         <span style={{ color: 'var(--muted)' }}>{label}</span>
                         <span style={{ fontWeight: 600 }}>{val}</span>
                       </div>
@@ -442,8 +441,8 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
             </div>
 
             {/* Forecast drivers with animated bars */}
-            <div className="card" style={{ padding: 16 }}>
-              <div style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 12, fontWeight: 600 }}>
+            <div className="card" style={{ padding: '16px 18px' }}>
+              <div className="pred-section-label" style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 12, fontWeight: 600 }}>
                 Forecast drivers
               </div>
               <div style={{ display: 'grid', gap: 10 }}>
@@ -452,8 +451,8 @@ export default async function PredictorPage({ searchParams }: PredictorPageProps
                   const dColor  = feature.direction === 'positive' ? 'var(--green)' : feature.direction === 'negative' ? 'var(--red)' : 'var(--gold)';
                   const dirIcon = feature.direction === 'positive' ? '↑' : feature.direction === 'negative' ? '↓' : '→';
                   return (
-                    <div key={feature.feature_name}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 4 }}>
+                    <div key={feature.feature_name} className="pred-driver-item">
+                      <div className="pred-driver-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 4 }}>
                         <span style={{ color: 'var(--muted)', fontWeight: 500 }}>
                           {feature.feature_name.replace(/_/g, ' ')}
                         </span>
