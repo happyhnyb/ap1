@@ -23,7 +23,7 @@ const LEADERSHIP = [
   {
     name: 'Dhairya Pareek',
     role: 'CTO',
-    bio: 'Dhairya Pareek leads KYC\'s technology vision, building the digital backbone behind our intelligence platform, data systems, and user experiences. He focuses on turning complex agricultural and commodity market signals into fast, reliable, and accessible tools that help stakeholders act with confidence across global markets.',
+    bio: 'Leads KYC\'s technology vision, building fast, reliable, and accessible agri-market intelligence tools.',
     href: 'https://www.linkedin.com/in/dhairya-pareek-9b9234213/',
     cta: 'LinkedIn',
   },
