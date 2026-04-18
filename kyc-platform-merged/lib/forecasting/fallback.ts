@@ -3,8 +3,9 @@ import type { DriversResponse, ForecastResponse, QualityResponse } from './schem
 import { normalizeCommodity } from './schema/commodity';
 import seedSeries from './data/seed-series.json';
 
-const CACHE_TTL_MS = 1000 * 60 * 10;
-const FALLBACK_DAYS = 21;
+const CACHE_TTL_MS  = 1000 * 60 * 10; // in-memory per serverless instance
+const FALLBACK_DAYS = 45;              // days of history to pull from live API
+const SEED_MAX_AGE_MS = 2 * 86_400_000; // treat seed as stale after 2 days
 
 type CachedSeries = {
   fetchedAt: string;
@@ -78,22 +79,47 @@ async function loadSeries(filters: MandiFilters): Promise<CachedSeries> {
   const cached = seriesCache.get(key);
   if (cached && cached.expiresAt > now) return cached.value;
 
-  const seeded = loadSeedSeries(filters);
-  if (seeded) {
-    seriesCache.set(key, { expiresAt: now + CACHE_TTL_MS, value: seeded });
-    return seeded;
+  // Use seed only when it is fresh enough
+  const seedAge = now - new Date(`${seedSeries.to}T00:00:00.000Z`).getTime();
+  const seedFresh = seedAge < SEED_MAX_AGE_MS;
+
+  if (seedFresh) {
+    const seeded = loadSeedSeries(filters);
+    if (seeded) {
+      seriesCache.set(key, { expiresAt: now + CACHE_TTL_MS, value: seeded });
+      return seeded;
+    }
   }
 
-  const { records, fetchedAt } = await getHistoricalRecords(filters, FALLBACK_DAYS);
-  const filtered = filterRecords(records, filters);
-  const history = buildHistory(filtered);
-  const prices = history
-    .filter((row) => typeof row.avg_modal_price === 'number')
-    .map((row) => row.avg_modal_price as number);
+  // Seed is stale (or has no matching rows) — try the live Agmarknet API
+  try {
+    const { records, fetchedAt } = await getHistoricalRecords(filters, FALLBACK_DAYS);
+    const filtered = filterRecords(records, filters);
+    const history = buildHistory(filtered);
+    const prices = history
+      .filter((row) => typeof row.avg_modal_price === 'number')
+      .map((row) => row.avg_modal_price as number);
 
-  const value = { fetchedAt, filters, history, prices };
-  seriesCache.set(key, { expiresAt: now + CACHE_TTL_MS, value });
-  return value;
+    if (prices.length > 0) {
+      const value = { fetchedAt, filters, history, prices };
+      seriesCache.set(key, { expiresAt: now + CACHE_TTL_MS, value });
+      return value;
+    }
+  } catch {
+    // Live API unavailable (key missing, rate-limited, etc.) — fall through to stale seed
+  }
+
+  // Last resort: serve stale seed rather than nothing
+  const stale = loadSeedSeries(filters);
+  if (stale) {
+    seriesCache.set(key, { expiresAt: now + CACHE_TTL_MS, value: stale });
+    return stale;
+  }
+
+  // Absolutely no data
+  const empty: CachedSeries = { fetchedAt: new Date().toISOString(), filters, history: [], prices: [] };
+  seriesCache.set(key, { expiresAt: now + CACHE_TTL_MS, value: empty });
+  return empty;
 }
 
 export async function fallbackForecastResponse(input: {
