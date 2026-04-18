@@ -40,6 +40,9 @@ coverage/
 # ── Uploaded media (dev fallback — use R2 in production) ──────
 public/uploads/
 
+# ── Compiled artifacts ─────────────────────────────────────────
+**/dist/
+
 # ── Misc ───────────────────────────────────────────────────────
 *.log
 npm-debug.log*
@@ -47,3 +50,4 @@ yarn-debug.log*
 yarn-error.log*
 .cache/
 .vercel
+.env*.local

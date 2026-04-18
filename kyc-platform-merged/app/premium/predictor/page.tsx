@@ -10,8 +10,8 @@ import { buildSeedOptions, buildSeedSummary, getSeedRecords, getSeedFetchedAt } 
 import { fallbackForecastResponse, fallbackQualityResponse, fallbackDriversResponse } from '@/lib/forecasting/fallback';
 
 export const metadata: Metadata = {
-  title: 'Price Predictor',
-  description: 'AI-assisted commodity price forecast based on Agmarknet mandi data. Research tool only — not financial advice.',
+  title: 'Price Predictor | KYC Agri',
+  description: 'Statistical commodity price forecast based on Agmarknet mandi data. Research tool only — not financial advice.',
 };
 
 export const dynamic = 'force-dynamic';
@@ -53,6 +53,26 @@ function buildMarketRows(records: ReturnType<typeof getSeedRecords>) {
     .slice(0, 20);
 }
 
+// ── Freshness helpers ─────────────────────────────────────────────────────────
+
+function dateFreshness(isoDate: string | null): { label: string; staleDays: number; dot: string } {
+  if (!isoDate) return { label: 'Unknown', staleDays: 999, dot: 'very-stale' };
+  const days = Math.floor((Date.now() - new Date(isoDate).getTime()) / 86_400_000);
+  if (days <= 1) return { label: 'Today',        staleDays: days, dot: '' };
+  if (days <= 3) return { label: `${days}d ago`, staleDays: days, dot: 'stale' };
+  if (days <= 7) return { label: `${days}d ago`, staleDays: days, dot: 'stale' };
+  return               { label: `${days}d ago`, staleDays: days, dot: 'very-stale' };
+}
+
+function confidenceLevel(smape: number | null): { label: string; cls: string } {
+  if (smape == null)    return { label: 'Unknown',  cls: 'pred-confidence-low' };
+  if (smape < 5)        return { label: 'High',     cls: 'pred-confidence-high' };
+  if (smape < 15)       return { label: 'Moderate', cls: 'pred-confidence-medium' };
+  return                       { label: 'Low',      cls: 'pred-confidence-low' };
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
 function PriceRangeBar({ min, current, max }: { min: number; current: number; max: number }) {
   const span = max - min || 1;
   const pct  = Math.min(100, Math.max(0, Math.round(((current - min) / span) * 100)));
@@ -62,9 +82,9 @@ function PriceRangeBar({ min, current, max }: { min: number; current: number; ma
         <div className="pred-range-fill" style={{ width: `${pct}%` }} />
         <div className="pred-range-marker" style={{ left: `${pct}%` }} />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--dim)', marginTop: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--dim)', marginTop: 8, gap: 4, flexWrap: 'wrap' }}>
         <span>{fmtCurrency(min)} <span style={{ fontSize: 10 }}>low</span></span>
-        <span style={{ color: 'var(--text)', fontWeight: 600 }}>
+        <span style={{ color: 'var(--text)', fontWeight: 600, textAlign: 'center' }}>
           {fmtCurrency(current)} <span style={{ color: 'var(--green)', fontSize: 10 }}>({pct}th pct)</span>
         </span>
         <span><span style={{ fontSize: 10 }}>high</span> {fmtCurrency(max)}</span>
@@ -74,26 +94,10 @@ function PriceRangeBar({ min, current, max }: { min: number; current: number; ma
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      fontSize: 10, color: 'var(--dim)', letterSpacing: '.07em',
-      textTransform: 'uppercase', fontWeight: 700, marginBottom: 10,
-    }}>
-      {children}
-    </div>
-  );
+  return <div className="pred-label">{children}</div>;
 }
 
-// ── Freshness helpers ─────────────────────────────────────────────────────────
-
-function dateFreshness(isoDate: string | null) {
-  if (!isoDate) return { label: 'Unknown', stale: true };
-  const days = Math.floor((Date.now() - new Date(isoDate).getTime()) / 86_400_000);
-  if (days <= 1) return { label: 'Today',         stale: false };
-  if (days <= 3) return { label: `${days}d ago`,  stale: false };
-  if (days <= 7) return { label: `${days}d ago`,  stale: true  };
-  return { label: `${days}d ago`, stale: true };
-}
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function PredictorPage({ searchParams }: Props) {
   noStore();
@@ -136,64 +140,102 @@ export default async function PredictorPage({ searchParams }: Props) {
     fallbackDriversResponse({ commodity, state, market: market || undefined, horizon }),
   ]);
 
-  // ── Derived values ────────────────────────────────────────────────────────
-  const tc    = trendColor(forecast.direction);
-  const arrow = forecast.direction === 'up' ? '↑' : forecast.direction === 'down' ? '↓' : '→';
+  // ── Derived display values ────────────────────────────────────────────────
+  const tc      = trendColor(forecast.direction);
+  const arrow   = forecast.direction === 'up' ? '↑' : forecast.direction === 'down' ? '↓' : '→';
   const maxMarketPrice = Math.max(...marketRows.map((r) => r.modal_price ?? 0), 1);
   const maxDriverImp   = Math.max(...drivers.top_features.map((f) => f.importance), 0.01);
 
   const dataDate   = summary.latestArrivalDate;
   const freshness  = dateFreshness(dataDate);
+  const conf       = confidenceLevel(forecast.meta.backtest.smape);
+  const isStale    = freshness.staleDays >= 3;
+  const isVeryStale = freshness.staleDays >= 7;
+
+  // ── Forecast summary text (honest, specific) ──────────────────────────────
+  const dataPoints = forecast.meta.data_points;
+  const smape      = forecast.meta.backtest.smape;
+  const endPoint   = forecast.forecast.at(-1);
+  const endDate    = endPoint ? new Date(endPoint.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : null;
+  const endPrice   = endPoint ? fmtCurrency(endPoint.point) : null;
+
+  let forecastText: string;
+  if (forecast.insufficient) {
+    forecastText = 'Not enough price data for this selection to generate a forecast. Try selecting All markets, or a major trading hub.';
+  } else if (forecast.direction === 'flat') {
+    forecastText = `${commodity} prices appear stable based on ${dataPoints} days of mandi data. The trend model projects minimal movement (${Math.abs(forecast.trend_pct).toFixed(1)}%) over the next ${horizon} days, hovering near ${fmtCurrency(forecast.latest_price)}/qtl.${smape != null ? ` Backtested error: ~${smape.toFixed(1)}% (sMAPE).` : ''}`;
+  } else {
+    const direction = forecast.direction === 'up' ? 'upward' : 'downward';
+    forecastText = `Based on ${dataPoints} days of Agmarknet data, the trend model projects a ${direction} move of ${Math.abs(forecast.trend_pct).toFixed(1)}% for ${commodity}${endDate && endPrice ? `, reaching ~${endPrice} by ${endDate}` : ''}.${smape != null ? ` Backtested accuracy: ~${smape.toFixed(1)}% error (sMAPE).` : ''} This is a statistical extrapolation — not a guaranteed outcome.`;
+  }
 
   return (
     <main className="predictor-shell">
 
       {/* ── Page header ──────────────────────────────────────────────────── */}
-      <div style={{ paddingBottom: 18, borderBottom: '1px solid var(--border)', marginBottom: 18 }}>
+      <div className="pred-header">
         <div className="pred-header-row">
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-              <h1 className="serif" style={{ fontSize: 'clamp(18px,3.5vw,24px)', margin: 0 }}>⚡ Price Predictor</h1>
-              <span className="badge badge-gold" style={{ fontSize: 10 }}>AI-assisted</span>
-              <span className="badge" style={{ color: tc, borderColor: `${tc}44`, background: `${tc}12`, fontSize: 11 }}>
-                {arrow} {forecast.direction === 'flat' ? 'Stable' : `${Math.abs(forecast.trend_pct).toFixed(1)}%`}
-              </span>
+
+          {/* Left: title + meta */}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="pred-title-row">
+              <h1 className="serif" style={{ fontSize: 'clamp(17px,3.5vw,23px)', margin: 0, fontWeight: 700 }}>
+                Price Predictor
+              </h1>
+              <span className="badge" style={{ fontSize: 10, color: 'var(--dim)' }}>Statistical</span>
+              {!forecast.insufficient && (
+                <span className="badge" style={{ color: tc, borderColor: `${tc}44`, background: `${tc}12`, fontSize: 11 }}>
+                  {arrow} {forecast.direction === 'flat' ? 'Stable' : `${Math.abs(forecast.trend_pct).toFixed(1)}%`}
+                </span>
+              )}
             </div>
-            <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0, lineHeight: 1.4 }}>
-              {horizon}-day horizon · {commodity}{state ? ` · ${state}` : ''}
+            <p style={{ color: 'var(--muted)', fontSize: 12.5, margin: 0, lineHeight: 1.4 }}>
+              {horizon}-day horizon · {commodity}{state ? ` · ${state}` : ''}{market ? ` · ${market}` : ''}
             </p>
           </div>
 
-          {/* Price + freshness */}
+          {/* Right: latest price + freshness */}
           <div className="pred-header-right">
-            <div className="pred-header-price" style={{ color: tc, lineHeight: 1, marginBottom: 4 }}>
+            <span className="pred-header-price" style={{ color: tc }}>
               {fmtCurrency(forecast.latest_price)}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 6 }}>
+            </span>
+            <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 6, whiteSpace: 'nowrap' }}>
               {forecast.latest_date ?? 'latest'} · {forecast.market}
             </div>
-            <div className={`pred-freshness`}>
-              <span className={`pred-freshness-dot${freshness.stale ? ' stale' : ''}`} />
-              Data: {dataDate ?? '—'} ({freshness.label})
+            <div className="pred-freshness">
+              <span className={`pred-freshness-dot${freshness.dot ? ` ${freshness.dot}` : ''}`} />
+              Source: {dataDate ?? '—'} ({freshness.label})
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── AI disclaimer ────────────────────────────────────────────────── */}
-      <div className="notice notice-yellow" style={{ marginBottom: 18, fontSize: 13, lineHeight: 1.6, padding: '10px 14px' }}>
-        <strong style={{ marginRight: 4 }}>AI overview:</strong>
-        This is an AI generated forecast analysis based on different data sources.
-        It is not financial advice. Kindly recheck and confirm before making any financial decisions.
+      {/* ── Stale data warning ────────────────────────────────────────────── */}
+      {isStale && (
+        <div className="pred-stale-banner">
+          <span className="pred-stale-icon">{isVeryStale ? '⛔' : '⚠️'}</span>
+          <span>
+            <strong style={{ color: 'var(--text)' }}>Data is {freshness.staleDays} days old.</strong>
+            {' '}Agmarknet updates daily — refresh typically runs after midnight IST.
+            {isVeryStale ? ' Forecast accuracy may be significantly reduced.' : ' Treat this forecast with extra caution.'}
+          </span>
+        </div>
+      )}
+
+      {/* ── Disclaimer ───────────────────────────────────────────────────── */}
+      <div className="notice notice-yellow" style={{ marginBottom: 16, fontSize: 12.5, lineHeight: 1.6, padding: '10px 14px' }}>
+        <strong style={{ marginRight: 4 }}>Research tool only.</strong>
+        Forecasts use Holt&rsquo;s double exponential smoothing on recent Agmarknet mandi data.
+        Not financial advice. Always verify with your local mandi before acting.
       </div>
 
-      {/* ── Two-column grid ──────────────────────────────────────────────── */}
+      {/* ── Main two-column layout ────────────────────────────────────────── */}
       <div className="predictor-grid">
 
-        {/* ── Sidebar ────────────────────────────────────────────────────── */}
-        <aside style={{ display: 'grid', gap: 14 }}>
+        {/* ── Sidebar (left on desktop, bottom on mobile) ─────────────────── */}
+        <aside style={{ display: 'grid', gap: 12 }}>
 
-          {/* Dependent filter form (client component) */}
+          {/* Filter card */}
           <PredictorFilters
             options={{
               commodities:    options.commodities,
@@ -205,36 +247,33 @@ export default async function PredictorPage({ searchParams }: Props) {
           />
 
           {/* Data status card */}
-          <div className="card" style={{ padding: '16px 18px' }}>
+          <div className="card" style={{ padding: '14px 16px' }}>
             <SectionLabel>Data status</SectionLabel>
             {([
-              ['Records',  summary.recordsCount.toLocaleString()],
-              ['Markets',  summary.marketsCount.toLocaleString()],
-              ['States',   options.states.length.toLocaleString()],
-              ['Latest',   summary.latestArrivalDate ?? '—'],
-              ['Model',    forecast.model_used],
+              ['Records',     summary.recordsCount.toLocaleString()],
+              ['Markets',     summary.marketsCount.toLocaleString()],
+              ['States',      options.states.length.toLocaleString()],
+              ['Latest data', summary.latestArrivalDate ?? '—'],
+              ['Data window', fetchedAt.slice(0, 10)],
+              ['Model',       'Holt smoothing'],
             ] as [string, string][]).map(([label, value]) => (
-              <div key={label} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 12,
-              }}>
-                <span style={{ color: 'var(--muted)' }}>{label}</span>
-                <span style={{
-                  fontWeight: 500, color: 'var(--text)', textAlign: 'right',
-                  maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>{value}</span>
+              <div key={label} className="pred-status-row">
+                <span className="pred-status-label">{label}</span>
+                <span className="pred-status-val">{value}</span>
               </div>
             ))}
-            <div style={{ marginTop: 10, fontSize: 11, color: 'var(--dim)', lineHeight: 1.5 }}>
-              Snapshot: {fetchedAt.slice(0, 10)}
-            </div>
+            {smape != null && (
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--dim)', lineHeight: 1.5 }}>
+                Backtest error: ~{smape.toFixed(1)}% sMAPE
+              </div>
+            )}
           </div>
         </aside>
 
-        {/* ── Main content ───────────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
+        {/* ── Main content ─────────────────────────────────────────────────── */}
+        <div className="pred-main" style={{ display: 'grid', gap: 14, minWidth: 0 }}>
 
-          {/* KPI cards — 2-col mobile (Range spans full width), 3-col 480px+ */}
+          {/* ── KPI cards ──────────────────────────────────────────────────── */}
           <div className="pred-kpi-grid">
             <div className="card metric-card">
               <div className="metric-label">Modal Price</div>
@@ -246,61 +285,56 @@ export default async function PredictorPage({ searchParams }: Props) {
             </div>
             <div className="card metric-card pred-kpi-wide">
               <div className="metric-label">Price Range</div>
-              <div className="metric-val" style={{ color: 'var(--muted)', fontSize: 'clamp(12px,3.5vw,17px)' }}>
+              <div className="metric-val" style={{ color: 'var(--muted)', fontSize: 'clamp(13px,3vw,18px)' }}>
                 {fmtCurrency(summary.avgMinPrice)} – {fmtCurrency(summary.avgMaxPrice)}
               </div>
             </div>
           </div>
 
-          {/* Price position gauge */}
+          {/* ── Price position gauge ────────────────────────────────────────── */}
           {summary.avgMinPrice != null && summary.avgMaxPrice != null && summary.avgModalPrice != null
            && summary.avgMaxPrice > summary.avgMinPrice && (
-            <div className="card" style={{ padding: '16px 20px' }}>
+            <div className="card" style={{ padding: '14px 18px' }}>
               <SectionLabel>Current price position</SectionLabel>
-              <PriceRangeBar min={summary.avgMinPrice} current={summary.avgModalPrice} max={summary.avgMaxPrice} />
+              <PriceRangeBar
+                min={summary.avgMinPrice}
+                current={summary.avgModalPrice}
+                max={summary.avgMaxPrice}
+              />
             </div>
           )}
 
-          {/* Forecast card */}
-          <div className="card-elevated pred-forecast-card" style={{ display: 'grid', gap: 20 }}>
+          {/* ── Forecast card ───────────────────────────────────────────────── */}
+          <div className="card-elevated pred-forecast-card" style={{ display: 'grid', gap: 18 }}>
 
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: 'Lora,serif', fontSize: 17, fontWeight: 600 }}>
+              <span style={{ fontFamily: 'Lora,serif', fontSize: 16, fontWeight: 700 }}>
                 {horizon}-Day Forecast
               </span>
               <span className="badge" style={{ color: tc, borderColor: `${tc}44`, background: `${tc}10` }}>
                 {arrow} {forecast.direction === 'flat' ? 'Stable' : `${Math.abs(forecast.trend_pct).toFixed(1)}%`}
               </span>
-              {forecast.meta.backtest.smape != null && (
+              {/* Confidence + backtest accuracy */}
+              <span className={`pred-confidence ${conf.cls}`}>{conf.label} confidence</span>
+              {smape != null && (
                 <span style={{ fontSize: 11, color: 'var(--dim)', marginLeft: 'auto' }}>
-                  sMAPE {forecast.meta.backtest.smape.toFixed(1)}%
+                  sMAPE {smape.toFixed(1)}%
                 </span>
               )}
             </div>
 
             {forecast.insufficient ? (
-              <div className="notice notice-gold">
-                {forecast.message || 'Insufficient history for this selection. Try a broader filter.'}
-              </div>
+              <div className="notice notice-gold">{forecast.message}</div>
             ) : (
               <>
-                {/* Summary text */}
-                <div style={{ padding: '12px 16px', background: 'var(--bg3)', borderRadius: 10, border: `1px solid ${tc}33` }}>
-                  <SectionLabel>What the model says</SectionLabel>
-                  <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.65, color: 'var(--text)' }}>
-                    {forecast.direction === 'flat'
-                      ? `${commodity} prices look stable. The model expects minimal movement over the next ${horizon} days, hovering near ${fmtCurrency(forecast.latest_price)}/quintal.`
-                      : `The model projects a ${forecast.direction === 'up' ? 'rise' : 'fall'} of ${Math.abs(forecast.trend_pct).toFixed(1)}% for ${commodity} over the next ${horizon} days`
-                        + (forecast.forecast.at(-1)
-                          ? `, reaching ~${fmtCurrency(forecast.forecast.at(-1)!.point)} by ${new Date(forecast.forecast.at(-1)!.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`
-                          : '.')
-                    }
-                    {forecast.meta.backtest.smape != null && ` Model error (sMAPE): ${forecast.meta.backtest.smape.toFixed(1)}%.`}
-                  </p>
+                {/* ── Model explanation ──────────────────────────────────────── */}
+                <div className="pred-model-box" style={{ borderLeft: `3px solid ${tc}55` }}>
+                  <SectionLabel>What the model shows</SectionLabel>
+                  <p style={{ margin: 0 }}>{forecastText}</p>
                 </div>
 
-                {/* Chart */}
+                {/* ── Chart ──────────────────────────────────────────────────── */}
                 {(forecast.history_series?.length ?? 0) > 0 && (
                   <div className="pred-chart-wrap">
                     <ForecastLineChart
@@ -313,47 +347,64 @@ export default async function PredictorPage({ searchParams }: Props) {
                   </div>
                 )}
 
-                {/* Day cards */}
+                {/* ── Day cards ──────────────────────────────────────────────── */}
                 <div>
                   <SectionLabel>Daily forecast</SectionLabel>
-                  <div className="pred-day-strip">
-                    {forecast.forecast.map((point) => {
-                      const diff      = point.point - (forecast.latest_price ?? point.point);
-                      const up        = diff >= 0;
-                      const pctChange = forecast.latest_price
-                        ? Math.abs((diff / forecast.latest_price) * 100) : 0;
-                      return (
-                        <div key={point.date} className="pred-day-card"
-                          style={{ border: `1px solid ${up ? 'rgba(76,175,80,.2)' : 'rgba(239,83,80,.15)'}` }}>
-                          <div className="pred-day-date">
-                            {new Date(point.date).toLocaleDateString('en-IN', { weekday: 'short' })}
-                            <br />
-                            {new Date(point.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  <div className="pred-day-strip-wrap">
+                    <div className="pred-day-strip">
+                      {forecast.forecast.map((point) => {
+                        const diff      = point.point - (forecast.latest_price ?? point.point);
+                        const up        = diff >= 0;
+                        const pctChange = forecast.latest_price
+                          ? Math.abs((diff / forecast.latest_price) * 100) : 0;
+                        return (
+                          <div
+                            key={point.date}
+                            className="pred-day-card"
+                            style={{ border: `1px solid ${up ? 'rgba(76,175,80,.2)' : 'rgba(239,83,80,.15)'}` }}
+                          >
+                            <div className="pred-day-date">
+                              {new Date(point.date).toLocaleDateString('en-IN', { weekday: 'short' })}
+                              <br />
+                              {new Date(point.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                            </div>
+                            <div className="pred-day-price">{fmtCurrency(point.point)}</div>
+                            <div className="pred-day-pct" style={{ color: up ? 'var(--green)' : 'var(--red)' }}>
+                              {up ? '↑' : '↓'} {pctChange.toFixed(1)}%
+                            </div>
+                            <div className="pred-day-range">
+                              {fmtCurrency(point.lower)}–{fmtCurrency(point.upper)}
+                            </div>
                           </div>
-                          <div className="pred-day-price">{fmtCurrency(point.point)}</div>
-                          <div className="pred-day-pct" style={{ color: up ? 'var(--green)' : 'var(--red)' }}>
-                            {up ? '↑' : '↓'} {pctChange.toFixed(1)}%
-                          </div>
-                          <div className="pred-day-range">
-                            {fmtCurrency(point.lower)}–{fmtCurrency(point.upper)}
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
-                {/* Before you act */}
+                {/* ── Interpretation guide ──────────────────────────────────── */}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-                  <SectionLabel>Before you act</SectionLabel>
+                  <SectionLabel>How to read this forecast</SectionLabel>
                   <div style={{ display: 'grid', gap: 10 }}>
                     {[
-                      { title: 'Cross-check locally.', body: 'Agmarknet data can lag 24–48 hours. Call your nearest mandi before acting.' },
-                      { title: 'Use the confidence band.', body: 'The shaded range in the chart shows uncertainty. Wider = less reliable.' },
-                      { title: 'Research tool only.', body: 'Not financial advice. Consult a qualified market expert before trading decisions.' },
+                      {
+                        title: 'Trend extrapolation, not prediction.',
+                        body: 'This uses Holt\'s double exponential smoothing on historical mandi prices. It captures recent momentum — it cannot predict weather events, policy changes, or supply shocks.',
+                      },
+                      {
+                        title: 'Wider band = more uncertainty.',
+                        body: `The shaded confidence range widens each day into the future. By day ${horizon}, treat the forecast as directional guidance only.`,
+                      },
+                      {
+                        title: 'Verify before acting.',
+                        body: 'Agmarknet data can lag 24–48 hours. Confirm prices with your nearest mandi or commission agent before making any trading or storage decision.',
+                      },
                     ].map((item) => (
-                      <div key={item.title} style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, paddingLeft: 14, borderLeft: `2px solid ${tc}55` }}>
-                        <strong style={{ color: 'var(--text)' }}>{item.title}</strong> {item.body}
+                      <div
+                        key={item.title}
+                        style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, paddingLeft: 12, borderLeft: `2px solid ${tc}50` }}
+                      >
+                        <strong style={{ color: 'var(--text)' }}>{item.title}</strong>{' '}{item.body}
                       </div>
                     ))}
                   </div>
@@ -362,11 +413,11 @@ export default async function PredictorPage({ searchParams }: Props) {
             )}
           </div>
 
-          {/* Bottom 3-panel grid */}
+          {/* ── Bottom analysis grid ────────────────────────────────────────── */}
           <div className="pred-bottom-grid">
 
             {/* Top markets */}
-            <div className="card" style={{ padding: '16px 18px' }}>
+            <div className="card" style={{ padding: '14px 16px' }}>
               <SectionLabel>Top markets — {commodity}</SectionLabel>
               {marketRows.length ? (
                 <div style={{ display: 'grid', gap: 10 }}>
@@ -374,7 +425,7 @@ export default async function PredictorPage({ searchParams }: Props) {
                     const barPct = Math.round(((row.modal_price ?? 0) / maxMarketPrice) * 100);
                     return (
                       <div key={row.market}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3, gap: 6 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2, gap: 6 }}>
                           <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
                             {row.market}
                           </div>
@@ -383,8 +434,8 @@ export default async function PredictorPage({ searchParams }: Props) {
                             {fmtCurrency(row.modal_price)}
                           </div>
                         </div>
-                        <div style={{ height: 3, background: 'var(--bg3)', borderRadius: 99, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${barPct}%`, background: 'var(--green)', opacity: 0.65, borderRadius: 99 }} />
+                        <div className="pred-bar-track">
+                          <div className="pred-bar-fill" style={{ width: `${barPct}%`, background: 'var(--green)' }} />
                         </div>
                       </div>
                     );
@@ -396,7 +447,7 @@ export default async function PredictorPage({ searchParams }: Props) {
             </div>
 
             {/* Data quality */}
-            <div className="card" style={{ padding: '16px 18px' }}>
+            <div className="card" style={{ padding: '14px 16px' }}>
               <SectionLabel>Data quality</SectionLabel>
               {(() => {
                 const dq         = quality.data_quality;
@@ -410,7 +461,7 @@ export default async function PredictorPage({ searchParams }: Props) {
                 return (
                   <div style={{ display: 'grid', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: rating.color }} />
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: rating.color, flexShrink: 0 }} />
                       <span style={{ fontWeight: 600, fontSize: 14, color: rating.color }}>{rating.label} quality</span>
                     </div>
                     <div>
@@ -421,8 +472,8 @@ export default async function PredictorPage({ searchParams }: Props) {
                         <div style={{ height: '100%', width: `${realPct}%`, background: rating.color, opacity: 0.8 }} />
                       </div>
                     </div>
-                    {[['Missing', dq.missing_days], ['Outliers', dq.outlier_days], ['Stale runs', dq.stale_days]].map(([l, v]) => (
-                      <div key={String(l)} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, borderBottom: '1px solid var(--border)', paddingBottom: 5 }}>
+                    {([['Missing', dq.missing_days], ['Outliers', dq.outlier_days], ['Stale runs', dq.stale_days]] as [string, number][]).map(([l, v]) => (
+                      <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, borderBottom: '1px solid var(--border)', paddingBottom: 5 }}>
                         <span style={{ color: 'var(--muted)' }}>{l}</span>
                         <span style={{ fontWeight: 600 }}>{v}</span>
                       </div>
@@ -438,32 +489,35 @@ export default async function PredictorPage({ searchParams }: Props) {
             </div>
 
             {/* Forecast drivers */}
-            <div className="card" style={{ padding: '16px 18px' }}>
-              <SectionLabel>Forecast drivers</SectionLabel>
+            <div className="card" style={{ padding: '14px 16px' }}>
+              <SectionLabel>Trend components</SectionLabel>
               <div style={{ display: 'grid', gap: 10 }}>
                 {drivers.top_features.slice(0, 5).map((feature) => {
                   const barPct  = Math.round((feature.importance / maxDriverImp) * 100);
                   const dColor  = feature.direction === 'positive' ? 'var(--green)' : feature.direction === 'negative' ? 'var(--red)' : 'var(--gold)';
                   const dirIcon = feature.direction === 'positive' ? '↑' : feature.direction === 'negative' ? '↓' : '→';
+                  const friendlyName = feature.feature_name
+                    .replace(/_/g, ' ')
+                    .replace(/\b\w/g, (c) => c.toUpperCase());
                   return (
                     <div key={feature.feature_name}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 3 }}>
                         <span style={{ color: 'var(--muted)', fontWeight: 500 }}>
-                          {feature.feature_name.replace(/_/g, ' ')}
+                          {friendlyName}
                         </span>
                         <span style={{ color: dColor, fontWeight: 700, fontSize: 11 }}>
                           {dirIcon} {(feature.importance * 100).toFixed(1)}%
                         </span>
                       </div>
-                      <div style={{ height: 3, background: 'var(--bg3)', borderRadius: 99, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${barPct}%`, background: dColor, opacity: 0.75 }} />
+                      <div className="pred-bar-track">
+                        <div className="pred-bar-fill" style={{ width: `${barPct}%`, background: dColor }} />
                       </div>
                     </div>
                   );
                 })}
                 {drivers.recent_error_band != null && (
                   <div style={{ fontSize: 11, color: 'var(--dim)', paddingTop: 6, borderTop: '1px solid var(--border)' }}>
-                    Recent error band: ±{drivers.recent_error_band.toFixed(1)}%
+                    Recent MAPE: ±{drivers.recent_error_band.toFixed(1)}%
                   </div>
                 )}
               </div>

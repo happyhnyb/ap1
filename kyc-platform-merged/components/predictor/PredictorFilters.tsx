@@ -58,12 +58,12 @@ export default function PredictorFilters({ options, current }: Props) {
   return (
     <div className="card pred-filter-card">
       {/* Header / toggle (toggle only active on mobile) */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: open ? 14 : 0 }}>
-        <div style={{ fontFamily: 'Lora,serif', fontSize: 15, fontWeight: 600 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: open ? 14 : 0, gap: 8 }}>
+        <div style={{ fontFamily: 'Lora,serif', fontSize: 15, fontWeight: 600, minWidth: 0 }}>
           Filters
-          {state && (
-            <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'inherit', fontWeight: 400 }}>
-              {' '}— {commodity || 'All'}, {state.split(' ')[0]}
+          {!open && state && (
+            <span style={{ fontSize: 11.5, color: 'var(--muted)', fontFamily: 'inherit', fontWeight: 400 }}>
+              {' '}— {commodity}, {state.length > 14 ? state.split(' ')[0] : state}
             </span>
           )}
         </div>
@@ -72,7 +72,11 @@ export default function PredictorFilters({ options, current }: Props) {
           type="button"
           onClick={() => setOpen((o) => !o)}
           className="pred-filter-toggle"
-          style={{ width: 'auto', padding: '4px 8px', fontSize: 12, color: 'var(--green)', fontWeight: 600 }}
+          style={{
+            width: 'auto', padding: '5px 10px', fontSize: 11, fontWeight: 600,
+            color: 'var(--green)', borderRadius: 6,
+            border: '1px solid rgba(76,175,80,.25)', background: 'rgba(76,175,80,.06)',
+          }}
           aria-expanded={open}
         >
           <span className="pred-filter-chevron">{open ? '▲ Close' : '▼ Change'}</span>
@@ -115,7 +119,7 @@ export default function PredictorFilters({ options, current }: Props) {
           <div className="form-group">
             <label className="form-label">
               Market
-              {state && availableMarkets.length > 0 && (
+              {state && (
                 <span style={{ color: 'var(--dim)', fontWeight: 400, marginLeft: 4 }}>
                   ({availableMarkets.length})
                 </span>
@@ -126,8 +130,11 @@ export default function PredictorFilters({ options, current }: Props) {
               className={selectClass}
               value={market}
               onChange={(e) => setMarket(e.target.value)}
+              disabled={state !== '' && availableMarkets.length === 0}
             >
-              <option value="">All markets</option>
+              <option value="">
+                {state && availableMarkets.length === 0 ? 'No markets for this state' : 'All markets'}
+              </option>
               {availableMarkets.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
@@ -155,17 +162,7 @@ export default function PredictorFilters({ options, current }: Props) {
         </form>
       </div>
 
-      {/* On desktop: always show body via CSS, so the toggle's data-open doesn't matter */}
-      <style>{`
-        @media (min-width: 900px) {
-          .pred-filter-body-wrap { display: block !important; }
-          .pred-filter-chevron   { display: none !important; }
-        }
-        @media (max-width: 899px) {
-          .pred-filter-body-wrap[data-open="false"] { display: none; }
-          .pred-filter-body-wrap[data-open="true"]  { display: block; }
-        }
-      `}</style>
+      {/* Desktop/mobile show/hide handled by globals.css .pred-filter-body-wrap rules */}
     </div>
   );
 }

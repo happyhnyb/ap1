@@ -608,162 +608,282 @@ a:hover .post-thumb img {
 }
 
 /* ════════════════════════════════════════════════════════
-   PREDICTOR — mobile-first, desktop-optimised
+   PREDICTOR — mobile-first, premium agri-fintech
 ════════════════════════════════════════════════════════ */
+
+/* ── Shell ──────────────────────────────────────────── */
 .predictor-shell {
-  width: 100%; max-width: 1280px; margin: 0 auto;
-  padding: 16px 14px 60px;
+  width: 100%; max-width: 1320px; margin: 0 auto;
+  padding: 12px 12px 36px;
 }
+@media (min-width: 480px)  { .predictor-shell { padding: 16px 16px 48px; } }
 @media (min-width: 640px)  { .predictor-shell { padding: 20px 20px 60px; } }
 @media (min-width: 900px)  { .predictor-shell { padding: 28px 28px 80px; } }
 @media (min-width: 1200px) { .predictor-shell { padding: 36px 40px 100px; } }
 
-/* Two-column grid: sidebar + content */
+/* ── Two-column grid: sidebar left + content right ───── */
 .predictor-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 14px;
+  gap: 12px;
   align-items: start;
 }
 @media (min-width: 900px) {
-  .predictor-grid {
-    grid-template-columns: 280px 1fr;
-    gap: 24px;
-  }
+  .predictor-grid { grid-template-columns: 260px 1fr; gap: 22px; }
 }
 @media (min-width: 1200px) {
-  .predictor-grid {
-    grid-template-columns: 300px 1fr;
-    gap: 28px;
-  }
+  .predictor-grid { grid-template-columns: 290px 1fr; gap: 28px; }
 }
 
-/* On mobile: main content first, sidebar (filters) at bottom */
+/* On mobile: content before sidebar */
 @media (max-width: 899px) {
   .predictor-grid > aside { order: 10; }
-  .predictor-grid > div   { order: 1; }
+  .predictor-grid > .pred-main  { order: 1; }
 }
 
-/* ── Metric cards ──────────────────────────────────────── */
-.metric-card { padding: 12px 13px; display: grid; gap: 3px; min-width: 0; }
-@media (min-width: 640px)  { .metric-card { padding: 16px 18px; gap: 4px; } }
-@media (min-width: 1200px) { .metric-card { padding: 20px 22px; } }
-
-.metric-val   {
-  font-size: 15px; font-weight: 700; font-family: Lora,serif; line-height: 1.1;
-  word-break: break-word; overflow-wrap: anywhere;
+/* ── Page header ─────────────────────────────────────── */
+.pred-header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
 }
-.metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-@media (min-width: 480px)  { .metric-val { font-size: 19px; } }
-@media (min-width: 640px)  { .metric-val { font-size: 23px; } }
-@media (min-width: 900px)  { .metric-val { font-size: 26px; } }
-
-/* ── KPI 3-col grid (responsive) ───────────────────────── */
-/* Mobile: 2 col — Modal + Markets side by side; Range spans full width */
-.pred-kpi-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.pred-kpi-wide { grid-column: 1 / -1; }
-@media (min-width: 480px) {
-  .pred-kpi-grid { grid-template-columns: repeat(3,1fr); gap: 10px; }
-  .pred-kpi-wide { grid-column: auto; }
-}
-@media (min-width: 640px) { .pred-kpi-grid { gap: 12px; } }
-
-/* ── Chart block ────────────────────────────────────────── */
-.pred-chart-block { width: 100%; overflow: hidden; }
-.pred-chart-legend {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 10px; flex-wrap: wrap;
-}
-.pred-chart-title  { font-family: Lora,serif; font-size: 13px; font-weight: 600; color: var(--text); flex-shrink: 0; }
-.pred-chart-legend-items { display: flex; gap: 10px; font-size: 11px; color: var(--dim); flex-wrap: wrap; }
-@media (max-width: 599px) {
-  .pred-chart-legend { flex-direction: column; align-items: flex-start; gap: 6px; }
-  .pred-chart-title  { font-size: 12px; }
-  .pred-chart-legend-items { margin-left: 0 !important; font-size: 10px; gap: 8px; }
-}
-
-/* ── Day cards ──────────────────────────────────────────── */
-.pred-day-card {
-  padding: 10px 11px; background: var(--bg3); border-radius: 12px;
-  flex-shrink: 0; scroll-snap-align: start;
-  min-width: 90px;
-}
-.pred-day-date  { font-size: 10px; color: var(--dim); line-height: 1.4; }
-.pred-day-price { font-weight: 700; font-size: 14px; font-family: Lora,serif; margin: 5px 0 2px; color: var(--text); }
-.pred-day-pct   { font-size: 11px; font-weight: 600; }
-/* Range (CI low–high) hidden on mobile — chart already shows the band */
-.pred-day-range { font-size: 10px; color: var(--dim); margin-top: 2px; display: none; }
-@media (min-width: 480px) {
-  .pred-day-card  { min-width: 120px; padding: 12px 13px; }
-  .pred-day-price { font-size: 16px; }
-  .pred-day-pct   { font-size: 12px; }
-  .pred-day-range { display: block; }
-}
-@media (min-width: 900px) {
-  .pred-day-strip { flex-wrap: wrap; overflow-x: visible; }
-  .pred-day-card  { flex: 0 0 calc(20% - 8px); min-width: unset; }
-  .pred-day-price { font-size: 16px; }
-  .pred-day-range { display: block; }
-}
-
-/* ── Predictor page header ─────────────────────────────── */
 .pred-header-row {
   display: flex; align-items: flex-start;
-  justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  justify-content: space-between; gap: 16px;
 }
-.pred-header-price {
-  font-size: clamp(28px, 5vw, 40px);
-  font-family: Lora,serif; font-weight: 700; line-height: 1;
-}
-/* Right block (price + freshness) — right-aligned on desktop, left on mobile */
+/* Right block — right-aligned on desktop, stacked on mobile */
 .pred-header-right {
   text-align: right;
   flex-shrink: 0;
 }
 @media (max-width: 599px) {
-  .pred-header-row  { flex-direction: column; gap: 8px; }
-  .pred-header-right { text-align: left; width: 100%; flex-shrink: unset; }
-  .pred-header-price { font-size: clamp(26px,8vw,34px); }
+  .pred-header-row   { flex-direction: column; gap: 10px; }
+  .pred-header-right {
+    text-align: left; width: 100%; flex-shrink: unset;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
 }
 
-/* ── Forecast card internals ──────────────────────────── */
-.pred-forecast-card { padding: 20px; }
-@media (min-width: 640px)  { .pred-forecast-card { padding: 24px; } }
+.pred-title-row {
+  display: flex; align-items: center;
+  gap: 8px; flex-wrap: wrap; margin-bottom: 5px;
+}
+.pred-header-price {
+  font-family: Lora, serif; font-weight: 700; line-height: 1;
+  font-size: clamp(26px, 5vw, 38px);
+  display: block; margin-bottom: 4px;
+}
+@media (max-width: 599px) {
+  .pred-header-price { font-size: clamp(24px, 7.5vw, 32px); margin-bottom: 0; }
+}
+
+/* ── Stale-data banner ───────────────────────────────── */
+.pred-stale-banner {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 14px; border-radius: 10px;
+  background: rgba(255,179,0,.07); border: 1px solid rgba(255,179,0,.22);
+  margin-bottom: 14px; font-size: 13px; color: #ffd54f; line-height: 1.55;
+}
+.pred-stale-icon { font-size: 15px; flex-shrink: 0; padding-top: 1px; }
+
+/* ── Freshness badge ─────────────────────────────────── */
+.pred-freshness {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--dim);
+  padding: 4px 10px; border-radius: 99px;
+  border: 1px solid var(--border); background: var(--bg3);
+}
+.pred-freshness-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(76,175,80,.2);
+}
+.pred-freshness-dot.stale {
+  background: var(--gold);
+  box-shadow: 0 0 0 2px rgba(255,179,0,.2);
+}
+.pred-freshness-dot.very-stale {
+  background: var(--red);
+  box-shadow: 0 0 0 2px rgba(239,83,80,.2);
+}
+
+/* ── Section label ───────────────────────────────────── */
+.pred-label {
+  font-size: 10px; color: var(--dim); letter-spacing: .07em;
+  text-transform: uppercase; font-weight: 700; margin-bottom: 10px;
+}
+
+/* ── Metric / KPI cards ──────────────────────────────── */
+.pred-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.pred-kpi-wide { grid-column: 1 / -1; }
+@media (min-width: 480px) {
+  .pred-kpi-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .pred-kpi-wide { grid-column: auto; }
+}
+@media (min-width: 640px) { .pred-kpi-grid { gap: 12px; } }
+
+.metric-card {
+  padding: 12px 13px; display: flex;
+  flex-direction: column; gap: 4px; min-width: 0;
+}
+@media (min-width: 480px) { .metric-card { padding: 14px 16px; } }
+@media (min-width: 640px) { .metric-card { padding: 16px 18px; } }
+@media (min-width: 1200px) { .metric-card { padding: 18px 20px; } }
+
+.metric-label {
+  font-size: 10px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.metric-val {
+  font-family: Lora, serif; font-weight: 700; line-height: 1.1;
+  word-break: break-word; overflow-wrap: anywhere;
+  font-size: clamp(16px, 4vw, 22px);
+}
+@media (min-width: 480px) { .metric-val { font-size: clamp(18px, 3.5vw, 24px); } }
+@media (min-width: 640px) { .metric-val { font-size: clamp(20px, 3vw, 26px); } }
+@media (min-width: 900px) { .metric-val { font-size: clamp(20px, 2.2vw, 28px); } }
+
+/* ── Range gauge ─────────────────────────────────────── */
+.pred-range-track {
+  position: relative; height: 6px;
+  background: var(--bg3); border-radius: 99px; overflow: visible;
+}
+.pred-range-fill {
+  position: absolute; left: 0; top: 0; height: 100%;
+  background: linear-gradient(90deg, var(--green3, #2e7d32), var(--green));
+  border-radius: 99px;
+  transition: width .5s cubic-bezier(.22,1,.36,1);
+}
+.pred-range-marker {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--green); border: 2px solid var(--bg2);
+  box-shadow: 0 0 0 3px rgba(76,175,80,.25);
+}
+
+/* ── Forecast card ───────────────────────────────────── */
+.pred-forecast-card { padding: 16px; }
+@media (min-width: 480px) { .pred-forecast-card { padding: 20px; } }
+@media (min-width: 640px) { .pred-forecast-card { padding: 24px; } }
 @media (min-width: 1200px) { .pred-forecast-card { padding: 28px 32px; } }
 
-/* ── Bottom info grid ─────────────────────────────────── */
+/* ── Model explanation box ───────────────────────────── */
+.pred-model-box {
+  padding: 12px 14px; border-radius: 10px;
+  background: var(--bg3);
+  font-size: 13.5px; line-height: 1.65; color: var(--text);
+}
+@media (min-width: 640px) { .pred-model-box { padding: 14px 16px; font-size: 14px; } }
+
+/* ── Confidence chip ─────────────────────────────────── */
+.pred-confidence {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; padding: 3px 9px; border-radius: 99px;
+  border: 1px solid;
+}
+.pred-confidence-high   { color: var(--green); border-color: rgba(76,175,80,.35);  background: var(--green-glow); }
+.pred-confidence-medium { color: var(--gold);  border-color: rgba(255,179,0,.35);  background: var(--gold-glow); }
+.pred-confidence-low    { color: var(--red);   border-color: rgba(239,83,80,.35);  background: var(--red-glow); }
+
+/* ── Chart container — let ForecastLineChart control its own height ── */
+.pred-chart-wrap {
+  width: 100%; overflow: hidden;
+  /* No fixed height — the chart component's internal clamp() handles this */
+}
+.pred-chart-wrap .recharts-responsive-container { width: 100% !important; }
+
+/* ── Chart legend ────────────────────────────────────── */
+.pred-chart-block { width: 100%; overflow: hidden; min-width: 0; }
+.pred-chart-legend {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  gap: 10px; margin-bottom: 10px; flex-wrap: wrap;
+}
+.pred-chart-title {
+  font-family: Lora, serif; font-size: 14px; font-weight: 600;
+  color: var(--text); flex-shrink: 0;
+}
+.pred-chart-legend-items {
+  display: flex; gap: 12px; font-size: 11px; color: var(--dim); flex-wrap: wrap;
+  align-items: center;
+}
+@media (max-width: 599px) {
+  .pred-chart-legend { gap: 6px; }
+  .pred-chart-title  { font-size: 12px; }
+  .pred-chart-legend-items { font-size: 10px; gap: 8px; }
+}
+
+/* ── Day-card strip ──────────────────────────────────── */
+.pred-day-strip-wrap {
+  position: relative;
+}
+/* Scroll fade hint on right edge (mobile only) */
+.pred-day-strip-wrap::after {
+  content: '';
+  position: absolute; right: 0; top: 0; bottom: 6px;
+  width: 32px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--bg2));
+  border-radius: 0 11px 11px 0;
+  z-index: 1;
+}
+@media (min-width: 900px) {
+  .pred-day-strip-wrap::after { display: none; }
+}
+
+.pred-day-strip {
+  display: flex; gap: 8px;
+  overflow-x: auto; scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px; scrollbar-width: none;
+}
+.pred-day-strip::-webkit-scrollbar { display: none; }
+@media (min-width: 900px) {
+  .pred-day-strip { flex-wrap: wrap; overflow-x: visible; }
+}
+
+.pred-day-card {
+  padding: 9px 10px; background: var(--bg3); border-radius: 11px;
+  flex-shrink: 0; scroll-snap-align: start; min-width: 84px;
+}
+.pred-day-date  { font-size: 10px; color: var(--dim); line-height: 1.4; }
+.pred-day-price {
+  font-weight: 700; font-size: 13px; font-family: Lora, serif;
+  margin: 4px 0 2px; color: var(--text); word-break: break-word;
+}
+.pred-day-pct   { font-size: 11px; font-weight: 600; }
+/* CI range hidden on mobile — chart shows the band */
+.pred-day-range { font-size: 9px; color: var(--dim); margin-top: 2px; display: none; }
+@media (min-width: 480px) {
+  .pred-day-card  { min-width: 110px; padding: 11px 12px; }
+  .pred-day-price { font-size: 15px; }
+  .pred-day-pct   { font-size: 12px; }
+  .pred-day-range { display: block; }
+}
+@media (min-width: 900px) {
+  .pred-day-card  { flex: 1 1 calc(14.28% - 8px); min-width: unset; max-width: 128px; }
+  .pred-day-price { font-size: 15px; }
+  .pred-day-range { display: block; }
+}
+
+/* ── Bottom 3-panel info grid ────────────────────────── */
 .pred-bottom-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 14px;
-  align-items: start;
+  gap: 12px; align-items: start;
 }
-@media (min-width: 600px) {
-  .pred-bottom-grid { grid-template-columns: 1fr 1fr; }
-}
-@media (min-width: 900px) {
-  .pred-bottom-grid { grid-template-columns: 1.3fr 1fr 1fr; }
-}
+@media (min-width: 600px) { .pred-bottom-grid { grid-template-columns: 1fr 1fr; gap: 14px; } }
+@media (min-width: 900px) { .pred-bottom-grid { grid-template-columns: 1.3fr 1fr 1fr; gap: 16px; } }
 
-/* ── Day-card strip ───────────────────────────────────── */
-.pred-day-strip {
-  display: flex; gap: 10px;
-  overflow-x: auto; scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 6px;
-  scrollbar-width: none;
-}
-.pred-day-strip::-webkit-scrollbar { display: none; }
-
-/* ── Filter sidebar ───────────────────────────────────── */
-.pred-filter-card { padding: 18px; }
-@media (min-width: 900px) {
-  .pred-filter-card { position: sticky; top: 80px; }
-}
+/* ── Sidebar / filter card ────────────────────────────── */
+.pred-filter-card { padding: 16px; }
+@media (min-width: 480px)  { .pred-filter-card { padding: 18px; } }
+@media (min-width: 900px)  { .pred-filter-card { position: sticky; top: 80px; } }
 
 /* Filter collapse (mobile only) */
 .pred-filter-toggle {
@@ -780,52 +900,24 @@ a:hover .post-thumb img {
   .pred-filter-body-wrap[data-open="false"] { display: none; }
 }
 
-/* ── Section label ───────────────────────────────────── */
-.pred-label {
-  font-size: 10px; color: var(--dim); letter-spacing: .07em;
-  text-transform: uppercase; font-weight: 700; margin-bottom: 10px;
+/* ── Data-status row ─────────────────────────────────── */
+.pred-status-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px;
+}
+.pred-status-label { color: var(--muted); }
+.pred-status-val   {
+  font-weight: 500; color: var(--text); text-align: right;
+  max-width: 58%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* ── Range gauge ─────────────────────────────────────── */
-.pred-range-track {
-  position: relative; height: 6px;
-  background: var(--bg3); border-radius: 99px; overflow: visible;
+/* ── Mini bar (market list) ──────────────────────────── */
+.pred-bar-track {
+  height: 3px; background: var(--bg3); border-radius: 99px; overflow: hidden;
 }
-.pred-range-fill {
-  position: absolute; left: 0; top: 0; height: 100%;
-  background: linear-gradient(90deg, var(--green3,#2e7d32), var(--green));
-  border-radius: 99px;
-  transition: width .5s cubic-bezier(.22,1,.36,1);
+.pred-bar-fill {
+  height: 100%; border-radius: 99px; opacity: 0.65;
 }
-.pred-range-marker {
-  position: absolute; top: 50%; transform: translate(-50%, -50%);
-  width: 13px; height: 13px; border-radius: 50%;
-  background: var(--green); border: 2px solid var(--bg2);
-  box-shadow: 0 0 0 3px rgba(76,175,80,.25);
-}
-
-/* ── Chart container — responsive height ────────────────── */
-.pred-chart-wrap {
-  width: 100%; overflow: hidden;
-  height: 220px;
-}
-@media (min-width: 640px)  { .pred-chart-wrap { height: 260px; } }
-@media (min-width: 900px)  { .pred-chart-wrap { height: 300px; } }
-.pred-chart-wrap .recharts-responsive-container { width: 100% !important; }
-
-/* ── Freshness badge ─────────────────────────────────── */
-.pred-freshness {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 11px; color: var(--dim);
-  padding: 4px 10px; border-radius: 99px;
-  border: 1px solid var(--border); background: var(--bg3);
-}
-.pred-freshness-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--green); flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(76,175,80,.2);
-}
-.pred-freshness-dot.stale { background: var(--gold); box-shadow: 0 0 0 2px rgba(255,179,0,.2); }
 
 /* ════════════════════════════════════════════════════════
    ADMIN
