@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // standalone output only for Docker — Vercel/Netlify handle bundling themselves
@@ -57,4 +59,22 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org:     process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Only upload source maps in CI/Vercel
+  silent: !process.env.CI,
+
+  // Don't upload source maps if DSN isn't set (dev / missing config)
+  sourcemaps: {
+    disable: !process.env.SENTRY_DSN && !process.env.NEXT_PUBLIC_SENTRY_DSN,
+  },
+
+  // Avoid tree-shaking Sentry out of edge runtime
+  widenClientFileUpload: true,
+
+  // Don't add Sentry's own performance SDK automatically (keep bundle small)
+  autoInstrumentServerFunctions: false,
+  disableLogger: true,
+});
