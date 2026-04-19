@@ -67,13 +67,14 @@ export async function runCopilot(
       model: process.env.OPENAI_MODEL_COPILOT ?? 'gpt-5-mini',
       schema: copilotResponseSchema,
       cacheKey: `copilot:${persona}:${query}`,
+      maxOutputTokens: 600,
       messages: [
         { role: 'system', content: systemPrompt },
         {
           role: 'user',
           content: [
             buildCopilotPrompt(query, persona),
-            `Retrieved internal citations:\n${JSON.stringify(retrieval.results, null, 2)}`,
+            `Citations:\n${JSON.stringify(retrieval.results.slice(0, 4).map((c) => ({ id: c.id, title: c.title, excerpt: c.excerpt?.slice(0, 200), score: c.score })))}`,
           ].join('\n\n'),
         },
       ],
@@ -136,6 +137,20 @@ export async function explainForecast(input: {
     };
   }
 
+  // Slim payload — only the numbers the model needs, no pretty-printing
+  const slimForecast = {
+    commodity: forecast.commodity, market: forecast.market, state: forecast.state,
+    latest_price: forecast.latest_price, direction: forecast.direction,
+    trend_pct: Number(forecast.trend_pct?.toFixed(1)),
+    horizon_days: input.horizon ?? 7, model: forecast.model_used,
+    smape: forecast.meta.backtest.smape,
+    forecast_end: forecast.forecast.at(-1),
+  };
+  const slimDrivers = drivers.top_features.slice(0, 4).map((f) => ({
+    name: f.feature_name, dir: f.direction, imp: Number(f.importance?.toFixed(2)),
+  }));
+  const slimCitations = citations.slice(0, 3).map((c) => ({ title: c.title, excerpt: c.excerpt?.slice(0, 150) }));
+
   try {
     const response = await createStructuredResponse<{
       answer: string;
@@ -147,16 +162,17 @@ export async function explainForecast(input: {
       model: process.env.OPENAI_MODEL_COPILOT ?? 'gpt-5-mini',
       schema: forecastExplanationSchema,
       cacheKey: `forecast-explain:${JSON.stringify(input)}`,
+      maxOutputTokens: 450,
       messages: [
         { role: 'system', content: systemPrompt },
         {
           role: 'user',
           content: [
-            buildForecastExplanationPrompt(input.question || `Explain the latest forecast for ${input.commodity}.`),
-            `Trusted forecast payload:\n${JSON.stringify(forecast, null, 2)}`,
-            `Trusted driver payload:\n${JSON.stringify(drivers, null, 2)}`,
-            `Retrieved citations:\n${JSON.stringify(citations, null, 2)}`,
-          ].join('\n\n'),
+            buildForecastExplanationPrompt(input.question || `Explain the forecast for ${input.commodity}.`),
+            `Forecast:${JSON.stringify(slimForecast)}`,
+            `Drivers:${JSON.stringify(slimDrivers)}`,
+            `Citations:${JSON.stringify(slimCitations)}`,
+          ].join('\n'),
         },
       ],
     });
@@ -221,16 +237,16 @@ export async function summarizeArticle(slug: string, persona: AIPersona): Promis
       model: process.env.OPENAI_MODEL_SUMMARY ?? 'gpt-5-nano',
       schema: articleSummarySchema,
       cacheKey: `article-summary:${persona}:${slug}`,
+      maxOutputTokens: 350,
       messages: [
         { role: 'system', content: systemPrompt },
         {
           role: 'user',
           content: [
             buildSummaryPrompt(post.title, persona),
-            `Article excerpt:\n${post.excerpt}`,
-            `Article body:\n${post.body}`,
-            `Citations:\n${JSON.stringify(citations, null, 2)}`,
-          ].join('\n\n'),
+            `Excerpt:${post.excerpt?.slice(0, 400)}`,
+            `Body:${post.body.slice(0, 1400)}`,
+          ].join('\n'),
         },
       ],
     });

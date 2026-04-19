@@ -148,7 +148,7 @@ export default function ForecastLineChart({ historySeries, forecast, latestPrice
 
   return (
     <div className="pr-chart">
-      {/* Minimal legend row */}
+      {/* Legend */}
       <div className="pr-chart-legend">
         <span className="pr-chart-legend-item">
           <span className="pr-legend-line pr-legend-history" />
@@ -166,7 +166,7 @@ export default function ForecastLineChart({ historySeries, forecast, latestPrice
 
       <div className="pr-chart-canvas">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={merged} margin={{ top: 4, right: 4, left: -8, bottom: 4 }}>
+          <ComposedChart data={merged} margin={{ top: 4, right: 6, left: -10, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
 
             <XAxis
@@ -184,10 +184,15 @@ export default function ForecastLineChart({ historySeries, forecast, latestPrice
               axisLine={false}
               tickFormatter={tickFmt}
               domain={[domainMin, domainMax]}
-              width={48}
+              width={46}
             />
 
-            <Tooltip content={<CustomTooltip />} />
+            {/* Tooltip positioned to never clip on mobile */}
+            <Tooltip
+              content={<CustomTooltip />}
+              allowEscapeViewBox={{ x: false, y: true }}
+              position={{ y: 0 }}
+            />
 
             <Area
               dataKey="lower"
@@ -205,7 +210,7 @@ export default function ForecastLineChart({ historySeries, forecast, latestPrice
               dataKey="band"
               stroke="none"
               fill={dirColor}
-              fillOpacity={0.12}
+              fillOpacity={0.11}
               stackId="ci"
               dot={false}
               activeDot={false}
@@ -229,10 +234,10 @@ export default function ForecastLineChart({ historySeries, forecast, latestPrice
             <Line
               dataKey="forecast"
               stroke={dirColor}
-              strokeWidth={2.25}
+              strokeWidth={2}
               strokeDasharray="6 3"
-              dot={{ r: 2.5, fill: dirColor, stroke: 'var(--bg2)', strokeWidth: 1.5 }}
-              activeDot={{ r: 5, fill: dirColor, stroke: 'var(--bg2)', strokeWidth: 2 }}
+              dot={{ r: 2, fill: dirColor, stroke: 'var(--bg2)', strokeWidth: 1.5 }}
+              activeDot={{ r: 4, fill: dirColor, stroke: 'var(--bg2)', strokeWidth: 2 }}
               connectNulls={false}
               name="Forecast"
               isAnimationActive={false}

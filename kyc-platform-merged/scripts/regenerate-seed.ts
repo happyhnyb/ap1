@@ -20,10 +20,12 @@ import { join } from 'path';
 
 const RESOURCE_ID = '9ef84268-d588-465a-a308-a864a43d0070';
 const BASE_URL    = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
-const FETCH_LIMIT = 500;
-const MAX_PAGES   = 10; // 5 000 records/day maximum
-const DAYS_BACK   = 45;
-const BATCH_SIZE  = 5;  // days fetched in parallel per batch
+const FETCH_LIMIT  = 500;
+const MAX_PAGES    = 10;  // 5 000 records/day maximum
+const DAYS_BACK    = 45;
+const DAY_DELAY_MS = 800; // pause between days to avoid 429
+const RETRY_MAX    = 3;   // retries per page on 429
+const RETRY_DELAY  = 2000; // ms between retries
 
 const API_KEY = process.env.DATAGOV_API_KEY;
 if (!API_KEY) {
@@ -111,6 +113,10 @@ function isoToAgmarknet(iso: string): string {
 
 // ── API fetch ─────────────────────────────────────────────────────────────────
 
+async function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function fetchPage(
   offset: number,
   arrivalDate: string,
@@ -122,10 +128,20 @@ async function fetchPage(
   url.searchParams.set('offset',  String(offset));
   url.searchParams.set('filters[arrival_date]', arrivalDate);
 
-  const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json() as { records?: Record<string, unknown>[]; total?: number };
-  return { records: data.records ?? [], total: Number(data.total ?? 0) };
+  for (let attempt = 0; attempt <= RETRY_MAX; attempt++) {
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+    if (res.status === 429) {
+      if (attempt < RETRY_MAX) {
+        await sleep(RETRY_DELAY * (attempt + 1));
+        continue;
+      }
+      throw new Error(`HTTP 429 after ${RETRY_MAX} retries`);
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json() as { records?: Record<string, unknown>[]; total?: number };
+    return { records: data.records ?? [], total: Number(data.total ?? 0) };
+  }
+  throw new Error('fetchPage: unreachable');
 }
 
 type SeedRow = {
@@ -156,15 +172,15 @@ async function fetchDay(isoDate: string): Promise<SeedRow[]> {
   const pages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(first.total / FETCH_LIMIT)));
   let allRaw = [...first.records];
 
-  if (pages > 1) {
-    const rest = await Promise.all(
-      Array.from({ length: pages - 1 }, (_, i) =>
-        fetchPage((i + 1) * FETCH_LIMIT, agDate)
-          .then((p) => p.records)
-          .catch(() => [] as Record<string, unknown>[])
-      )
-    );
-    allRaw = [...allRaw, ...rest.flat()];
+  // Sequential page fetches to avoid 429
+  for (let p = 1; p < pages; p++) {
+    try {
+      await sleep(300);
+      const page = await fetchPage(p * FETCH_LIMIT, agDate);
+      allRaw.push(...page.records);
+    } catch {
+      // skip page on repeated failure
+    }
   }
 
   return allRaw
@@ -194,22 +210,18 @@ async function fetchDay(isoDate: string): Promise<SeedRow[]> {
 async function main() {
   // Dates: oldest first so progress is chronological
   const dates = Array.from({ length: DAYS_BACK }, (_, i) => getIsoDate(DAYS_BACK - 1 - i));
-  console.log(`[regenerate-seed] Fetching ${DAYS_BACK} days (${dates[0]} → ${dates.at(-1)}) …`);
+  console.log(`[regenerate-seed] Fetching ${DAYS_BACK} days sequentially (${dates[0]} → ${dates.at(-1)}) …`);
 
   const allRows: SeedRow[] = [];
 
-  for (let i = 0; i < dates.length; i += BATCH_SIZE) {
-    const batch = dates.slice(i, i + BATCH_SIZE);
-    process.stdout.write(`  batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(dates.length / BATCH_SIZE)}: ${batch[0]} → ${batch.at(-1)} … `);
-    const results = await Promise.all(batch.map(fetchDay));
-    const count = results.reduce((n, rows) => n + rows.length, 0);
-    allRows.push(...results.flat());
-    console.log(`${count} rows`);
-
-    // Small delay between batches to be polite to the API
-    if (i + BATCH_SIZE < dates.length) {
-      await new Promise((r) => setTimeout(r, 300));
-    }
+  for (let i = 0; i < dates.length; i++) {
+    const date = dates[i];
+    process.stdout.write(`  [${i + 1}/${dates.length}] ${date} … `);
+    const rows = await fetchDay(date);
+    allRows.push(...rows);
+    console.log(`${rows.length} rows`);
+    // Pause between days to respect rate limits
+    if (i + 1 < dates.length) await sleep(DAY_DELAY_MS);
   }
 
   // Deduplicate by composite key

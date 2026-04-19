@@ -6,6 +6,7 @@ import PredictorPaywall from '@/components/predictor/PredictorPaywall';
 import PredictorFilters from '@/components/predictor/PredictorFilters';
 import ForecastLineChart from '@/components/predictor/ForecastLineChart';
 import PredictorTabs from '@/components/predictor/PredictorTabs';
+import AIAnalysisBar from '@/components/predictor/AIAnalysisBar';
 import { canAccessPredictorRelease, getPredictorReleaseMode } from '@/lib/product/predictor';
 import { buildSeedOptions, buildSeedSummary, getSeedRecords, getSeedFetchedAt } from '@/lib/forecasting/data/seed';
 import { fallbackForecastResponse, fallbackQualityResponse, fallbackDriversResponse } from '@/lib/forecasting/fallback';
@@ -63,23 +64,23 @@ function dateFreshness(isoDate: string | null): { label: string; staleDays: numb
 }
 
 function confidenceLevel(smape: number | null): { label: string; cls: string } {
-  if (smape == null) return { label: 'Unknown',  cls: 'p-conf-low' };
-  if (smape < 5)     return { label: 'High',     cls: 'p-conf-high' };
-  if (smape < 15)    return { label: 'Moderate', cls: 'p-conf-medium' };
-  return                    { label: 'Low',      cls: 'p-conf-low' };
+  if (smape == null) return { label: 'Unknown',  cls: 'pr-conf-low' };
+  if (smape < 5)     return { label: 'High',     cls: 'pr-conf-high' };
+  if (smape < 15)    return { label: 'Moderate', cls: 'pr-conf-medium' };
+  return                    { label: 'Low',      cls: 'pr-conf-low' };
 }
 
 export default async function PredictorPage({ searchParams }: Props) {
   noStore();
 
-  const session    = await getEffectiveServerSession();
-  const mode       = getPredictorReleaseMode();
-  const hasAccess  = canAccessPredictorRelease(session);
+  const session   = await getEffectiveServerSession();
+  const mode      = getPredictorReleaseMode();
+  const hasAccess = canAccessPredictorRelease(session);
 
   if (!session && mode === 'auth') redirect('/login?from=/premium/predictor');
   if (!hasAccess) return <PredictorPaywall />;
 
-  // ── Resolve filters ───────────────────────────────────────────────────────
+  // ── Resolve filters ────────────────────────────────────────────────────────
   const params  = (await searchParams) ?? {};
   const options = buildSeedOptions();
 
@@ -97,7 +98,7 @@ export default async function PredictorPage({ searchParams }: Props) {
   const market    = reqMarket && markets.includes(reqMarket) ? reqMarket : '';
   const horizon   = Number.isFinite(reqHorizon) ? Math.min(14, Math.max(3, reqHorizon)) : 14;
 
-  // ── Fetch data ─────────────────────────────────────────────────────────────
+  // ── Fetch data ──────────────────────────────────────────────────────────────
   const filters     = { commodity, state, market: market || undefined };
   const seedRecords = getSeedRecords(filters);
   const summary     = buildSeedSummary(filters);
@@ -111,12 +112,12 @@ export default async function PredictorPage({ searchParams }: Props) {
   ]);
 
   // ── Derived values ─────────────────────────────────────────────────────────
-  const tc      = trendColor(forecast.direction);
-  const arrow   = forecast.direction === 'up' ? '↑' : forecast.direction === 'down' ? '↓' : '→';
-  const smape   = forecast.meta.backtest.smape;
-  const conf    = confidenceLevel(smape);
-  const fresh   = dateFreshness(summary.latestArrivalDate);
-  const isStale = fresh.staleDays >= 3;
+  const tc          = trendColor(forecast.direction);
+  const arrow       = forecast.direction === 'up' ? '↑' : forecast.direction === 'down' ? '↓' : '→';
+  const smape       = forecast.meta.backtest.smape;
+  const conf        = confidenceLevel(smape);
+  const fresh       = dateFreshness(summary.latestArrivalDate);
+  const isStale     = fresh.staleDays >= 3;
   const isVeryStale = fresh.staleDays >= 7;
 
   const maxMarketPrice = Math.max(...marketRows.map((r) => r.modal_price ?? 0), 1);
@@ -131,112 +132,103 @@ export default async function PredictorPage({ searchParams }: Props) {
   if (forecast.insufficient) {
     forecastText = 'Not enough price data for this selection. Try All markets or a major hub.';
   } else if (forecast.direction === 'flat') {
-    forecastText = `${commodity} prices appear stable across ${dataPoints} days of Agmarknet data. The model projects minimal movement (${Math.abs(forecast.trend_pct).toFixed(1)}%) over ${horizon} days near ${fmt(forecast.latest_price)}/qtl.${smape != null ? ` Backtest error: ~${smape.toFixed(1)}% sMAPE.` : ''}`;
+    forecastText = `${dataPoints} days of data show minimal movement (${Math.abs(forecast.trend_pct).toFixed(1)}%) — prices appear stable near ${fmt(forecast.latest_price)}/qtl.`;
   } else {
     const dir = forecast.direction === 'up' ? 'upward' : 'downward';
-    forecastText = `${dataPoints} days of data show a ${dir} trend of ${Math.abs(forecast.trend_pct).toFixed(1)}%${endDate && endPrice ? `, reaching ~${endPrice} by ${endDate}` : ''}.${smape != null ? ` Backtest error: ~${smape.toFixed(1)}% sMAPE.` : ''} Statistical extrapolation — not a guaranteed outcome.`;
+    forecastText = `${dataPoints} days of data show a ${dir} trend of ${Math.abs(forecast.trend_pct).toFixed(1)}%${endDate && endPrice ? `, reaching ~${endPrice} by ${endDate}` : ''}.`;
   }
+
+  const filterOptions = {
+    commodities:    options.commodities,
+    states:         options.states,
+    markets:        options.markets,
+    marketsByState: options.marketsByState,
+  };
+  const filterCurrent = { commodity, state, market, horizon };
 
   return (
     <main className="pr-shell">
 
-      {/* ── Filter bar (full width, always visible) ── */}
-      <PredictorFilters
-        options={{
-          commodities:    options.commodities,
-          states:         options.states,
-          markets:        options.markets,
-          marketsByState: options.marketsByState,
-        }}
-        current={{ commodity, state, market, horizon }}
-      />
+      {/* ── 1. Sticky context top bar ── */}
+      <div className="pr-topbar">
+        <div className="pr-topbar-left">
+          <span className="pr-topbar-commodity">{commodity}</span>
+          <span className="pr-topbar-sep" aria-hidden="true">·</span>
+          <span className="pr-topbar-loc">{state}{market ? ` · ${market}` : ''}</span>
+        </div>
+        <a href="#pr-filters" className="pr-topbar-edit" aria-label="Edit filters">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+            <path d="M7.5 1.5 9.5 3.5 3.5 9.5H1.5v-2L7.5 1.5Z" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinejoin="round"/>
+          </svg>
+          Filters
+        </a>
+      </div>
 
-      {/* ── Stale banner ── */}
+      {/* ── 2. Stale banner — slim ── */}
       {isStale && (
         <div className="pr-stale">
-          <span className="pr-stale-icon">{isVeryStale ? '⛔' : '⚠️'}</span>
-          <span>
-            <strong>Data is {fresh.staleDays} days old.</strong>
-            {' '}Agmarknet updates daily — refresh runs after midnight IST.
-            {isVeryStale ? ' Forecast accuracy may be reduced.' : ''}
+          <span className={`pr-stale-dot${isVeryStale ? ' very-stale' : ''}`} />
+          <span className="pr-stale-text">
+            Data {fresh.staleDays}d old · Refreshes after midnight IST
           </span>
         </div>
       )}
 
       <div className="pr-layout">
 
-        {/* ══ MAIN COLUMN ══════════════════════════════════════════════════ */}
+        {/* ══ Main column ══════════════════════════════════════════════ */}
         <div className="pr-main">
 
-          {/* ── Hero card: commodity + price + trend + freshness ── */}
-          <div className="card pr-hero">
-            <div className="pr-hero-top">
-              <div className="pr-hero-commodity">{commodity}</div>
-              <div className="pr-hero-meta">
-                {state}{market ? ` · ${market}` : ''} &nbsp;·&nbsp; {horizon}-day forecast
-              </div>
-            </div>
-
-            <div className="pr-hero-mid">
-              <div className="pr-hero-price-block">
-                <span className="pr-hero-label">Current price</span>
-                <span className="pr-hero-price" style={{ color: tc }}>
-                  {fmt(forecast.latest_price)}
-                </span>
-                <span className="pr-hero-unit">/ quintal</span>
-              </div>
-
-              <div className="pr-hero-stats">
+          {/* ── 3. Hero — price dominant, 2-row compact ── */}
+          <div className="card-elevated pr-hero">
+            <div className="pr-price-row">
+              <span className="pr-price">{fmt(forecast.latest_price)}</span>
+              <div className="pr-hero-chips">
                 {!forecast.insufficient && (
-                  <div className="pr-stat">
-                    <span className="pr-stat-label">Trend</span>
-                    <span className="pr-stat-val" style={{ color: tc }}>
-                      {arrow} {forecast.direction === 'flat' ? 'Stable' : `${Math.abs(forecast.trend_pct).toFixed(1)}%`}
-                    </span>
-                  </div>
-                )}
-                <div className="pr-stat">
-                  <span className="pr-stat-label">Confidence</span>
-                  <span className={`pr-conf ${conf.cls}`}>{conf.label}</span>
-                </div>
-                <div className="pr-stat">
-                  <span className="pr-stat-label">Data</span>
-                  <span className="pr-stat-val">
-                    <span className={`pr-fresh-dot${fresh.cls ? ` ${fresh.cls}` : ''}`} />
-                    {fresh.label}
+                  <span className="pr-trend-chip" style={{ color: tc, borderColor: `${tc}55`, background: `${tc}0d` }}>
+                    {arrow} {forecast.direction === 'flat' ? 'Stable' : `${Math.abs(forecast.trend_pct).toFixed(1)}%`}
                   </span>
-                </div>
+                )}
+                {smape != null && (
+                  <span className={`pr-conf-chip ${conf.cls}`}>{conf.label}</span>
+                )}
               </div>
             </div>
 
             <div className="pr-hero-foot">
-              <span className="pr-disclaimer">Research tool only · Not financial advice · Agmarknet data</span>
-              {smape != null && (
-                <span className="pr-smape">sMAPE {smape.toFixed(1)}%</span>
-              )}
+              <div className="pr-hero-meta-line">
+                <span className="pr-fresh-pill">
+                  <span className={`pr-fresh-dot${fresh.cls ? ` ${fresh.cls}` : ''}`} />
+                  {fresh.label}
+                </span>
+                <span className="pr-hero-sep" aria-hidden="true">·</span>
+                <span className="pr-unit">/qtl{forecast.latest_date ? ` · ${forecast.latest_date}` : ''}</span>
+                {smape != null && (
+                  <>
+                    <span className="pr-hero-sep" aria-hidden="true">·</span>
+                    <span className="pr-smape">sMAPE {smape.toFixed(1)}%</span>
+                  </>
+                )}
+              </div>
+              <p className="pr-disclaimer">Research only · Not financial advice · Agmarknet data</p>
             </div>
           </div>
 
-          {/* ── Forecast chart + day strip card ── */}
-          <div className="card-elevated pr-forecast">
-
-            <div className="pr-section-head">
-              <span className="pr-section-title">{horizon}-Day Forecast</span>
-              <span className="pr-trend-badge" style={{ color: tc, borderColor: `${tc}44`, background: `${tc}10` }}>
-                {arrow} {forecast.direction === 'flat' ? 'Stable' : `${Math.abs(forecast.trend_pct).toFixed(1)}%`}
-              </span>
+          {/* ── 4. Chart card ── */}
+          <div className="card-elevated pr-chart-card">
+            <div className="pr-chart-header">
+              <span className="pr-chart-title">{horizon}-Day Forecast</span>
+              {!forecast.insufficient && (
+                <span className="pr-trend-badge" style={{ color: tc, borderColor: `${tc}44`, background: `${tc}10` }}>
+                  {arrow} {forecast.direction === 'flat' ? 'Stable' : `${Math.abs(forecast.trend_pct).toFixed(1)}%`}
+                </span>
+              )}
             </div>
 
             {forecast.insufficient ? (
-              <div className="notice notice-gold">{forecast.message}</div>
+              <div className="notice notice-gold pr-narrative">{forecast.message}</div>
             ) : (
               <>
-                {/* Forecast narrative — collapsible on mobile */}
-                <p className="pr-narrative" style={{ borderLeftColor: `${tc}55` }}>
-                  {forecastText}
-                </p>
-
-                {/* Chart */}
                 {(forecast.history_series?.length ?? 0) > 0 && (
                   <ForecastLineChart
                     historySeries={forecast.history_series!}
@@ -247,10 +239,21 @@ export default async function PredictorPage({ searchParams }: Props) {
                   />
                 )}
 
-                {/* Day strip */}
-                <div className="pr-days-section">
-                  <div className="pr-days-label">Daily breakdown</div>
-                  <div className="pr-days-scroll">
+                <p className="pr-narrative" style={{ borderLeftColor: `${tc}55` }}>
+                  {forecastText}
+                </p>
+
+                <AIAnalysisBar
+                  commodity={commodity}
+                  state={state}
+                  market={market || undefined}
+                  horizon={horizon}
+                />
+
+                {/* ── 5. Forecast day strip ── */}
+                <div className="pr-strip">
+                  <div className="pr-strip-label">Daily breakdown</div>
+                  <div className="pr-strip-scroll">
                     <div className="pr-days">
                       {forecast.forecast.map((pt) => {
                         const diff = pt.point - (forecast.latest_price ?? pt.point);
@@ -263,7 +266,7 @@ export default async function PredictorPage({ searchParams }: Props) {
                           <div
                             key={pt.date}
                             className="pr-day"
-                            style={{ borderTopColor: up ? 'rgba(76,175,80,.35)' : 'rgba(239,83,80,.25)' }}
+                            style={{ borderTopColor: up ? 'rgba(76,175,80,.4)' : 'rgba(239,83,80,.3)' }}
                           >
                             <div className="pr-day-header">
                               <span className="pr-day-name">{dayName}</span>
@@ -273,7 +276,6 @@ export default async function PredictorPage({ searchParams }: Props) {
                             <div className="pr-day-pct" style={{ color: up ? 'var(--green)' : 'var(--red)' }}>
                               {up ? '↑' : '↓'} {pct.toFixed(1)}%
                             </div>
-                            <div className="pr-day-range">{fmt(pt.lower)}–{fmt(pt.upper)}</div>
                           </div>
                         );
                       })}
@@ -281,21 +283,20 @@ export default async function PredictorPage({ searchParams }: Props) {
                   </div>
                 </div>
 
-                {/* How to read */}
                 <details className="pr-guide">
                   <summary className="pr-guide-toggle">How to read this forecast</summary>
                   <div className="pr-guide-body">
                     <div className="pr-guide-item">
-                      <strong>Trend extrapolation, not prediction.</strong>
-                      {' '}Holt&rsquo;s double exponential smoothing on Agmarknet prices. Cannot predict weather, policy, or supply shocks.
+                      <strong>Trend extrapolation, not prediction.</strong>{' '}
+                      Holt&rsquo;s double exponential smoothing on Agmarknet prices. Cannot predict weather, policy, or supply shocks.
                     </div>
                     <div className="pr-guide-item">
-                      <strong>Wider band = more uncertainty.</strong>
-                      {' '}By day {horizon}, treat as directional guidance only.
+                      <strong>Wider band = more uncertainty.</strong>{' '}
+                      By day {horizon}, treat as directional guidance only.
                     </div>
                     <div className="pr-guide-item">
-                      <strong>Verify before acting.</strong>
-                      {' '}Agmarknet can lag 24–48h. Confirm with your local mandi before any trading decision.
+                      <strong>Verify before acting.</strong>{' '}
+                      Agmarknet can lag 24–48h. Confirm with your local mandi before any trading decision.
                     </div>
                   </div>
                 </details>
@@ -303,7 +304,7 @@ export default async function PredictorPage({ searchParams }: Props) {
             )}
           </div>
 
-          {/* ── Analysis tabs: markets / quality / drivers ── */}
+          {/* ── 6. Tabbed insights — markets / quality / drivers ── */}
           <PredictorTabs
             commodity={commodity}
             marketRows={marketRows}
@@ -314,10 +315,29 @@ export default async function PredictorPage({ searchParams }: Props) {
             recentErrorBand={drivers.recent_error_band ?? null}
           />
 
+          {/* ── 7. Filters (mobile: below content; desktop: hidden, in sidebar) ── */}
+          <section id="pr-filters" className="pr-mobile-filters">
+            <PredictorFilters
+              options={filterOptions}
+              current={filterCurrent}
+              isMobile
+            />
+          </section>
+
         </div>
 
-        {/* ══ META COLUMN (desktop only) ═══════════════════════════════════ */}
-        <aside className="pr-meta">
+        {/* ══ Desktop sidebar ══════════════════════════════════════════ */}
+        <aside className="pr-sidebar">
+
+          <div className="card pr-meta-card">
+            <div className="pr-meta-title">Filters</div>
+            <PredictorFilters
+              options={filterOptions}
+              current={filterCurrent}
+              isSidebar
+            />
+          </div>
+
           <div className="card pr-meta-card">
             <div className="pr-meta-title">Data status</div>
             {([
@@ -337,6 +357,7 @@ export default async function PredictorPage({ searchParams }: Props) {
               <div className="pr-meta-smape">Backtest: ~{smape.toFixed(1)}% sMAPE</div>
             )}
           </div>
+
         </aside>
 
       </div>

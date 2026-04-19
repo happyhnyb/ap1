@@ -147,8 +147,9 @@ export async function createStructuredResponse<T>(args: {
   tools?: AIToolDefinition[];
   cacheKey?: string;
   store?: boolean;
+  maxOutputTokens?: number;
 }): Promise<T> {
-  const { model, messages, schema, tools = [], cacheKey, store = env.OPENAI_STORE_RESPONSES } = args;
+  const { model, messages, schema, tools = [], cacheKey, store = env.OPENAI_STORE_RESPONSES, maxOutputTokens } = args;
   if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not configured.');
 
   if (cacheKey) {
@@ -156,7 +157,8 @@ export async function createStructuredResponse<T>(args: {
     if (cached) return cached;
   }
 
-  const shouldStore = store || tools.length > 0;
+  // Only store when tools are involved — storing plain structured responses adds latency with no benefit
+  const shouldStore = tools.length > 0 ? (store || env.OPENAI_STORE_RESPONSES) : false;
 
   const toolSpecs = tools.map((tool) => ({
     type: 'function',
@@ -179,6 +181,7 @@ export async function createStructuredResponse<T>(args: {
       text: { format: schemaFormat(schema) },
     };
 
+    if (maxOutputTokens) payload.max_output_tokens = maxOutputTokens;
     if (toolSpecs.length) payload.tools = toolSpecs;
     if (previousResponseId) payload.previous_response_id = previousResponseId;
 
