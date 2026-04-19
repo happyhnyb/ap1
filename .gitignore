@@ -1,0 +1,7 @@
+# Root-level gitignore for the Downloads repo
+# Prevent any .env files at any depth from being committed
+**/.env
+**/.env.local
+**/.env.*.local
+**/*.env.local
+**/secrets.*
