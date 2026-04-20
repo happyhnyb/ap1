@@ -70,4 +70,22 @@ describe('ForecastingEngine mandi resolution', () => {
     expect(result.insufficient).toBe(false);
     expect(result.market).toBe('Gulabbagh APMC');
   });
+
+  it('marks quality warnings when data snapshots are stale', async () => {
+    loadRecordsMock.mockResolvedValueOnce({
+      records: makeRecords(),
+      fetchedAt: '2026-04-10T00:00:00.000Z',
+      source: 'snapshots',
+      snapshotCount: 35,
+    });
+
+    const engine = new ForecastingEngine();
+    const quality = await engine.quality({
+      commodity: 'Maize',
+      state: 'Bihar',
+      market: 'Gulabbagh APMC',
+    });
+
+    expect(quality.warnings.some((warning) => warning.toLowerCase().includes('stale'))).toBe(true);
+  });
 });

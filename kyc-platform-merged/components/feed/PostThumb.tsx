@@ -22,7 +22,7 @@ export function PostThumb({ label, src, className = 'post-thumb post-thumb-card'
           src={src}
           alt={label}
           fill
-          sizes="(max-width: 768px) 100vw, 50vw"
+          sizes="(max-width: 479px) 100vw, (max-width: 767px) 50vw, 400px"
           style={{ objectFit: 'cover' }}
           unoptimized={src.startsWith('/')}
         />

@@ -203,14 +203,14 @@ h1,h2,h3,h4 { line-height: 1.2; color: var(--text); }
   display: flex; align-items: center; gap: 8px;
   font-weight: 700; flex-shrink: 0; line-height: 1;
 }
-.logo img { width: 36px; height: 36px; }
-@media (min-width: 480px) { .logo img { width: 44px; height: 44px; } }
-.logo-text { display: flex; flex-direction: column; }
-.logo-text span:first-child  { font-family: Lora,serif; font-size: 13px; color: var(--text2); }
-.logo-text span:last-child   { font-family: Lora,serif; font-size: 13px; color: var(--green); font-style: italic; }
+.logo img { width: 42px; height: 42px; }
+@media (min-width: 480px) { .logo img { width: 52px; height: 52px; } }
+.logo-text { display: flex; flex-direction: column; justify-content: center; }
+.logo-text span:first-child  { font-family: Lora,serif; font-size: 14px; color: var(--text2); line-height: 1.2; }
+.logo-text span:last-child   { font-family: Lora,serif; font-size: 14px; color: var(--green); font-style: italic; line-height: 1.2; }
 @media (min-width: 480px) {
   .logo-text span:first-child,
-  .logo-text span:last-child { font-size: 15px; }
+  .logo-text span:last-child { font-size: 16px; }
 }
 
 /* Desktop nav */
@@ -482,13 +482,13 @@ a:hover .post-thumb img {
   transform: scale(1.035);
   filter: saturate(1.04);
 }
-.post-thumb-hero { min-height: 180px; border-radius: var(--radius); }
-.post-thumb-side { min-height: 110px; }
-.post-thumb-card { min-height: 140px; }
+.post-thumb-hero { aspect-ratio: 16/9; border-radius: var(--radius); }
+.post-thumb-side { aspect-ratio: 4/3; }
+.post-thumb-card { aspect-ratio: 3/2; }
 @media (min-width: 768px) {
-  .post-thumb-hero { min-height: 240px; }
-  .post-thumb-side { min-height: 130px; }
-  .post-thumb-card { min-height: 160px; }
+  .post-thumb-hero { max-height: 340px; }
+  .post-thumb-side { max-height: 200px; }
+  .post-thumb-card { max-height: 240px; }
 }
 
 .post-title { font-family: Lora,serif; line-height: 1.15; }
@@ -531,6 +531,8 @@ a:hover .post-thumb img {
 ════════════════════════════════════════════════════════ */
 .article-shell { width: 100%; max-width: 860px; margin: 20px auto 60px; padding: 0 16px; }
 @media (min-width: 768px) { .article-shell { padding: 0 24px; margin-top: 32px; } }
+.article-content-pad { padding: 20px 16px 28px; }
+@media (min-width: 768px) { .article-content-pad { padding: 28px 32px 36px; } }
 .article-body { font-size: 16px; }
 @media (min-width: 768px) { .article-body { font-size: 17.5px; } }
 .article-body h2 { font-family: Lora,serif; font-size: 22px; margin: 36px 0 14px; }

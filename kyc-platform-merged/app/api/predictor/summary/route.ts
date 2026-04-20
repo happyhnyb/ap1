@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictorRelease, predictorAccessError } from '@/lib/product/predictor';
-import { getRecords, filterRecords, buildSummary, filtersFromQuery } from '@/lib/mandi/engine';
+import { filterRecords, buildSummary, filtersFromQuery } from '@/lib/mandi/engine';
 import { buildSeedSummary, getSeedRecords } from '@/lib/forecasting/data/seed';
+import { loadRecords } from '@/lib/forecasting/data/loader';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -19,14 +20,15 @@ export async function GET(req: NextRequest) {
 
   try {
     const filters = filtersFromQuery(q);
-    const seedRecords = getSeedRecords(filters);
-    if (seedRecords.length) {
-      return NextResponse.json(buildSeedSummary(filters));
+    const { records, fetchedAt } = await loadRecords({ commodity: filters.commodity, state: filters.state, market: filters.market });
+    const filtered = filterRecords(records, filters);
+    if (filtered.length) {
+      return NextResponse.json(buildSummary(filtered, fetchedAt));
     }
 
-    const { records, fetchedAt } = await getRecords();
-    const filtered = filterRecords(records, filters);
-    return NextResponse.json(buildSummary(filtered, fetchedAt));
+    const seedRecords = getSeedRecords(filters);
+    if (seedRecords.length) return NextResponse.json(buildSeedSummary(filters));
+    return NextResponse.json({ error: 'Predictor service unavailable.' }, { status: 503 });
   } catch {
     return NextResponse.json({ error: 'Predictor service unavailable.' }, { status: 503 });
   }

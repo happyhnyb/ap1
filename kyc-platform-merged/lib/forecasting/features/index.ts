@@ -1,36 +1,15 @@
 /**
  * Feature engineering for mandi price time series.
  *
- * Produces a FeatureMatrix (X, y, featureNames, dates) from a TimeSeries.
- * Each row corresponds to one training sample.
- *
- * Feature groups:
- *   [0-7]   Lag features:      lag_{1,2,3,5,7,14,21,28}
- *   [8-14]  Rolling stats:     roll3_{mean,std}, roll7_{mean,std}, roll14_{mean,std}, roll28_mean
- *   [15-16] Price ratios:      ratio_7, ratio_28
- *   [17-22] Seasonality:       dow_sin/cos, woy_sin/cos, month_sin/cos
- *   [23]    State average:     cross-mandi avg for same commodity+state on same date
- *   [24]    Horizon signal:    h / 14 (set externally per horizon)
- *   [25]    Weather hook:      placeholder (default 0)
- *   [26]    Policy hook:       placeholder (default 0)
- *
- * NaN convention: A feature is NaN when it cannot be computed (insufficient history).
- * The GBRT imputes NaN with training-column means before fitting.
+ * Features are horizon-safe: every row uses information available at the
+ * forecast origin only. Calendar features use the target date because the
+ * future calendar is known ex ante.
  */
 
 import type { TimeSeries, FeatureMatrix } from '../schema/types';
 
-// ── External feature hook interface ──────────────────────────────────────────
-
 export interface ExternalFeatureHooks {
-  /** Return a numeric weather anomaly score for a given date and state.
-   *  Positive = anomalous wet; negative = anomalous dry.
-   *  Return 0 when no data available. */
   weatherAnomalyScore(date: string, state: string): number;
-
-  /** Return a numeric policy/event score for a given date and commodity.
-   *  Examples: 1 for export ban, -1 for MSP hike.
-   *  Return 0 when no event. */
   policyEventScore(date: string, commodity_id: string): number;
 }
 
@@ -39,189 +18,203 @@ export const defaultHooks: ExternalFeatureHooks = {
   policyEventScore: () => 0,
 };
 
-// ── Feature names (canonical) ─────────────────────────────────────────────────
-
 export const FEATURE_NAMES = [
-  'lag_1', 'lag_2', 'lag_3', 'lag_5', 'lag_7', 'lag_14', 'lag_21', 'lag_28', // 0-7
-  'roll3_mean', 'roll3_std',       // 8-9
-  'roll7_mean', 'roll7_std',       // 10-11
-  'roll14_mean', 'roll14_std',     // 12-13
-  'roll28_mean',                   // 14
-  'price_ratio_7', 'price_ratio_28', // 15-16
-  'dow_sin', 'dow_cos',            // 17-18
-  'woy_sin', 'woy_cos',            // 19-20
-  'month_sin', 'month_cos',        // 21-22
-  'state_avg',                     // 23
-  'horizon_norm',                  // 24
-  'weather_anomaly',               // 25
-  'policy_event',                  // 26
+  'lag_1', 'lag_2', 'lag_3', 'lag_5', 'lag_7', 'lag_14', 'lag_21', 'lag_28',
+  'delta_1', 'delta_7', 'return_1', 'return_7', 'momentum_14',
+  'roll3_mean', 'roll7_mean', 'roll14_mean', 'roll28_mean',
+  'roll7_median', 'roll14_median',
+  'roll7_std', 'roll14_std', 'roll28_std',
+  'roll7_min', 'roll7_max', 'roll14_min', 'roll14_max',
+  'arrivals_lag_1', 'arrivals_roll7_mean', 'arrivals_roll14_mean',
+  'freshness_hours', 'missing_ratio_7',
+  'is_imputed_recent', 'is_outlier_recent', 'is_stale_recent', 'is_gap_recent',
+  'state_avg_lag1', 'spread_to_state_lag1',
+  'dow_sin', 'dow_cos', 'woy_sin', 'woy_cos', 'month_sin', 'month_cos',
+  'horizon_norm', 'weather_anomaly', 'policy_event',
 ] as const;
 
-export type FeatureName = typeof FEATURE_NAMES[number];
-export const N_FEATURES = FEATURE_NAMES.length; // 27
+export const N_FEATURES = FEATURE_NAMES.length;
 
 const LAG_OFFSETS = [1, 2, 3, 5, 7, 14, 21, 28];
 
-// ── Numeric helpers ───────────────────────────────────────────────────────────
-
-function nanMean(vals: (number | null)[], minObs = 1): number {
-  const clean = vals.filter((v): v is number => v !== null && Number.isFinite(v));
-  return clean.length >= minObs
-    ? clean.reduce((s, v) => s + v, 0) / clean.length
-    : NaN;
+function valid(values: (number | null)[]): number[] {
+  return values.filter((value): value is number => value !== null && Number.isFinite(value));
 }
 
-function nanStd(vals: (number | null)[], minObs = 2): number {
-  const clean = vals.filter((v): v is number => v !== null && Number.isFinite(v));
+function mean(values: (number | null)[], minObs = 1): number {
+  const clean = valid(values);
+  return clean.length >= minObs ? clean.reduce((sum, value) => sum + value, 0) / clean.length : NaN;
+}
+
+function median(values: (number | null)[], minObs = 1): number {
+  const clean = valid(values).sort((left, right) => left - right);
   if (clean.length < minObs) return NaN;
-  const mu = clean.reduce((s, v) => s + v, 0) / clean.length;
-  const variance = clean.reduce((s, v) => s + (v - mu) ** 2, 0) / (clean.length - 1);
-  return Math.sqrt(variance);
+  const mid = Math.floor(clean.length / 2);
+  return clean.length % 2 ? clean[mid] : (clean[mid - 1] + clean[mid]) / 2;
+}
+
+function std(values: (number | null)[], minObs = 2): number {
+  const clean = valid(values);
+  if (clean.length < minObs) return NaN;
+  const mu = clean.reduce((sum, value) => sum + value, 0) / clean.length;
+  const variance = clean.reduce((sum, value) => sum + (value - mu) ** 2, 0) / (clean.length - 1);
+  return Math.sqrt(Math.max(variance, 0));
+}
+
+function minValue(values: (number | null)[], minObs = 1): number {
+  const clean = valid(values);
+  return clean.length >= minObs ? Math.min(...clean) : NaN;
+}
+
+function maxValue(values: (number | null)[], minObs = 1): number {
+  const clean = valid(values);
+  return clean.length >= minObs ? Math.max(...clean) : NaN;
 }
 
 function weekOfYear(date: Date): number {
-  const jan1 = new Date(date.getFullYear(), 0, 1);
-  return Math.ceil(((date.getTime() - jan1.getTime()) / 86_400_000 + jan1.getDay() + 1) / 7);
+  const jan1 = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date.getTime() - jan1.getTime()) / 86_400_000 + jan1.getUTCDay() + 1) / 7);
 }
 
-// ── Core feature vector builder ───────────────────────────────────────────────
+function sliceWindow<T>(values: T[], endExclusive: number, window: number): T[] {
+  const start = Math.max(0, endExclusive - window);
+  return values.slice(start, endExclusive);
+}
 
-/**
- * Compute a single feature vector for time index `t` in the price series.
- * `prices[t]` is the value at date[t]; we use data up to prices[t-1] for features.
- *
- * @param prices     Full price array (may contain null for gaps)
- * @param dates      ISO date strings parallel to prices
- * @param t          Index into prices/dates for the CURRENT date (target is prices[t+h-1])
- * @param horizon    h (1–14): used for the horizon_norm feature
- * @param stateAvg   Pre-computed cross-mandi average for same commodity+state on date[t-1]
- * @param hooks      External feature hooks
- */
+function recentMissingRatio(ts: TimeSeries, endExclusive: number, window: number): number {
+  const slice = sliceWindow(ts.points, endExclusive, window);
+  if (!slice.length) return 0;
+  const missing = slice.filter((point) => point.modal_price === null).length;
+  return missing / slice.length;
+}
+
+function recentFlagRatio(
+  ts: TimeSeries,
+  endExclusive: number,
+  window: number,
+  predicate: (point: TimeSeries['points'][number]) => boolean,
+): number {
+  const slice = sliceWindow(ts.points, endExclusive, window);
+  if (!slice.length) return 0;
+  return slice.filter(predicate).length / slice.length;
+}
+
 function buildFeatureVector(
+  ts: TimeSeries,
   prices: (number | null)[],
+  arrivals: (number | null)[],
   dates: string[],
-  t: number,
+  anchorIndex: number,
   horizon: number,
-  stateAvg: number,
+  targetDate: string,
+  stateAverages: Map<string, number>,
   hooks: ExternalFeatureHooks,
 ): number[] {
-  const feat = new Array<number>(N_FEATURES).fill(NaN);
+  const features = new Array<number>(N_FEATURES).fill(NaN);
 
-  // ── Lag features ──────────────────────────────────────────────────────────
-  LAG_OFFSETS.forEach((k, fi) => {
-    const idx = t - k;
-    if (idx >= 0 && prices[idx] !== null) feat[fi] = prices[idx] as number;
+  LAG_OFFSETS.forEach((offset, featureIndex) => {
+    const priceIndex = anchorIndex - offset;
+    if (priceIndex >= 0 && prices[priceIndex] !== null) features[featureIndex] = prices[priceIndex] as number;
   });
 
-  // ── Rolling statistics (window ends at t-1 inclusive) ─────────────────────
-  const rollOffset = 8; // feat index offset for rolling stats
-  [3, 7, 14, 28].forEach((w, wi) => {
-    const start = t - w;
-    const slice = start >= 0 ? prices.slice(start, t) : prices.slice(0, t);
-    const minObs = Math.ceil(w / 2);
-    const mu  = nanMean(slice, minObs);
-    const std = nanStd(slice, Math.min(minObs, 2));
-    if (w <= 14) {
-      feat[rollOffset + wi * 2]     = mu;
-      feat[rollOffset + wi * 2 + 1] = std;
-    } else {
-      // roll28 occupies only 1 slot (no std at index 14)
-      feat[14] = mu;
-    }
-  });
+  const lag1 = features[0];
+  const lag2 = features[1];
+  const lag7 = features[4];
+  const lag14 = features[5];
 
-  // ── Price ratios ──────────────────────────────────────────────────────────
-  const lag1   = feat[0];  // lag_1
-  const roll7m = feat[10]; // roll7_mean
-  const roll28m= feat[14]; // roll28_mean
-  feat[15] = Number.isFinite(lag1) && Number.isFinite(roll7m)  && roll7m  > 0 ? (lag1 / roll7m)  - 1 : NaN;
-  feat[16] = Number.isFinite(lag1) && Number.isFinite(roll28m) && roll28m > 0 ? (lag1 / roll28m) - 1 : NaN;
+  features[8] = Number.isFinite(lag1) && Number.isFinite(lag2) ? lag1 - lag2 : NaN;
+  features[9] = Number.isFinite(lag1) && Number.isFinite(lag7) ? lag1 - lag7 : NaN;
+  features[10] = Number.isFinite(lag1) && Number.isFinite(lag2) && lag2 !== 0 ? (lag1 - lag2) / lag2 : NaN;
+  features[11] = Number.isFinite(lag1) && Number.isFinite(lag7) && lag7 !== 0 ? (lag1 - lag7) / lag7 : NaN;
+  features[12] = Number.isFinite(lag1) && Number.isFinite(lag14) && lag14 !== 0 ? (lag1 - lag14) / lag14 : NaN;
 
-  // ── Seasonality ───────────────────────────────────────────────────────────
-  const date = new Date(dates[t] + 'T00:00:00Z');
-  const dow   = date.getUTCDay();
-  const month = date.getUTCMonth() + 1; // 1-12
-  const woy   = weekOfYear(date);
+  const roll3 = sliceWindow(prices, anchorIndex, 3);
+  const roll7 = sliceWindow(prices, anchorIndex, 7);
+  const roll14 = sliceWindow(prices, anchorIndex, 14);
+  const roll28 = sliceWindow(prices, anchorIndex, 28);
 
-  feat[17] = Math.sin(2 * Math.PI * dow   / 7);
-  feat[18] = Math.cos(2 * Math.PI * dow   / 7);
-  feat[19] = Math.sin(2 * Math.PI * woy   / 52);
-  feat[20] = Math.cos(2 * Math.PI * woy   / 52);
-  feat[21] = Math.sin(2 * Math.PI * month / 12);
-  feat[22] = Math.cos(2 * Math.PI * month / 12);
+  features[13] = mean(roll3, 2);
+  features[14] = mean(roll7, 4);
+  features[15] = mean(roll14, 7);
+  features[16] = mean(roll28, 10);
+  features[17] = median(roll7, 4);
+  features[18] = median(roll14, 7);
+  features[19] = std(roll7, 4);
+  features[20] = std(roll14, 7);
+  features[21] = std(roll28, 10);
+  features[22] = minValue(roll7, 4);
+  features[23] = maxValue(roll7, 4);
+  features[24] = minValue(roll14, 7);
+  features[25] = maxValue(roll14, 7);
 
-  // ── Spatial (state average) ───────────────────────────────────────────────
-  feat[23] = Number.isFinite(stateAvg) ? stateAvg : NaN;
+  const arrivalsLagIndex = anchorIndex - 1;
+  if (arrivalsLagIndex >= 0 && arrivals[arrivalsLagIndex] !== null) features[26] = arrivals[arrivalsLagIndex] as number;
+  features[27] = mean(sliceWindow(arrivals, anchorIndex, 7), 2);
+  features[28] = mean(sliceWindow(arrivals, anchorIndex, 14), 4);
 
-  // ── Horizon signal ────────────────────────────────────────────────────────
-  feat[24] = horizon / 14;
+  features[29] = ts.points[Math.max(0, anchorIndex - 1)]?.freshness_hours ?? NaN;
+  features[30] = recentMissingRatio(ts, anchorIndex, 7);
+  features[31] = recentFlagRatio(ts, anchorIndex, 7, (point) => point.quality.is_imputed);
+  features[32] = recentFlagRatio(ts, anchorIndex, 14, (point) => point.quality.is_outlier);
+  features[33] = recentFlagRatio(ts, anchorIndex, 14, (point) => point.quality.is_stale);
+  features[34] = recentFlagRatio(ts, anchorIndex, 14, (point) => point.quality.is_price_gap);
 
-  // ── External hooks ────────────────────────────────────────────────────────
-  feat[25] = hooks.weatherAnomalyScore(dates[t], '');
-  feat[26] = hooks.policyEventScore(dates[t], '');
+  const anchorDate = dates[Math.max(0, anchorIndex - 1)];
+  const stateAvgLag = stateAverages.get(anchorDate ?? '') ?? NaN;
+  features[35] = stateAvgLag;
+  features[36] = Number.isFinite(lag1) && Number.isFinite(stateAvgLag) ? lag1 - stateAvgLag : NaN;
 
-  return feat;
+  const target = new Date(`${targetDate}T00:00:00Z`);
+  const dow = target.getUTCDay();
+  const woy = weekOfYear(target);
+  const month = target.getUTCMonth() + 1;
+  features[37] = Math.sin((2 * Math.PI * dow) / 7);
+  features[38] = Math.cos((2 * Math.PI * dow) / 7);
+  features[39] = Math.sin((2 * Math.PI * woy) / 52);
+  features[40] = Math.cos((2 * Math.PI * woy) / 52);
+  features[41] = Math.sin((2 * Math.PI * month) / 12);
+  features[42] = Math.cos((2 * Math.PI * month) / 12);
+
+  features[43] = horizon / 14;
+  features[44] = hooks.weatherAnomalyScore(anchorDate ?? targetDate, ts.state);
+  features[45] = hooks.policyEventScore(anchorDate ?? targetDate, ts.commodity_id);
+
+  return features;
 }
-
-// ── Public API ────────────────────────────────────────────────────────────────
 
 export interface BuildFeaturesOptions {
-  horizon: number;          // steps ahead to predict (1–14)
-  stateAverages?: Map<string, number>; // date → state avg modal price
+  horizon: number;
+  stateAverages?: Map<string, number>;
   hooks?: ExternalFeatureHooks;
-  minSamples?: number;      // reject series with fewer training samples
+  minSamples?: number;
 }
 
-/**
- * Build a FeatureMatrix for training/prediction.
- *
- * Each row t predicts prices[t + horizon - 1] using features computed from
- * prices[0..t-1].
- *
- * Minimum viable dataset:
- *   - At least lag_1 (1 day history), so t ≥ 1
- *   - Target must be non-null: prices[t + horizon - 1] must exist
- *
- * @param ts       Preprocessed TimeSeries
- * @param opts     Build options
- * @returns        FeatureMatrix ready for model training, or null if insufficient
- */
-export function buildFeatureMatrix(
-  ts: TimeSeries,
-  opts: BuildFeaturesOptions,
-): FeatureMatrix | null {
-  const { horizon, stateAverages = new Map(), hooks = defaultHooks, minSamples = 5 } = opts;
-  const prices = ts.points.map((p) => p.modal_price);
-  const dates  = ts.points.map((p) => p.date);
-  const n      = prices.length;
-
+export function buildFeatureMatrix(ts: TimeSeries, opts: BuildFeaturesOptions): FeatureMatrix | null {
+  const { horizon, stateAverages = new Map(), hooks = defaultHooks, minSamples = 8 } = opts;
+  const prices = ts.points.map((point) => point.modal_price);
+  const arrivals = ts.points.map((point) => point.arrivals);
+  const dates = ts.points.map((point) => point.date);
   const X: number[][] = [];
-  const y: number[]   = [];
+  const y: number[] = [];
   const rowDates: string[] = [];
 
-  for (let t = 1; t < n; t++) {
-    const targetIdx = t + horizon - 1;
-    if (targetIdx >= n) break;
-    const target = prices[targetIdx];
+  for (let anchorIndex = 14; anchorIndex < prices.length; anchorIndex++) {
+    const targetIndex = anchorIndex + horizon - 1;
+    if (targetIndex >= prices.length) break;
+    const target = prices[targetIndex];
     if (target === null || !Number.isFinite(target)) continue;
 
-    const stateAvg = stateAverages.get(dates[t]) ?? NaN;
-    const feat = buildFeatureVector(prices, dates, t, horizon, stateAvg, hooks);
-
-    X.push(feat);
+    const targetDate = dates[targetIndex];
+    const row = buildFeatureVector(ts, prices, arrivals, dates, anchorIndex, horizon, targetDate, stateAverages, hooks);
+    X.push(row);
     y.push(target);
-    rowDates.push(dates[t]);
+    rowDates.push(targetDate);
   }
 
   if (X.length < minSamples) return null;
-
   return { X, y, featureNames: [...FEATURE_NAMES], dates: rowDates };
 }
 
-/**
- * Build a single feature vector for inference (no target needed).
- * `t` should be `ts.points.length` — the first unseen timestep.
- */
 export function buildInferenceVector(
   ts: TimeSeries,
   horizon: number,
@@ -229,38 +222,27 @@ export function buildInferenceVector(
   stateAvg = NaN,
   hooks: ExternalFeatureHooks = defaultHooks,
 ): number[] {
-  const prices = ts.points.map((p) => p.modal_price);
-  // Append a null placeholder so t = prices.length, dates[t] = targetDate
-  const dates  = [...ts.points.map((p) => p.date), targetDate];
-  const extPrices: (number | null)[] = [...prices, null];
-  const t = extPrices.length - 1;
-  return buildFeatureVector(extPrices, dates, t, horizon, stateAvg, hooks);
+  const prices = ts.points.map((point) => point.modal_price);
+  const arrivals = ts.points.map((point) => point.arrivals);
+  const dates = ts.points.map((point) => point.date);
+  const stateAverages = Number.isFinite(stateAvg) && dates.length
+    ? new Map<string, number>([[dates.at(-1)!, stateAvg]])
+    : new Map<string, number>();
+  return buildFeatureVector(ts, prices, arrivals, dates, prices.length, horizon, targetDate, stateAverages, hooks);
 }
 
-/**
- * Impute NaN values in X with the column means from the training set.
- * Returns the imputed matrix and the means vector (needed at inference time).
- */
 export function imputeFeatures(X: number[][]): { X: number[][]; colMeans: number[] } {
-  if (X.length === 0) return { X, colMeans: [] };
-  const nCols = X[0].length;
-  const colMeans = new Array<number>(nCols).fill(0);
-
-  for (let c = 0; c < nCols; c++) {
-    const vals = X.map((row) => row[c]).filter((v) => Number.isFinite(v));
-    colMeans[c] = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
-  }
-
-  const imputed = X.map((row) =>
-    row.map((v, c) => (Number.isFinite(v) ? v : colMeans[c]))
-  );
-
-  return { X: imputed, colMeans };
+  if (!X.length) return { X, colMeans: [] };
+  const colMeans = X[0].map((_, column) => {
+    const values = X.map((row) => row[column]).filter((value) => Number.isFinite(value));
+    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  });
+  return {
+    X: X.map((row) => row.map((value, column) => (Number.isFinite(value) ? value : colMeans[column]))),
+    colMeans,
+  };
 }
 
-/**
- * Apply column means (from training) to impute a single inference vector.
- */
 export function imputeVector(x: number[], colMeans: number[]): number[] {
-  return x.map((v, c) => (Number.isFinite(v) ? v : (colMeans[c] ?? 0)));
+  return x.map((value, column) => (Number.isFinite(value) ? value : (colMeans[column] ?? 0)));
 }

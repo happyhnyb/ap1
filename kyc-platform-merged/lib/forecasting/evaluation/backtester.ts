@@ -21,22 +21,34 @@ import { computeMetrics } from './metrics';
 
 const MIN_TRAIN_WINDOW = 14; // absolute minimum training points
 const MAX_HORIZONS = 14;
+const MAX_BACKTEST_ORIGINS = 14;
 
 export interface BacktestResult {
   /** Metrics aggregated across all origins and all horizons. */
   overall: BacktestMetrics;
   /** Metrics per horizon step (key = horizon day). */
   byHorizon: Map<number, BacktestMetrics>;
+  /** Raw observations per horizon for adaptive model selection / ensembles. */
+  observationsByHorizon: Map<number, HorizonObservation[]>;
   /** Number of valid origins used. */
   n_origins: number;
 }
 
 interface OriginResult {
+  origin: number;
   horizon: number;
   actual:    number;
   predicted: number;
   lower:     number;
   upper:     number;
+}
+
+export interface HorizonObservation {
+  origin: number;
+  actual: number;
+  predicted: number;
+  lower: number;
+  upper: number;
 }
 
 /**
@@ -60,8 +72,13 @@ export function rollbacktest(
   if (n <= firstOrigin + 1) return null;
 
   const observations: OriginResult[] = [];
+  const evaluatedOrigins = new Set<number>();
+  const candidateOrigins = Array.from({ length: Math.max(0, n - 1 - firstOrigin) }, (_, index) => firstOrigin + index);
+  const origins = candidateOrigins.length > MAX_BACKTEST_ORIGINS
+    ? candidateOrigins.slice(-MAX_BACKTEST_ORIGINS)
+    : candidateOrigins;
 
-  for (let origin = firstOrigin; origin < n - 1; origin++) {
+  for (const origin of origins) {
     // Build a sub-series of the first `origin` points for training
     const trainTs: TimeSeries = {
       ...ts,
@@ -87,7 +104,9 @@ export function rollbacktest(
       const fp = forecasts.find((f) => f.horizon_days === h);
       if (!fp) continue;
 
+      evaluatedOrigins.add(origin);
       observations.push({
+        origin,
         horizon: h,
         actual,
         predicted: fp.point,
@@ -101,9 +120,17 @@ export function rollbacktest(
 
   // Aggregate by horizon
   const byHorizon = new Map<number, BacktestMetrics>();
+  const observationsByHorizon = new Map<number, HorizonObservation[]>();
   for (let h = 1; h <= horizon; h++) {
     const obs = observations.filter((o) => o.horizon === h);
     if (!obs.length) continue;
+    observationsByHorizon.set(h, obs.map((item) => ({
+      origin: item.origin,
+      actual: item.actual,
+      predicted: item.predicted,
+      lower: item.lower,
+      upper: item.upper,
+    })));
     byHorizon.set(
       h,
       computeMetrics(
@@ -123,8 +150,17 @@ export function rollbacktest(
     observations.map((o) => o.upper),
   );
 
-  // Determine the number of distinct origins used
-  const origins = new Set(observations.map((o) => o.actual.toString())).size;
+  const directionalParts = [...byHorizon.values()]
+    .filter((metrics) => metrics.directional_accuracy !== null && metrics.n_test_points > 0);
+  overall.directional_accuracy = directionalParts.length
+    ? directionalParts.reduce((sum, metrics) => sum + (metrics.directional_accuracy ?? 0) * metrics.n_test_points, 0)
+      / directionalParts.reduce((sum, metrics) => sum + metrics.n_test_points, 0)
+    : null;
 
-  return { overall, byHorizon, n_origins: origins };
+  return {
+    overall,
+    byHorizon,
+    observationsByHorizon,
+    n_origins: evaluatedOrigins.size,
+  };
 }

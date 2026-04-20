@@ -12,6 +12,12 @@
 
 import type { TimeSeries, ForecastPoint, ModelExplanation } from '../../schema/types';
 import type { ForecastModel, PredictOptions } from '../interface';
+import {
+  getObservedPoints,
+  intervalHalfWidth,
+  forecastDatesFromSeries,
+  boundedForecastPoint,
+} from '../utils';
 
 const K_OPTIONS = [3, 5, 7];
 
@@ -43,14 +49,12 @@ export class SMAModel implements ForecastModel {
   private fitted = false;
   private k = 7;
   private point = 0;
-  private residualStd = 0;
+  private residualScale = 0;
   private prices: number[] = [];
   private dates: string[] = [];
 
   fit(ts: TimeSeries): boolean {
-    const valid = ts.points
-      .filter((p) => p.modal_price !== null)
-      .map((p) => ({ date: p.date, price: p.modal_price as number }));
+    const valid = getObservedPoints(ts);
 
     if (valid.length < this.minDataPoints) {
       this.fitted = false;
@@ -80,7 +84,7 @@ export class SMAModel implements ForecastModel {
     if (residuals.length >= 2) {
       const mu  = residuals.reduce((s, v) => s + v, 0) / residuals.length;
       const var_ = residuals.reduce((s, v) => s + (v - mu) ** 2, 0) / (residuals.length - 1);
-      this.residualStd = Math.sqrt(var_);
+      this.residualScale = Math.sqrt(var_);
     }
 
     this.fitted = true;
@@ -89,24 +93,14 @@ export class SMAModel implements ForecastModel {
 
   predict(_ts: TimeSeries, opts: PredictOptions): ForecastPoint[] {
     if (!this.fitted) return [];
-    const today = new Date();
-    const results: ForecastPoint[] = [];
-
-    for (let h = 1; h <= opts.horizon; h++) {
-      const halfWidth = this.residualStd * 1.28 * (1 + (h - 1) * 0.07);
-      const date = new Date(today);
-      date.setUTCDate(date.getUTCDate() + h);
-
-      results.push({
-        date: date.toISOString().slice(0, 10),
-        horizon_days: h,
-        point: Math.round(this.point * 100) / 100,
-        lower: Math.max(0, Math.round((this.point - halfWidth) * 100) / 100),
-        upper: Math.round((this.point + halfWidth) * 100) / 100,
-      });
-    }
-
-    return results;
+    return forecastDatesFromSeries(_ts, opts.horizon).map((date, index) =>
+      boundedForecastPoint(
+        this.point,
+        intervalHalfWidth(this.residualScale, this.prices, index + 1, _ts, 1.18),
+        date,
+        index + 1,
+      )
+    );
   }
 
   explain(latestPrice: number | null): ModelExplanation {
@@ -118,10 +112,10 @@ export class SMAModel implements ForecastModel {
       parameters: {
         k: this.k,
         point_forecast: Math.round(this.point * 100) / 100,
-        residual_std:   Math.round(this.residualStd * 100) / 100,
+        residual_scale: Math.round(this.residualScale * 100) / 100,
       },
-      recent_error_band: latestPrice && latestPrice > 0 && this.residualStd > 0
-        ? Math.round((this.residualStd / latestPrice) * 10000) / 100
+      recent_error_band: latestPrice && latestPrice > 0 && this.residualScale > 0
+        ? Math.round((this.residualScale / latestPrice) * 10000) / 100
         : null,
       anomaly_flags: [],
       data_summary: {

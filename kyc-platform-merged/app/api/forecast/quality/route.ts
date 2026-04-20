@@ -39,15 +39,13 @@ export async function GET(req: NextRequest) {
       market:   q.market   || undefined,
       district: q.district || undefined,
     };
-    const fast = await fallbackQualityResponse(query);
-    if (fast.data_quality.real_days > 0) {
-      return NextResponse.json(fast);
-    }
-
     const result = await Promise.race([
       forecastingEngine.quality(query),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('quality timeout')), 3000)),
     ]);
+    if (result.data_quality.real_days === 0) {
+      return NextResponse.json(await fallbackQualityResponse(query));
+    }
     return NextResponse.json(result);
   } catch (err) {
     console.error('[/api/forecast/quality] primary engine failed, using fast fallback', err);

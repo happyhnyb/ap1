@@ -165,6 +165,7 @@ export async function fallbackForecastResponse(input: {
         has_synthetic_data: false,
         backtest: {
           mae: null,
+          rmse: null,
           wape: null,
           smape: null,
           directional_accuracy: null,
@@ -231,6 +232,7 @@ export async function fallbackForecastResponse(input: {
       has_synthetic_data: false,
       backtest: {
         mae: backtest.mae,
+        rmse: backtest.rmse ?? backtest.mae,
         wape: null,
         smape: backtest.smape,
         directional_accuracy: null,
@@ -296,6 +298,7 @@ export async function fallbackQualityResponse(input: {
     backtest_by_model: {
       holt_fallback: {
         mae: backtest.mae,
+        rmse: backtest.rmse ?? backtest.mae,
         wape: null,
         smape: backtest.smape,
         directional_accuracy: null,

@@ -34,7 +34,7 @@ import { buildTimeSeries } from './preprocessing/pipeline';
 import { summarizeQuality } from './preprocessing/quality';
 import { loadRecords } from './data/loader';
 import { runChampionChallenger, getChampionForecast } from './selection/selector';
-import { enrichExplanation } from './explainability/builder';
+import { buildOpenAIContext, enrichExplanation } from './explainability/builder';
 
 // ── Query types ───────────────────────────────────────────────────────────────
 
@@ -47,11 +47,17 @@ export interface ForecastQuery {
   hooks?:     ExternalFeatureHooks;
 }
 
+type CacheEntry<T> = {
+  expiresAt: number;
+  value: T;
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const DISCLAIMER =
   'Experimental price estimates based on historical patterns. ' +
   'Not financial advice. Actual mandi prices may differ significantly.';
+const CACHE_TTL_MS = 1000 * 60 * 10;
 
 function directionFromForecast(points: { point: number }[], latestPrice: number | null): 'up' | 'down' | 'flat' {
   if (!points.length || !latestPrice) return 'flat';
@@ -134,7 +140,7 @@ function insufficientResponse(
     meta: {
       model_type: 'none', model_description: message,
       data_points: 0, real_data_points: 0, has_synthetic_data: false,
-      backtest: { mae: null, wape: null, smape: null, directional_accuracy: null, ci_coverage: null, n_test_points: 0 },
+      backtest: { mae: null, rmse: null, wape: null, smape: null, directional_accuracy: null, ci_coverage: null, n_test_points: 0 },
       disclaimer: DISCLAIMER,
     },
     explanation: {
@@ -178,9 +184,30 @@ function buildStateAverages(
 
 export class ForecastingEngine {
   private hooks: ExternalFeatureHooks;
+  private selectionCache = new Map<string, CacheEntry<ChampionResult>>();
 
   constructor(opts: { hooks?: ExternalFeatureHooks } = {}) {
     this.hooks = opts.hooks ?? defaultHooks;
+  }
+
+  private selectionCacheKey(ts: TimeSeries, horizon: number): string {
+    const lastDate = ts.points.at(-1)?.date ?? 'none';
+    const lastPrice = ts.points.filter((point) => point.modal_price !== null).at(-1)?.modal_price ?? 'none';
+    return [ts.commodity_id, ts.mandi_id, ts.points.length, ts.real_count, ts.imputed_count, lastDate, lastPrice, horizon].join('|');
+  }
+
+  private getSelection(ts: TimeSeries, allSeries: TimeSeries[], horizon: number): ChampionResult {
+    const key = this.selectionCacheKey(ts, horizon);
+    const cached = this.selectionCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+    const stateAverages = buildStateAverages(allSeries, ts.commodity_id, ts.state);
+    const selection = runChampionChallenger(ts, { horizon, stateAverages, hooks: this.hooks });
+    this.selectionCache.set(key, {
+      expiresAt: Date.now() + CACHE_TTL_MS,
+      value: selection,
+    });
+    return selection;
   }
 
   /** Main forecast endpoint. */
@@ -216,10 +243,7 @@ export class ForecastingEngine {
       );
     }
 
-    const stateAverages = buildStateAverages(allSeries, commodity_id, ts.state);
-    const opts = { horizon, stateAverages, hooks: this.hooks };
-
-    const result: ChampionResult = runChampionChallenger(ts, opts);
+    const result = this.getSelection(ts, allSeries, horizon);
     const champion = getChampionForecast(result);
 
     if (!champion) {
@@ -233,6 +257,10 @@ export class ForecastingEngine {
     const latestPrice = nonNull.at(-1)?.modal_price ?? null;
     const latestDate  = nonNull.at(-1)?.date ?? null;
     const enrichedExpl = enrichExplanation(champion.explanation, ts, champion.metrics, latestPrice);
+
+    const history_series = nonNull
+      .slice(-30)
+      .map((p) => ({ date: p.date, price: p.modal_price as number }));
 
     const meta: ForecastMeta = {
       model_type:        champion.modelId,
@@ -253,6 +281,7 @@ export class ForecastingEngine {
       latest_price: latestPrice,
       latest_date:  latestDate,
       forecast:     champion.points,
+      history_series,
       direction:    directionFromForecast(champion.points, latestPrice),
       trend_pct:    trendPct(champion.points, latestPrice),
       model_used:   champion.modelId,
@@ -276,8 +305,7 @@ export class ForecastingEngine {
       return { commodity: query.commodity, market: query.market ?? 'All', state: query.state ?? 'All India', champion_id: 'none', models: [] };
     }
 
-    const stateAverages = buildStateAverages(allSeries, commodity_id, ts.state);
-    const result = runChampionChallenger(ts, { horizon, stateAverages, hooks: this.hooks });
+    const result = this.getSelection(ts, allSeries, horizon);
 
     return {
       commodity: displayName(commodity_id),
@@ -317,10 +345,8 @@ export class ForecastingEngine {
     // Backtest all eligible models
     const backtest_by_model: Record<string, import('./schema/types').BacktestMetrics> = {};
     if (ts && ts.real_count >= 7) {
-      const stateAverages = buildStateAverages(allSeries, commodity_id, ts.state);
       const horizon = 14;
-      const opts = { horizon, stateAverages, hooks: this.hooks };
-      const result = runChampionChallenger(ts, opts);
+      const result = this.getSelection(ts, allSeries, horizon);
       for (const m of result.models) {
         backtest_by_model[m.modelId] = m.metrics;
       }
@@ -351,18 +377,25 @@ export class ForecastingEngine {
   /** Drivers / explanation endpoint (for AI narration). */
   async drivers(query: ForecastQuery): Promise<DriversResponse> {
     const res = await this.forecast(query);
-    const openai_context: import('./schema/types').OpenAIContext = {
-      model_family:           res.explanation.model_family,
-      recent_history_summary: 'see forecast result',
-      forecast_summary:       `${res.forecast.length}-day forecast, direction: ${res.direction}`,
-      top_feature_narrative:  res.explanation.top_features
-        .slice(0, 3)
-        .map((f) => `${f.feature_name}(${(f.importance * 100).toFixed(1)}%)`)
-        .join(', ') || res.explanation.model_family + ' statistical model',
-      anomalies_narrative:    res.explanation.anomaly_flags.map((f) => f.description).join('; ') || 'none',
-      confidence_note:        `sMAPE: ${res.meta.backtest.smape ?? '–'}%, CI coverage: ${res.meta.backtest.ci_coverage !== null ? (res.meta.backtest.ci_coverage * 100).toFixed(0) + '%' : '–'}`,
-      data_note:              `${res.meta.real_data_points} real data points${res.meta.has_synthetic_data ? ' (some values interpolated)' : ', no interpolation'}`,
-    };
+    const commodity_id = normalizeCommodity(query.commodity);
+    const horizon = Math.min(14, Math.max(1, query.horizon ?? 14));
+    const { records, fetchedAt } = await loadRecords({ commodity: query.commodity, state: query.state, market: query.market });
+    const seriesMap = buildTimeSeries(records, fetchedAt);
+    const allSeries = [...seriesMap.values()];
+    const ts = findSeries(allSeries, commodity_id, query);
+    const selection = ts ? this.getSelection(ts, allSeries, horizon) : null;
+    const champion = selection ? getChampionForecast(selection) : null;
+    const openai_context = ts && champion
+      ? buildOpenAIContext(ts, champion, res.latest_price)
+      : {
+          model_family: res.explanation.model_family,
+          recent_history_summary: 'No detailed history available.',
+          forecast_summary: `${res.forecast.length}-day forecast, direction: ${res.direction}`,
+          top_feature_narrative: res.explanation.top_features.map((feature) => feature.feature_name).join(', ') || res.explanation.model_family,
+          anomalies_narrative: res.explanation.anomaly_flags.map((flag) => flag.description).join('; ') || 'none',
+          confidence_note: `sMAPE: ${res.meta.backtest.smape ?? '–'}%, RMSE: ${res.meta.backtest.rmse ?? '–'}`,
+          data_note: `${res.meta.real_data_points} real data points${res.meta.has_synthetic_data ? ' with interpolation' : ''}`,
+        };
 
     return {
       commodity:         res.commodity,

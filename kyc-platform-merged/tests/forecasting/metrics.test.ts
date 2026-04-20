@@ -136,15 +136,15 @@ describe('computeMetrics', () => {
 
 describe('isBetter', () => {
   it('prefers lower sMAPE', () => {
-    const a = { mae: 10, wape: 5, smape: 3,  directional_accuracy: 0.8, ci_coverage: 0.8, n_test_points: 10 };
-    const b = { mae: 10, wape: 5, smape: 5,  directional_accuracy: 0.8, ci_coverage: 0.8, n_test_points: 10 };
+    const a = { mae: 10, rmse: 11, wape: 5, smape: 3,  directional_accuracy: 0.8, ci_coverage: 0.8, n_test_points: 10 };
+    const b = { mae: 10, rmse: 11, wape: 5, smape: 5,  directional_accuracy: 0.8, ci_coverage: 0.8, n_test_points: 10 };
     expect(isBetter(a, b)).toBe(true);
     expect(isBetter(b, a)).toBe(false);
   });
 
   it('falls back to WAPE when sMAPE is null', () => {
-    const a = { mae: null, wape: 3,  smape: null, directional_accuracy: null, ci_coverage: null, n_test_points: 0 };
-    const b = { mae: null, wape: 10, smape: null, directional_accuracy: null, ci_coverage: null, n_test_points: 0 };
+    const a = { mae: null, rmse: null, wape: 3,  smape: null, directional_accuracy: null, ci_coverage: null, n_test_points: 0 };
+    const b = { mae: null, rmse: null, wape: 10, smape: null, directional_accuracy: null, ci_coverage: null, n_test_points: 0 };
     expect(isBetter(a, b)).toBe(true);
   });
 });

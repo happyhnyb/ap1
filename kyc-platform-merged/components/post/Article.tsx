@@ -37,7 +37,7 @@ export function Article({
       <article className="card-elevated" style={{ padding: 0, overflow: 'hidden' }}>
         {/* Hero image — real photo if set, emoji fallback otherwise */}
         {post.hero_image ? (
-          <div style={{ position: 'relative', width: '100%', height: 320, borderRadius: '20px 20px 0 0', overflow: 'hidden' }}>
+          <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', maxHeight: 400, borderRadius: '20px 20px 0 0', overflow: 'hidden' }}>
             <Image
               src={post.hero_image}
               alt={post.title}
@@ -52,7 +52,7 @@ export function Article({
           <PostThumb label={post.img} className="post-thumb" style={{ minHeight: 240, borderRadius: '20px 20px 0 0', fontSize: 72 }} />
         )}
 
-        <div style={{ padding: '28px 32px 36px' }}>
+        <div className="article-content-pad">
           {/* Meta top */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
             <span className="badge">{post.category}</span>

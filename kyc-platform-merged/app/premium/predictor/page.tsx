@@ -8,8 +8,11 @@ import ForecastLineChart from '@/components/predictor/ForecastLineChart';
 import PredictorTabs from '@/components/predictor/PredictorTabs';
 import AIAnalysisBar from '@/components/predictor/AIAnalysisBar';
 import { canAccessPredictorRelease, getPredictorReleaseMode } from '@/lib/product/predictor';
-import { buildSeedOptions, buildSeedSummary, getSeedRecords, getSeedFetchedAt } from '@/lib/forecasting/data/seed';
+import { buildSeedOptions, buildSeedSummary, getSeedRecords } from '@/lib/forecasting/data/seed';
 import { fallbackForecastResponse, fallbackQualityResponse, fallbackDriversResponse } from '@/lib/forecasting/fallback';
+import { buildOptions, buildSummary, filterRecords } from '@/lib/mandi/engine';
+import { loadRecords } from '@/lib/forecasting/data/loader';
+import { forecastingEngine } from '@/lib/forecasting/engine';
 
 export const metadata: Metadata = {
   title: 'Price Predictor | KYC Agri',
@@ -34,7 +37,14 @@ function trendColor(d: 'up' | 'down' | 'flat') {
   return d === 'up' ? 'var(--green)' : d === 'down' ? 'var(--red)' : 'var(--muted)';
 }
 
-function buildMarketRows(records: ReturnType<typeof getSeedRecords>) {
+function buildMarketRows(records: Array<{
+  market: string;
+  state: string;
+  district: string;
+  modal_price: number | null;
+  min_price: number | null;
+  max_price: number | null;
+}>) {
   const map = new Map<string, { modal: number[]; min: number[]; max: number[]; state: string; district: string }>();
   for (const r of records) {
     const key = r.market || 'Unknown';
@@ -81,8 +91,23 @@ export default async function PredictorPage({ searchParams }: Props) {
   if (!hasAccess) return <PredictorPaywall />;
 
   // ── Resolve filters ────────────────────────────────────────────────────────
-  const params  = (await searchParams) ?? {};
-  const options = buildSeedOptions();
+  const params = (await searchParams) ?? {};
+  let loadedRecords: Awaited<ReturnType<typeof loadRecords>> | null = null;
+  try {
+    loadedRecords = await loadRecords();
+  } catch {
+    loadedRecords = null;
+  }
+  const seedOptions = buildSeedOptions();
+  const liveOptions = loadedRecords?.records.length ? buildOptions(loadedRecords.records) : null;
+  const options = liveOptions && liveOptions.commodities.length
+    ? {
+        commodities: liveOptions.commodities,
+        states: liveOptions.states,
+        markets: liveOptions.markets,
+        marketsByState: liveOptions.marketsByState,
+      }
+    : seedOptions;
 
   const fallbackCommodity = 'Wheat';
   const fallbackState     = 'Madhya Pradesh';
@@ -99,16 +124,36 @@ export default async function PredictorPage({ searchParams }: Props) {
   const horizon   = Number.isFinite(reqHorizon) ? Math.min(14, Math.max(3, reqHorizon)) : 14;
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
-  const filters     = { commodity, state, market: market || undefined };
-  const seedRecords = getSeedRecords(filters);
-  const summary     = buildSeedSummary(filters);
-  const marketRows  = buildMarketRows(seedRecords);
-  const fetchedAt   = getSeedFetchedAt();
+  const filters = { commodity, state, market: market || undefined };
+  const liveFilter = {
+    commodity,
+    state,
+    district: '',
+    market: market || '',
+    variety: '',
+    grade: '',
+  };
+
+  const liveRecords = loadedRecords?.records.length
+    ? filterRecords(loadedRecords.records, liveFilter)
+    : [];
+  const fallbackRecords = getSeedRecords(filters);
+  const recordsForView = liveRecords.length ? liveRecords : fallbackRecords;
+  const summary = liveRecords.length
+    ? buildSummary(liveRecords, loadedRecords?.fetchedAt ?? null)
+    : buildSeedSummary(filters);
+  const marketRows = buildMarketRows(recordsForView);
 
   const [forecast, quality, drivers] = await Promise.all([
-    fallbackForecastResponse({ commodity, state, market: market || undefined, horizon }),
-    fallbackQualityResponse({ commodity, state, market: market || undefined }),
-    fallbackDriversResponse({ commodity, state, market: market || undefined, horizon }),
+    forecastingEngine.forecast({ commodity, state, market: market || undefined, horizon }).catch(() =>
+      fallbackForecastResponse({ commodity, state, market: market || undefined, horizon })
+    ),
+    forecastingEngine.quality({ commodity, state, market: market || undefined }).catch(() =>
+      fallbackQualityResponse({ commodity, state, market: market || undefined })
+    ),
+    forecastingEngine.drivers({ commodity, state, market: market || undefined, horizon }).catch(() =>
+      fallbackDriversResponse({ commodity, state, market: market || undefined, horizon })
+    ),
   ]);
 
   // ── Derived values ─────────────────────────────────────────────────────────
@@ -127,15 +172,17 @@ export default async function PredictorPage({ searchParams }: Props) {
   const endDate   = endPoint ? new Date(endPoint.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : null;
   const endPrice  = endPoint ? fmt(endPoint.point) : null;
   const dataPoints = forecast.meta.data_points;
+  const isFallbackModel = forecast.model_used.includes('fallback') || forecast.meta.model_type.includes('fallback');
+  const latestBand = endPoint ? `${fmt(endPoint.lower)} - ${fmt(endPoint.upper)}` : null;
 
   let forecastText: string;
   if (forecast.insufficient) {
     forecastText = 'Not enough price data for this selection. Try All markets or a major hub.';
   } else if (forecast.direction === 'flat') {
-    forecastText = `${dataPoints} days of data show minimal movement (${Math.abs(forecast.trend_pct).toFixed(1)}%) — prices appear stable near ${fmt(forecast.latest_price)}/qtl.`;
+    forecastText = `${dataPoints} days of data suggest limited movement (${Math.abs(forecast.trend_pct).toFixed(1)}%) with prices staying near ${fmt(forecast.latest_price)}/qtl.`;
   } else {
     const dir = forecast.direction === 'up' ? 'upward' : 'downward';
-    forecastText = `${dataPoints} days of data show a ${dir} trend of ${Math.abs(forecast.trend_pct).toFixed(1)}%${endDate && endPrice ? `, reaching ~${endPrice} by ${endDate}` : ''}.`;
+    forecastText = `${dataPoints} days of data point to a ${dir} move of ${Math.abs(forecast.trend_pct).toFixed(1)}%${endDate && endPrice ? `, with an estimated ${endDate} level near ${endPrice}` : ''}${latestBand ? ` and a model range of ${latestBand}` : ''}.`;
   }
 
   const filterOptions = {
@@ -243,6 +290,12 @@ export default async function PredictorPage({ searchParams }: Props) {
                   {forecastText}
                 </p>
 
+                {isFallbackModel && (
+                  <div className="notice notice-gold pr-narrative">
+                    Fallback mode: this view is using a lighter forecast path because the full benchmarked model stack was unavailable for this request.
+                  </div>
+                )}
+
                 <AIAnalysisBar
                   commodity={commodity}
                   state={state}
@@ -287,16 +340,16 @@ export default async function PredictorPage({ searchParams }: Props) {
                   <summary className="pr-guide-toggle">How to read this forecast</summary>
                   <div className="pr-guide-body">
                     <div className="pr-guide-item">
-                      <strong>Trend extrapolation, not prediction.</strong>{' '}
-                      Holt&rsquo;s double exponential smoothing on Agmarknet prices. Cannot predict weather, policy, or supply shocks.
+                      <strong>Model-based view, not certainty.</strong>{' '}
+                      This uses the best-performing available forecast model for the selected mandi history and horizon. Sudden weather, policy, or supply shocks can still break the pattern.
                     </div>
                     <div className="pr-guide-item">
-                      <strong>Wider band = more uncertainty.</strong>{' '}
-                      By day {horizon}, treat as directional guidance only.
+                      <strong>Use the range, not just the center line.</strong>{' '}
+                      Wider bands mean lower certainty. For longer horizons, treat this as directional guidance rather than an exact price call.
                     </div>
                     <div className="pr-guide-item">
-                      <strong>Verify before acting.</strong>{' '}
-                      Agmarknet can lag 24–48h. Confirm with your local mandi before any trading decision.
+                      <strong>Check freshness before acting.</strong>{' '}
+                      Confidence drops when data is stale, sparse, or imputed. Agmarknet can lag 24-48h, so confirm with your local mandi before any trading decision.
                     </div>
                   </div>
                 </details>
@@ -345,8 +398,8 @@ export default async function PredictorPage({ searchParams }: Props) {
               ['Markets',     summary.marketsCount.toLocaleString()],
               ['States',      options.states.length.toLocaleString()],
               ['Latest data', summary.latestArrivalDate ?? '—'],
-              ['Window',      fetchedAt.slice(0, 10)],
-              ['Model',       'Holt smoothing'],
+              ['Window',      summary.latestSnapshotDate ?? '—'],
+              ['Model',       forecast.meta.model_description],
             ] as [string, string][]).map(([label, value]) => (
               <div key={label} className="pr-meta-row">
                 <span className="pr-meta-lbl">{label}</span>

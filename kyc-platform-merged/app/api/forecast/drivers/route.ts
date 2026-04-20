@@ -45,15 +45,13 @@ export async function GET(req: NextRequest) {
       district: q.district || undefined,
       horizon,
     };
-    const fast = await fallbackDriversResponse(query);
-    if (fast.openai_context.data_note) {
-      return NextResponse.json(fast);
-    }
-
     const result = await Promise.race([
       forecastingEngine.drivers(query),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('drivers timeout')), 3000)),
     ]);
+    if (!result.top_features.length && !result.anomaly_flags.length) {
+      return NextResponse.json(await fallbackDriversResponse(query));
+    }
     return NextResponse.json(result);
   } catch (err) {
     console.error('[/api/forecast/drivers] primary engine failed, using fast fallback', err);

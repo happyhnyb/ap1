@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictorRelease, predictorAccessError } from '@/lib/product/predictor';
-import { getHistoricalRecords, filterRecords, filtersFromQuery } from '@/lib/mandi/engine';
+import { filterRecords, filtersFromQuery } from '@/lib/mandi/engine';
 import { getSeedRecords } from '@/lib/forecasting/data/seed';
+import { loadRecords } from '@/lib/forecasting/data/loader';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -18,10 +19,16 @@ export async function GET(req: NextRequest) {
   req.nextUrl.searchParams.forEach((v, k) => { q[k] = v; });
 
   const filters = filtersFromQuery(q);
-  const seedRecords = getSeedRecords(filters);
-  const filtered = seedRecords.length
-    ? seedRecords
-    : filterRecords((await getHistoricalRecords(filters)).records, filters);
+  let filtered = [] as ReturnType<typeof getSeedRecords>;
+  try {
+    const loaded = await loadRecords({ commodity: filters.commodity, state: filters.state, market: filters.market });
+    filtered = filterRecords(loaded.records, filters);
+  } catch {
+    filtered = [];
+  }
+  if (!filtered.length) {
+    filtered = getSeedRecords(filters);
+  }
 
   // Group by market — return per-market prices for the bar chart
   const marketMap = new Map<string, { modal: number[]; min: number[]; max: number[]; state: string; district: string }>();

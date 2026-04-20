@@ -46,16 +46,15 @@ export async function GET(req: NextRequest) {
   };
 
   try {
-    const fast = await fallbackForecastResponse(query);
-    if (!fast.insufficient) {
-      fast.meta.disclaimer = PREDICTOR_DISCLAIMER;
-      return NextResponse.json(fast);
-    }
-
     const result = await Promise.race([
       forecastingEngine.forecast(query),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('forecast timeout')), 3000)),
     ]);
+    if (result.insufficient) {
+      const fallback = await fallbackForecastResponse(query);
+      fallback.meta.disclaimer = PREDICTOR_DISCLAIMER;
+      return NextResponse.json(fallback);
+    }
     result.meta.disclaimer = PREDICTOR_DISCLAIMER;
     return NextResponse.json(result);
   } catch (err) {

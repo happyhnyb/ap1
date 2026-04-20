@@ -147,7 +147,9 @@ export function clipOutliers(
     const start = Math.max(0, i - ROLLING_WINDOW);
     const window = prices
       .slice(start, i + 1)
-      .filter((v): v is number => v !== null && !flags[prices.indexOf(v)]?.is_outlier);
+      .map((value, offset) => ({ value, flag: flags[start + offset] }))
+      .filter((entry): entry is { value: number; flag: DataQualityFlags } => entry.value !== null && !entry.flag.is_outlier)
+      .map((entry) => entry.value);
     const med = nanMedian(window);
     result[i] = Number.isFinite(med) ? med : result[i];
   }

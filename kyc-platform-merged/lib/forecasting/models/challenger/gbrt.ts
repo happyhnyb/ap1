@@ -26,6 +26,7 @@ import {
   N_FEATURES,
   FEATURE_NAMES,
 } from '../../features/index';
+import { forecastDatesFromSeries } from '../utils';
 
 const MIN_TRAIN_SAMPLES = 10;
 const N_ESTIMATORS = 50;
@@ -192,8 +193,7 @@ export class GBRTModel implements ForecastModel {
   predict(ts: TimeSeries, opts: PredictOptions): ForecastPoint[] {
     if (!this.fitted || !this.bundles.size) return [];
     const { horizon, stateAverages = new Map(), hooks } = opts;
-
-    const today = new Date();
+    const targetDates = forecastDatesFromSeries(ts, horizon);
     const results: ForecastPoint[] = [];
 
     for (let h = 1; h <= horizon; h++) {
@@ -205,9 +205,7 @@ export class GBRTModel implements ForecastModel {
         );
         const fb = this.bundles.get(fallbackH)!;
 
-        const date = new Date(today);
-        date.setUTCDate(date.getUTCDate() + h);
-        const targetDate = date.toISOString().slice(0, 10);
+        const targetDate = targetDates[h - 1];
 
         const rawX  = buildInferenceVector(ts, h, targetDate, stateAverages.get(targetDate) ?? NaN, hooks);
         const x     = imputeVector(rawX, fb.colMeans);
@@ -222,9 +220,7 @@ export class GBRTModel implements ForecastModel {
         continue;
       }
 
-      const date = new Date(today);
-      date.setUTCDate(date.getUTCDate() + h);
-      const targetDate = date.toISOString().slice(0, 10);
+      const targetDate = targetDates[h - 1];
 
       const rawX  = buildInferenceVector(ts, h, targetDate, stateAverages.get(targetDate) ?? NaN, hooks);
       const x     = imputeVector(rawX, bundle.colMeans);

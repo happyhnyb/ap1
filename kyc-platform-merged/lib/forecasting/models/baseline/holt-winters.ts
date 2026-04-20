@@ -17,6 +17,12 @@
 
 import type { TimeSeries, ForecastPoint, ModelExplanation } from '../../schema/types';
 import type { ForecastModel, PredictOptions } from '../interface';
+import {
+  getObservedPoints,
+  intervalHalfWidth,
+  forecastDatesFromSeries,
+  boundedForecastPoint,
+} from '../utils';
 
 const M = 7; // weekly period
 
@@ -67,18 +73,16 @@ function hwFit(y: number[], p: HWParams): { state: HWState; residuals: number[] 
   return { state: { level, trend, seasonal }, residuals };
 }
 
-function hwForecast(state: HWState, horizon: number, today: Date): ForecastPoint[] {
+function hwForecast(state: HWState, dates: string[]): ForecastPoint[] {
   const { level, trend, seasonal } = state;
   const n = seasonal.length; // = M
 
   const points: ForecastPoint[] = [];
-  for (let h = 1; h <= horizon; h++) {
+  for (let h = 1; h <= dates.length; h++) {
     const sIdx = (h - 1) % n;
     const price = Math.max(0, level + h * trend + seasonal[sIdx]);
-    const date = new Date(today);
-    date.setUTCDate(date.getUTCDate() + h);
     points.push({
-      date: date.toISOString().slice(0, 10),
+      date: dates[h - 1],
       horizon_days: h,
       point: Math.round(price * 100) / 100,
       lower: 0, // filled in after interval estimation
@@ -134,15 +138,13 @@ export class HoltWintersModel implements ForecastModel {
   private fitted = false;
   private state!: HWState;
   private params!: HWParams;
-  private residualStd = 0;
+  private residualScale = 0;
   private mapeVal = Infinity;
   private prices: number[] = [];
   private dates:  string[] = [];
 
   fit(ts: TimeSeries): boolean {
-    const valid = ts.points
-      .filter((p) => p.modal_price !== null)
-      .map((p) => ({ date: p.date, price: p.modal_price as number }));
+    const valid = getObservedPoints(ts);
 
     if (valid.length < this.minDataPoints) {
       this.fitted = false;
@@ -162,7 +164,7 @@ export class HoltWintersModel implements ForecastModel {
     if (residuals.length >= 2) {
       const mu  = residuals.reduce((s, v) => s + v, 0) / residuals.length;
       const var_ = residuals.reduce((s, v) => s + (v - mu) ** 2, 0) / (residuals.length - 1);
-      this.residualStd = Math.sqrt(var_);
+      this.residualScale = Math.sqrt(var_);
     }
 
     this.fitted = true;
@@ -171,17 +173,16 @@ export class HoltWintersModel implements ForecastModel {
 
   predict(ts: TimeSeries, opts: PredictOptions): ForecastPoint[] {
     if (!this.fitted) return [];
-    const today = new Date();
-    const points = hwForecast(this.state, opts.horizon, today);
+    const points = hwForecast(this.state, forecastDatesFromSeries(ts, opts.horizon));
 
     // Fill in confidence intervals
     return points.map((fp) => {
-      const halfWidth = this.residualStd * 1.28 * (1 + (fp.horizon_days - 1) * 0.05);
-      return {
-        ...fp,
-        lower: Math.max(0, Math.round((fp.point - halfWidth) * 100) / 100),
-        upper: Math.round((fp.point + halfWidth) * 100) / 100,
-      };
+      return boundedForecastPoint(
+        fp.point,
+        intervalHalfWidth(this.residualScale, this.prices, fp.horizon_days, ts, 1.18),
+        fp.date,
+        fp.horizon_days,
+      );
     });
   }
 
@@ -197,10 +198,10 @@ export class HoltWintersModel implements ForecastModel {
         gamma:        this.params?.gamma ?? 0,
         period:       M,
         in_sample_mape: Math.round(this.mapeVal * 100) / 100,
-        residual_std:   Math.round(this.residualStd * 100) / 100,
+        residual_scale: Math.round(this.residualScale * 100) / 100,
       },
-      recent_error_band: latestPrice && latestPrice > 0 && this.residualStd > 0
-        ? Math.round((this.residualStd / latestPrice) * 10000) / 100
+      recent_error_band: latestPrice && latestPrice > 0 && this.residualScale > 0
+        ? Math.round((this.residualScale / latestPrice) * 10000) / 100
         : null,
       anomaly_flags: [],
       data_summary: {

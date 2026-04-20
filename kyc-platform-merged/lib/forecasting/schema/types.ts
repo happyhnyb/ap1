@@ -94,6 +94,8 @@ export interface ForecastPoint {
 export interface BacktestMetrics {
   /** Mean Absolute Error (₹/quintal) */
   mae: number | null;
+  /** Root Mean Squared Error (₹/quintal) */
+  rmse: number | null;
   /** Weighted Absolute Percentage Error (%) */
   wape: number | null;
   /** Symmetric Mean Absolute Percentage Error (%) */
@@ -107,7 +109,7 @@ export interface BacktestMetrics {
 }
 
 export const NULL_METRICS: BacktestMetrics = {
-  mae: null, wape: null, smape: null,
+  mae: null, rmse: null, wape: null, smape: null,
   directional_accuracy: null, ci_coverage: null, n_test_points: 0,
 };
 

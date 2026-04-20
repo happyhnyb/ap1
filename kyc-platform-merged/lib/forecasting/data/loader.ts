@@ -25,6 +25,13 @@ interface SnapshotFile {
   records:      MandiRecord[];
 }
 
+type SnapshotCacheEntry = {
+  fingerprint: string;
+  result: { records: MandiRecord[]; fetchedAt: string } | null;
+};
+
+let snapshotCache: SnapshotCacheEntry | null = null;
+
 // ── Snapshot loader ───────────────────────────────────────────────────────────
 
 /**
@@ -39,6 +46,13 @@ async function loadFromSnapshots(): Promise<{ records: MandiRecord[]; fetchedAt:
     .sort(); // ascending date order
 
   if (!files.length) return null;
+
+  const lastFile = files.at(-1) ?? '';
+  const stats = lastFile ? fs.statSync(path.join(SNAPSHOTS_DIR, lastFile)) : null;
+  const fingerprint = `${files.length}:${lastFile}:${stats?.mtimeMs ?? 0}`;
+  if (snapshotCache?.fingerprint === fingerprint) {
+    return snapshotCache.result;
+  }
 
   const batches: MandiRecord[][] = [];
   let latestFetchedAt = new Date(0).toISOString();
@@ -59,7 +73,9 @@ async function loadFromSnapshots(): Promise<{ records: MandiRecord[]; fetchedAt:
   if (!batches.length) return null;
 
   const merged = mergeRecords(batches);
-  return { records: merged, fetchedAt: latestFetchedAt };
+  const result = { records: merged, fetchedAt: latestFetchedAt };
+  snapshotCache = { fingerprint, result };
+  return result;
 }
 
 // ── Live API fallback ──────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
+    "benchmark:forecast": "tsx scripts/forecast-benchmark.ts",
     "seed": "tsx scripts/seed.ts",
     "ai:nightly": "tsx scripts/ai-nightly.ts",
     "mandi:install": "cd mandi-service && npm install",

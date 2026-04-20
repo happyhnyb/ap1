@@ -44,7 +44,7 @@ export function Header({ session, predictorPublic = false, billingEnabled = fals
           <div className="header-inner">
             {/* Logo */}
             <Link href="/" className="logo" onClick={() => setOpen(false)}>
-              <Image src="/logo.png" alt="KYC" width={44} height={44} priority
+              <Image src="/logo.png" alt="KYC" width={52} height={52} priority
                 style={{ filter: 'drop-shadow(0 0 10px rgba(76,175,80,.45))', flexShrink: 0 }} />
               <div className="logo-text">
                 <span>Know Your</span>

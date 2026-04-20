@@ -17,6 +17,7 @@ import { SeasonalNaiveModel } from '../../lib/forecasting/models/baseline/season
 import { HoltWintersModel }   from '../../lib/forecasting/models/baseline/holt-winters';
 import { SMAModel }           from '../../lib/forecasting/models/baseline/sma';
 import { GBRTModel }          from '../../lib/forecasting/models/challenger/gbrt';
+import { GRUSequenceModel }   from '../../lib/forecasting/models/challenger/gru';
 import { RegressionTree }     from '../../lib/forecasting/models/challenger/tree';
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
@@ -232,5 +233,27 @@ describe('GBRTModel', () => {
     // Top features shown (partial), so sum ≤ 1
     expect(totalImp).toBeLessThanOrEqual(1 + 1e-6);
     expect(totalImp).toBeGreaterThan(0);
+  });
+});
+
+describe('GRUSequenceModel', () => {
+  it('returns false for short series', () => {
+    const model = new GRUSequenceModel();
+    expect(model.fit(makeTimeSeries(risingPrices(28)))).toBe(false);
+  });
+
+  it('fits on longer seasonal series and returns bounded forecasts', () => {
+    const model = new GRUSequenceModel();
+    const ts = makeTimeSeries(risingPrices(56, 2100, 4));
+    expect(model.fit(ts)).toBe(true);
+
+    const forecast = model.predict(ts, { horizon: 7 });
+    expect(forecast).toHaveLength(7);
+    forecast.forEach((point, index) => {
+      expect(point.horizon_days).toBe(index + 1);
+      expect(point.point).toBeGreaterThanOrEqual(0);
+      expect(point.lower).toBeLessThanOrEqual(point.point + 0.01);
+      expect(point.upper).toBeGreaterThanOrEqual(point.point - 0.01);
+    });
   });
 });

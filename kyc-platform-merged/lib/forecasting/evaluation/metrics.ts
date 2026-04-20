@@ -34,6 +34,13 @@ export function mae(actual: number[], predicted: number[]): number | null {
   return pairs.reduce((s, { a, p }) => s + Math.abs(a - p), 0) / pairs.length;
 }
 
+export function rmse(actual: number[], predicted: number[]): number | null {
+  const pairs = validPairs(actual, predicted);
+  if (!pairs.length) return null;
+  const mse = pairs.reduce((sum, { a, p }) => sum + (a - p) ** 2, 0) / pairs.length;
+  return Math.sqrt(mse);
+}
+
 /**
  * Weighted Absolute Percentage Error.
  * WAPE = Σ|y − ŷ| / Σy × 100
@@ -132,6 +139,7 @@ export function computeMetrics(
 
   return {
     mae:                  roundN(mae(actual, predicted)),
+    rmse:                 roundN(rmse(actual, predicted)),
     wape:                 roundN(wape(actual, predicted)),
     smape:                roundN(smape(actual, predicted)),
     directional_accuracy: roundN4(directionalAccuracy(actual, predicted)),

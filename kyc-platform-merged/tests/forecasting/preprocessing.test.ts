@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { detectZeros, detectStale, detectPriceGaps, detectOutliers, buildQualityFlags } from '../../lib/forecasting/preprocessing/quality';
+import { detectZeros, detectStale, detectPriceGaps, detectOutliers, buildQualityFlags, clipOutliers } from '../../lib/forecasting/preprocessing/quality';
 import { interpolateGaps } from '../../lib/forecasting/preprocessing/imputer';
 import { normalizeCommodity, buildMandiId, normalizeLabel } from '../../lib/forecasting/schema/commodity';
 import { DEFAULT_QUALITY } from '../../lib/forecasting/schema/types';
@@ -95,6 +95,19 @@ describe('detectOutliers', () => {
   it('returns null z-score when window < 7', () => {
     const { zscores } = detectOutliers([100, 200, 300]);
     expect(zscores.every((z) => z === null)).toBe(true);
+  });
+});
+
+describe('clipOutliers', () => {
+  it('only clips the flagged duplicate-position outlier', () => {
+    const prices = [100, 100, 100, 101, 99, 100, 100, 102, 100, 100, 100, 101, 99, 100, 1000];
+    const flags = buildQualityFlags(prices);
+    const clipped = clipOutliers(prices, flags);
+
+    expect(clipped.at(-1)).not.toBe(1000);
+    expect(clipped[0]).toBe(100);
+    expect(clipped[1]).toBe(100);
+    expect(clipped[2]).toBe(100);
   });
 });
 
