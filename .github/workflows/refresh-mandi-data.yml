@@ -1,0 +1,116 @@
+name: Refresh Mandi Data
+
+# ── Triggers ──────────────────────────────────────────────────────────────────
+on:
+  # Daily at 00:30 IST (19:00 UTC) — data from previous IST day is usually
+  # published by midnight.  We run 30 min after midnight to catch late uploads.
+  schedule:
+    - cron: '0 19 * * *'
+
+  # Manual trigger from GitHub UI or Vercel Cron HTTP dispatch
+  workflow_dispatch:
+    inputs:
+      days_back:
+        description: 'Days of history to fetch (default 45)'
+        required: false
+        default: '45'
+
+# ── Concurrency: only one run at a time, cancel stale queued runs ─────────────
+concurrency:
+  group: refresh-mandi
+  cancel-in-progress: true
+
+# ── Jobs ──────────────────────────────────────────────────────────────────────
+jobs:
+  refresh:
+    name: Fetch Agmarknet → regenerate seed → deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    defaults:
+      run:
+        working-directory: kyc-platform-merged
+
+    permissions:
+      contents: write  # needed to commit seed-series.json
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      # ── 2. Node setup ────────────────────────────────────────────────────────
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: kyc-platform-merged/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 3. Regenerate seed ───────────────────────────────────────────────────
+      - name: Regenerate seed-series.json
+        env:
+          DATAGOV_API_KEY: ${{ secrets.DATAGOV_API_KEY }}
+          DAYS_BACK: ${{ github.event.inputs.days_back || '45' }}
+        run: |
+          echo "[workflow] Fetching last $DAYS_BACK days from Agmarknet…"
+          DAYS_BACK=$DAYS_BACK npx tsx scripts/regenerate-seed.ts
+          echo "[workflow] Seed regeneration complete."
+
+      # ── 4. Commit if changed ─────────────────────────────────────────────────
+      - name: Check for seed changes
+        id: diff
+        run: |
+          if git diff --quiet lib/forecasting/data/seed-series.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "[workflow] Seed unchanged — API returned same data as last run."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            ROWS=$(node -e "const d=require('./lib/forecasting/data/seed-series.json'); console.log(d.rows.length)")
+            echo "[workflow] Seed changed — $ROWS rows, range: $(node -e "const d=require('./lib/forecasting/data/seed-series.json'); console.log(d.from, '->', d.to)")"
+          fi
+
+      - name: Commit updated seed data
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add lib/forecasting/data/seed-series.json
+          git pull --rebase origin main
+          git commit -m "chore: refresh mandi seed data [$(date -u '+%Y-%m-%d')]"
+          git push origin main
+
+      # ── 5. Deploy to Vercel ──────────────────────────────────────────────────
+      - name: Deploy to Vercel (production)
+        if: steps.diff.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          echo "[workflow] Deploying to Vercel production…"
+          npx vercel --prod --token "$VERCEL_TOKEN" --yes
+          echo "[workflow] Deploy complete."
+
+      # ── 6. Summary ───────────────────────────────────────────────────────────
+      - name: Print summary
+        if: always()
+        run: |
+          echo "=== Mandi Refresh Summary ==="
+          echo "Seed changed:  ${{ steps.diff.outputs.changed }}"
+          echo "Trigger:       ${{ github.event_name }}"
+          if [ -f lib/forecasting/data/seed-series.json ]; then
+            node -e "
+              const d = require('./lib/forecasting/data/seed-series.json');
+              const dates = [...new Set(d.rows.map(r=>r.d))].sort();
+              console.log('Rows:    ', d.rows.length.toLocaleString());
+              console.log('Dates:   ', dates.length);
+              console.log('Range:   ', d.from, '->', d.to);
+            "
+          fi
