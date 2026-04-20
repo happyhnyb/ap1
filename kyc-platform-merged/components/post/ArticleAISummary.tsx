@@ -99,7 +99,14 @@ export function ArticleAISummary({ slug }: { slug: string }) {
           {error}
         </div>
       ) : summary ? (
-        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--muted)' }}>{summary.summary}</p>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--text)' }}>{summary.summary}</p>
+          {summary.bullets.slice(0, 4).map((bullet) => (
+            <div key={bullet} style={{ fontSize: 12, color: 'var(--muted)', paddingLeft: 12, borderLeft: '2px solid var(--border2)' }}>
+              {bullet}
+            </div>
+          ))}
+        </div>
       ) : null}
     </section>
   );
