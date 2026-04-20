@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 
 type Persona = 'general' | 'farmer' | 'trader' | 'procurement';
 
@@ -100,38 +99,7 @@ export function ArticleAISummary({ slug }: { slug: string }) {
           {error}
         </div>
       ) : summary ? (
-        <div style={{ display: 'grid', gap: 14 }}>
-          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.75, color: 'var(--text)' }}>{summary.summary}</p>
-          {!!summary.bullets.length && (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {summary.bullets.map((bullet) => (
-                <div key={bullet} style={{ fontSize: 13, color: 'var(--muted)' }}>
-                  • {bullet}
-                </div>
-              ))}
-            </div>
-          )}
-          {!!summary.citations.length && (
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8, fontWeight: 700 }}>
-                Sources
-              </div>
-              <div style={{ display: 'grid', gap: 8 }}>
-                {summary.citations.slice(0, 3).map((citation) => (
-                  <Link
-                    key={citation.id}
-                    href={citation.slug ? `/post/${citation.slug}` : (citation.href || '/search')}
-                    className="card"
-                    style={{ padding: '12px 14px' }}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{citation.title}</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{citation.snippet || citation.excerpt}</div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--muted)' }}>{summary.summary}</p>
       ) : null}
     </section>
   );
