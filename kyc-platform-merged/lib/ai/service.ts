@@ -236,8 +236,8 @@ export async function summarizeArticle(slug: string, persona: AIPersona): Promis
     }>({
       model: process.env.OPENAI_MODEL_SUMMARY ?? 'gpt-5-nano',
       schema: articleSummarySchema,
-      cacheKey: `article-summary:v3:${persona}:${slug}`,
-      maxOutputTokens: 120,
+      cacheKey: `article-summary:v4:${persona}:${slug}`,
+      maxOutputTokens: 60,
       messages: [
         { role: 'system', content: systemPrompt },
         {
