@@ -90,6 +90,8 @@ jobs:
         if: steps.diff.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           echo "[workflow] Deploying to Vercel production…"
           npx vercel --prod --token "$VERCEL_TOKEN" --yes
