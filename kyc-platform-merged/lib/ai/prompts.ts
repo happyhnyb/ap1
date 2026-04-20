@@ -37,7 +37,7 @@ export function buildSummaryPrompt(title: string, persona: AIPersona) {
     `Summarize the article "${title}" for persona=${persona}.`,
     personaPromptTemplates[persona],
     'Use only the supplied article text. Do not add outside information.',
-    'Keep the summary under 200 words total. Be concise — no padding.',
+    'Keep the summary under 60 words. One short paragraph only. No padding, no filler.',
   ].join('\n');
 }
 
