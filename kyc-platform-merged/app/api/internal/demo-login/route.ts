@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   }
 
   const provided = req.nextUrl.searchParams.get('secret');
-  if (!provided || provided !== secret) {
+  if (!provided || provided !== secret.trim()) {
     return NextResponse.json({ error: 'Invalid secret.' }, { status: 401 });
   }
 
