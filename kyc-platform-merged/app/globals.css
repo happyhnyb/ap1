@@ -995,38 +995,38 @@ details.pr-guide[open] .pr-guide-toggle::after { transform: rotate(-180deg); }
 .pr-meta-val  { font-weight: 500; color: var(--text); text-align: right; max-width: 56%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pr-meta-smape { font-size: 10.5px; color: var(--dim); margin-top: 8px; }
 
-/* ── Mobile filter section (bottom of page) ── */
+/* ── Mobile filter section (top of content, always visible) ── */
 .pr-mobile-filters {
   overflow: hidden;
 }
 @media (min-width: 900px) { .pr-mobile-filters { display: none; } }
 
-.pr-mf-toggle {
-  display: flex; align-items: center; gap: 8px;
-  width: 100%; padding: 12px 16px;
-  background: none; border: none; cursor: pointer;
-  font-size: 11.5px; color: var(--muted); font-weight: 600;
-  text-align: left;
+/* always-visible compact card */
+.pr-mf-form {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
 }
-.pr-mf-toggle:focus-visible { outline: 2px solid var(--green3); outline-offset: -2px; }
-.pr-mf-toggle-left {
+.pr-mf-header {
   display: flex; align-items: center; gap: 6px;
+  color: var(--muted);
+}
+.pr-mf-header svg { flex-shrink: 0; color: var(--green); }
+.pr-mf-title {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .08em;
   color: var(--text2); flex-shrink: 0;
 }
-.pr-mf-toggle-left svg { color: var(--green); flex-shrink: 0; }
-.pr-mf-summary {
+.pr-mf-current {
   flex: 1; min-width: 0;
+  font-size: 10.5px; color: var(--dim);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 10.5px; color: var(--dim); font-weight: 400;
-}
-.pr-mf-chevron { font-size: 9px; color: var(--dim); flex-shrink: 0; }
-
-.pr-mf-body {
-  padding: 0 16px 14px; border-top: 1px solid var(--border);
-  display: grid; gap: 8px;
 }
 .pr-mf-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
 }
 @media (max-width: 420px) { .pr-mf-grid { grid-template-columns: 1fr; } }
 .pr-mf-apply {

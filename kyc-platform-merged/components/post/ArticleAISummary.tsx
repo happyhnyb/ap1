@@ -101,11 +101,19 @@ export function ArticleAISummary({ slug }: { slug: string }) {
       ) : summary ? (
         <div style={{ display: 'grid', gap: 8 }}>
           <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--text)' }}>{summary.summary}</p>
-          {summary.bullets.slice(0, 4).map((bullet) => (
-            <div key={bullet} style={{ fontSize: 12, color: 'var(--muted)', paddingLeft: 12, borderLeft: '2px solid var(--border2)' }}>
-              {bullet}
-            </div>
-          ))}
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
+            {summary.bullets.slice(0, 5).map((bullet) => (
+              <li key={bullet} style={{ display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+                <span style={{ color: 'var(--green)', fontSize: 11, lineHeight: '1.7', flexShrink: 0, marginTop: 1 }}>•</span>
+                <span style={{
+                  fontSize: 12, color: 'var(--muted)', lineHeight: 1.6,
+                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                }}>
+                  {bullet}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
     </section>

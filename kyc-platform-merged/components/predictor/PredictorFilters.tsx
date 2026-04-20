@@ -18,7 +18,6 @@ type Props = {
     horizon: number;
   };
   isSidebar?: boolean;
-  isMobile?: boolean;
 };
 
 const HORIZONS = [3, 5, 7, 10, 14] as const;
@@ -28,7 +27,6 @@ export default function PredictorFilters({ options, current, isSidebar }: Props)
   const [state,     setState]     = useState(current.state);
   const [market,    setMarket]    = useState(current.market);
   const [horizon,   setHorizon]   = useState(current.horizon);
-  const [open,      setOpen]      = useState(false);
 
   const availableMarkets = state ? (options.marketsByState[state] ?? []) : options.markets;
 
@@ -117,33 +115,20 @@ export default function PredictorFilters({ options, current, isSidebar }: Props)
     );
   }
 
-  // ── Mobile variant: collapsible section at bottom of page ────────────────
+  // ── Mobile variant: always-visible compact card ──────────────────────────
   return (
-    <>
-      <button
-        type="button"
-        className="pr-mf-toggle"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-      >
-        <span className="pr-mf-toggle-left">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <path d="M1 2.5h10M3 6h6M5 9.5h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-          </svg>
-          Filters
-        </span>
-        <span className="pr-mf-summary">{summaryText}</span>
-        <span className="pr-mf-chevron" aria-hidden="true">{open ? '▲' : '▼'}</span>
-      </button>
-
-      {open && (
-        <form method="get" className="pr-mf-body">
-          <div className="pr-mf-grid">
-            {fields}
-          </div>
-          <button type="submit" className="pr-mf-apply">Apply Filters</button>
-        </form>
-      )}
-    </>
+    <form method="get" className="pr-mf-form">
+      <div className="pr-mf-header">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M1 2.5h10M3 6h6M5 9.5h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+        </svg>
+        <span className="pr-mf-title">Filters</span>
+        <span className="pr-mf-current">{summaryText}</span>
+      </div>
+      <div className="pr-mf-grid">
+        {fields}
+      </div>
+      <button type="submit" className="pr-mf-apply">Apply</button>
+    </form>
   );
 }

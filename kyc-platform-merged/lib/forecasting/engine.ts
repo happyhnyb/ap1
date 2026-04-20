@@ -35,6 +35,7 @@ import { summarizeQuality } from './preprocessing/quality';
 import { loadRecords } from './data/loader';
 import { runChampionChallenger, getChampionForecast } from './selection/selector';
 import { buildOpenAIContext, enrichExplanation } from './explainability/builder';
+import type { MandiRecord } from '../mandi/types';
 
 // ── Query types ───────────────────────────────────────────────────────────────
 
@@ -122,6 +123,18 @@ function suggestMatchingMarkets(
     .map((item) => item.market);
 
   return [...new Set(matches)].slice(0, 5);
+}
+
+function prefilterRecords(records: MandiRecord[], query: ForecastQuery): MandiRecord[] {
+  const commodityId = normalizeCommodity(query.commodity);
+
+  return records.filter((record) => {
+    if (normalizeCommodity(record.commodity) !== commodityId) return false;
+    if (query.state && !normalizedContains(record.state, query.state)) return false;
+    if (query.district && !normalizedContains(record.district, query.district)) return false;
+    if (query.market && !normalizedContains(record.market, query.market, { stripApmc: true })) return false;
+    return true;
+  });
 }
 
 function insufficientResponse(
@@ -216,8 +229,9 @@ export class ForecastingEngine {
     const horizon      = Math.min(14, Math.max(1, query.horizon ?? 14));
 
     const { records, fetchedAt } = await loadRecords({ commodity: query.commodity, state: query.state, market: query.market });
+    const narrowedRecords = prefilterRecords(records, query);
 
-    const seriesMap = buildTimeSeries(records, fetchedAt);
+    const seriesMap = buildTimeSeries(narrowedRecords, fetchedAt);
     const allSeries = [...seriesMap.values()];
 
     const ts = findSeries(allSeries, commodity_id, query);
@@ -297,7 +311,8 @@ export class ForecastingEngine {
     const horizon      = Math.min(14, Math.max(1, query.horizon ?? 14));
 
     const { records, fetchedAt } = await loadRecords({ commodity: query.commodity, state: query.state, market: query.market });
-    const seriesMap = buildTimeSeries(records, fetchedAt);
+    const narrowedRecords = prefilterRecords(records, query);
+    const seriesMap = buildTimeSeries(narrowedRecords, fetchedAt);
     const allSeries = [...seriesMap.values()];
 
     const ts = findSeries(allSeries, commodity_id, query);
@@ -325,7 +340,8 @@ export class ForecastingEngine {
   async quality(query: ForecastQuery): Promise<QualityResponse> {
     const commodity_id = normalizeCommodity(query.commodity);
     const { records, fetchedAt } = await loadRecords({ commodity: query.commodity, state: query.state, market: query.market });
-    const seriesMap = buildTimeSeries(records, fetchedAt);
+    const narrowedRecords = prefilterRecords(records, query);
+    const seriesMap = buildTimeSeries(narrowedRecords, fetchedAt);
     const allSeries = [...seriesMap.values()];
 
     const ts = findSeries(allSeries, commodity_id, query);
@@ -380,7 +396,8 @@ export class ForecastingEngine {
     const commodity_id = normalizeCommodity(query.commodity);
     const horizon = Math.min(14, Math.max(1, query.horizon ?? 14));
     const { records, fetchedAt } = await loadRecords({ commodity: query.commodity, state: query.state, market: query.market });
-    const seriesMap = buildTimeSeries(records, fetchedAt);
+    const narrowedRecords = prefilterRecords(records, query);
+    const seriesMap = buildTimeSeries(narrowedRecords, fetchedAt);
     const allSeries = [...seriesMap.values()];
     const ts = findSeries(allSeries, commodity_id, query);
     const selection = ts ? this.getSelection(ts, allSeries, horizon) : null;

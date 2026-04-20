@@ -9,7 +9,7 @@ import PredictorTabs from '@/components/predictor/PredictorTabs';
 import AIAnalysisBar from '@/components/predictor/AIAnalysisBar';
 import { canAccessPredictorRelease, getPredictorReleaseMode } from '@/lib/product/predictor';
 import { buildSeedOptions, buildSeedSummary, getSeedRecords } from '@/lib/forecasting/data/seed';
-import { fallbackForecastResponse, fallbackQualityResponse, fallbackDriversResponse } from '@/lib/forecasting/fallback';
+import { fallbackForecastResponse } from '@/lib/forecasting/fallback';
 import { buildOptions, buildSummary, filterRecords } from '@/lib/mandi/engine';
 import { loadRecords } from '@/lib/forecasting/data/loader';
 import { forecastingEngine } from '@/lib/forecasting/engine';
@@ -92,69 +92,67 @@ export default async function PredictorPage({ searchParams }: Props) {
 
   // ── Resolve filters ────────────────────────────────────────────────────────
   const params = (await searchParams) ?? {};
-  let loadedRecords: Awaited<ReturnType<typeof loadRecords>> | null = null;
-  try {
-    loadedRecords = await loadRecords();
-  } catch {
-    loadedRecords = null;
-  }
+
+  // Load live records (snapshots → Agmarknet), fall back to seed options
+  let liveRecordsAll: Awaited<ReturnType<typeof loadRecords>> | null = null;
+  try { liveRecordsAll = await loadRecords(); } catch { /* use seed */ }
+
   const seedOptions = buildSeedOptions();
-  const liveOptions = loadedRecords?.records.length ? buildOptions(loadedRecords.records) : null;
-  const options = liveOptions && liveOptions.commodities.length
-    ? {
-        commodities: liveOptions.commodities,
-        states: liveOptions.states,
-        markets: liveOptions.markets,
-        marketsByState: liveOptions.marketsByState,
-      }
-    : seedOptions;
+  const liveOptions = liveRecordsAll?.records.length ? buildOptions(liveRecordsAll.records) : null;
+  const options = (liveOptions?.commodities.length ?? 0) > 0 ? liveOptions! : seedOptions;
 
   const fallbackCommodity = 'Wheat';
   const fallbackState     = 'Madhya Pradesh';
 
-  const reqCommodity = first(params.commodity)?.trim();
-  const reqState     = first(params.state)?.trim();
-  const reqMarket    = first(params.market)?.trim();
-  const reqHorizon   = Number.parseInt(first(params.horizon) ?? '', 10);
+  const reqCommodity   = first(params.commodity)?.trim();
+  const reqState       = first(params.state)?.trim();
+  const reqMarket      = first(params.market)?.trim();
+  const hasMarketParam = first(params.market) !== undefined;
+  const reqHorizon     = Number.parseInt(first(params.horizon) ?? '', 10);
 
-  const commodity = reqCommodity && options.commodities.includes(reqCommodity) ? reqCommodity : fallbackCommodity;
-  const state     = reqState && options.states.includes(reqState) ? reqState : fallbackState;
-  const markets   = state ? (options.marketsByState[state] ?? []) : options.markets;
-  const market    = reqMarket && markets.includes(reqMarket) ? reqMarket : '';
+  const commodity = reqCommodity || fallbackCommodity;
+  const state     = reqState     || fallbackState;
+  // Only offer markets that belong to the selected state
+  const markets   = options.marketsByState[state] ?? [];
+  const market    = hasMarketParam ? (reqMarket ?? '') : (markets[0] ?? '');
   const horizon   = Number.isFinite(reqHorizon) ? Math.min(14, Math.max(3, reqHorizon)) : 14;
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
-  const filters = { commodity, state, market: market || undefined };
-  const liveFilter = {
-    commodity,
-    state,
-    district: '',
-    market: market || '',
-    variety: '',
-    grade: '',
-  };
-
-  const liveRecords = loadedRecords?.records.length
-    ? filterRecords(loadedRecords.records, liveFilter)
-    : [];
-  const fallbackRecords = getSeedRecords(filters);
-  const recordsForView = liveRecords.length ? liveRecords : fallbackRecords;
+  const liveFilter = { commodity, state, district: '', market: market || '', variety: '', grade: '' };
+  const liveRecords = liveRecordsAll?.records.length ? filterRecords(liveRecordsAll.records, liveFilter) : [];
+  const seedRecords = getSeedRecords({ commodity, state, market: market || undefined });
+  const recordsForView = liveRecords.length ? liveRecords : seedRecords;
   const summary = liveRecords.length
-    ? buildSummary(liveRecords, loadedRecords?.fetchedAt ?? null)
-    : buildSeedSummary(filters);
+    ? buildSummary(liveRecords, liveRecordsAll?.fetchedAt ?? null)
+    : buildSeedSummary({ commodity, state, market: market || undefined });
   const marketRows = buildMarketRows(recordsForView);
 
-  const [forecast, quality, drivers] = await Promise.all([
-    forecastingEngine.forecast({ commodity, state, market: market || undefined, horizon }).catch(() =>
-      fallbackForecastResponse({ commodity, state, market: market || undefined, horizon })
-    ),
-    forecastingEngine.quality({ commodity, state, market: market || undefined }).catch(() =>
-      fallbackQualityResponse({ commodity, state, market: market || undefined })
-    ),
-    forecastingEngine.drivers({ commodity, state, market: market || undefined, horizon }).catch(() =>
-      fallbackDriversResponse({ commodity, state, market: market || undefined, horizon })
-    ),
-  ]);
+  const forecast = await forecastingEngine
+    .forecast({ commodity, state, market: market || undefined, horizon })
+    .catch(() => fallbackForecastResponse({ commodity, state, market: market || undefined, horizon }));
+
+  const quality = {
+    commodity,
+    market: market || 'All',
+    state,
+    data_quality: {
+      missing_ratio: forecast.meta.data_points > 0
+        ? Math.max(0, (forecast.meta.data_points - forecast.meta.real_data_points) / forecast.meta.data_points)
+        : 1,
+      real_days: forecast.meta.real_data_points,
+      stale_days: 0,
+      missing_days: Math.max(0, forecast.meta.data_points - forecast.meta.real_data_points),
+      outlier_days: forecast.explanation.anomaly_flags.filter((flag) => flag.type === 'outlier').length,
+      date_range: forecast.history_series?.length
+        ? [forecast.history_series[0].date, forecast.history_series.at(-1)!.date] as [string, string]
+        : null,
+    },
+  };
+
+  const drivers = {
+    top_features: forecast.explanation.top_features,
+    recent_error_band: forecast.explanation.recent_error_band,
+  };
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const tc          = trendColor(forecast.direction);
@@ -225,6 +223,14 @@ export default async function PredictorPage({ searchParams }: Props) {
 
         {/* ══ Main column ══════════════════════════════════════════════ */}
         <div className="pr-main">
+
+          {/* ── Mobile filters — top of content so they're always reachable ── */}
+          <section id="pr-filters" className="pr-mobile-filters">
+            <PredictorFilters
+              options={filterOptions}
+              current={filterCurrent}
+            />
+          </section>
 
           {/* ── 3. Hero — price dominant, 2-row compact ── */}
           <div className="card-elevated pr-hero">
@@ -367,15 +373,6 @@ export default async function PredictorPage({ searchParams }: Props) {
             maxDriverImp={maxDriverImp}
             recentErrorBand={drivers.recent_error_band ?? null}
           />
-
-          {/* ── 7. Filters (mobile: below content; desktop: hidden, in sidebar) ── */}
-          <section id="pr-filters" className="pr-mobile-filters">
-            <PredictorFilters
-              options={filterOptions}
-              current={filterCurrent}
-              isMobile
-            />
-          </section>
 
         </div>
 

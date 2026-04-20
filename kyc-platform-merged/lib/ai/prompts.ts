@@ -37,7 +37,7 @@ export function buildSummaryPrompt(title: string, persona: AIPersona) {
     `Summarize the article "${title}" for persona=${persona}.`,
     personaPromptTemplates[persona],
     'Use only the supplied article text. Do not add outside information.',
-    'Write 2 sentences max for the summary, then 3-4 tight bullet points (each under 12 words). Total length: 5-10 lines. No padding.',
+    'Write 1-2 sentences for the summary. Then 3-5 bullet points — each bullet is a short, standalone fact or takeaway, max 10 words, no filler. No citations, no padding.',
   ].join('\n');
 }
 
