@@ -113,9 +113,10 @@ export default function ForecastLineChart({ historySeries, forecast, latestPrice
   }, [historySeries, forecast, latestPrice]);
 
   const { domainMin, domainMax, tickFmt } = useMemo(() => {
+    // Use only actual price points (not CI bounds) so the band doesn't push the axis out
     const allPrices = [
       ...(historySeries || []).map((h) => h.price),
-      ...((forecast || []).flatMap((f) => [f.point, f.lower, f.upper])),
+      ...(forecast || []).map((f) => f.point),
     ].filter((v) => typeof v === 'number' && !isNaN(v)) as number[];
 
     let minP: number, maxP: number;
@@ -128,12 +129,12 @@ export default function ForecastLineChart({ historySeries, forecast, latestPrice
       minP = Math.min(...allPrices);
       maxP = Math.max(...allPrices);
       if (minP === maxP) {
-        minP = Math.max(0, minP - Math.max(10, Math.round(minP * 0.05)));
-        maxP = maxP + Math.max(10, Math.round(maxP * 0.05));
+        minP = Math.max(0, minP - Math.max(10, Math.round(minP * 0.03)));
+        maxP = maxP + Math.max(10, Math.round(maxP * 0.03));
       }
     }
 
-    const pad = (maxP - minP) * 0.1 || 60;
+    const pad = (maxP - minP) * 0.05 || 30;
     const dMin = Math.floor((minP - pad) / 10) * 10;
     const dMax = Math.ceil((maxP + pad) / 10) * 10;
 
