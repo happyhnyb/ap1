@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictorRelease, predictorAccessError, PREDICTOR_DISCLAIMER } from '@/lib/product/predictor';
 import { listSnapshotDates, loadRecords } from '@/lib/forecasting/data/loader';
+import { getStoreStatus } from '@/lib/forecasting/data/store';
+import { getSeedFetchedAt } from '@/lib/forecasting/data/seed';
 
-// Fast status check — no data fetch, just confirms the user can access the predictor
-export const dynamic = 'force-dynamic';
+export const dynamic  = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET() {
@@ -13,30 +14,56 @@ export async function GET() {
     return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });
   }
 
-  const snapshotDates = listSnapshotDates();
-  const apiConfigured = !!process.env.DATAGOV_API_KEY || snapshotDates.length > 0;
-  const lastSnapshotDate: string | null = snapshotDates.at(-1) ?? null;
-  let lastRefreshAt: string | null = null;
-  let lastRecordCount = 0;
+  const snapshotDates  = listSnapshotDates();
+  const seedFetchedAt  = getSeedFetchedAt();
+  const seedAgeDays    = Math.floor((Date.now() - new Date(seedFetchedAt).getTime()) / 86_400_000);
+
+  let dataSource: string   = 'unknown';
+  let fetchedAt:  string   = seedFetchedAt;
+  let recordCount = 0;
+  let dbDayCount: number | undefined;
 
   try {
     const loaded = await loadRecords();
-    lastRefreshAt = loaded.fetchedAt;
-    lastRecordCount = loaded.records.length;
-  } catch (error) {
-    console.error('[/api/predictor/status]', error);
+    dataSource   = loaded.source;
+    fetchedAt    = loaded.fetchedAt;
+    recordCount  = loaded.records.length;
+    dbDayCount   = loaded.dbDayCount;
+  } catch (e) {
+    console.error('[/api/predictor/status]', e);
   }
 
+  const storeStatus = await getStoreStatus();
+
   return NextResponse.json({
-    ok:               true,
-    apiConfigured,
-    lastRefreshAt,
-    lastSnapshotDate,
-    lastRecordCount,
-    inProgress:       false,
-    error:            apiConfigured ? null : 'DATAGOV_API_KEY not configured',
-    totalSnapshots:   snapshotDates.length,
-    snapshotDates,
-    disclaimer:       PREDICTOR_DISCLAIMER,
+    ok:             true,
+    dataSource,
+    fetchedAt,
+    recordCount,
+    apiKeySet:      !!process.env.DATAGOV_API_KEY,
+
+    // Snapshot tier (local dev only)
+    snapshots: {
+      count:      snapshotDates.length,
+      latestDate: snapshotDates.at(-1) ?? null,
+    },
+
+    // MongoDB tier
+    mongodb: {
+      configured:  storeStatus.configured,
+      dayCount:    storeStatus.dayCount,
+      latestDate:  storeStatus.latestDate,
+      oldestDate:  storeStatus.oldestDate,
+      totalRecords: storeStatus.totalRecords,
+      dbDayCount,
+    },
+
+    // Seed tier
+    seed: {
+      fetchedAt:  seedFetchedAt,
+      ageDays:    seedAgeDays,
+    },
+
+    disclaimer: PREDICTOR_DISCLAIMER,
   });
 }

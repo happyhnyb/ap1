@@ -18,11 +18,11 @@ import { join } from 'path';
 // Env vars are injected by CI. For local use:
 //   DATAGOV_API_KEY=xxx npx tsx scripts/regenerate-seed.ts
 
-const RESOURCE_ID = '9ef84268-d588-465a-a308-a864a43d0070';
-const BASE_URL    = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
+const RESOURCE_ID  = '9ef84268-d588-465a-a308-a864a43d0070';
+const BASE_URL     = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
 const FETCH_LIMIT  = 500;
 const MAX_PAGES    = 10;  // 5 000 records/day maximum
-const DAYS_BACK    = 45;
+const DAYS_BACK    = Number(process.env.DAYS_BACK || 45);
 const DAY_DELAY_MS = 800; // pause between days to avoid 429
 const RETRY_MAX    = 3;   // retries per page on 429
 const RETRY_DELAY  = 2000; // ms between retries

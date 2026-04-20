@@ -1,18 +1,27 @@
 /**
  * Data loader for the forecasting engine.
  *
- * Priority:
- *   1. Read all JSON snapshot files from mandi-service/data/snapshots/
- *      (fast, no network, 91 days of history) — local dev / self-hosted only
- *   2. Seed data (lib/forecasting/data/seed-series.json) — committed to git,
- *      covers ~30 days of history, always available on Vercel
- *   3. Live Agmarknet API — used to enrich seed with the most recent 7 days
- *      when DATAGOV_API_KEY is set.  Only called with specific commodity+state
- *      filters to keep request count low (< 10 API calls, < 2 s on serverless).
+ * Four-tier priority (fastest / richest first):
  *
- * Each snapshot file: { snapshotDate, fetchedAt, records: MandiRecord[] }
+ *   1. Local snapshot files  (mandi-service/data/snapshots/*.json)
+ *      ✓ Local dev / self-hosted  ✗ Not on Vercel (gitignored)
+ *      → 90-day full history, no network
  *
- * Returns merged, de-duplicated MandiRecord[] with the fetch timestamp.
+ *   2. MongoDB store  (lib/forecasting/data/store.ts)
+ *      ✓ Vercel + local when MONGODB_URI is set
+ *      → Accumulates daily forever; grows richer with each cron run
+ *      → After 90 daily runs the model has a full 90-day training window
+ *
+ *   3. Seed file  (lib/forecasting/data/seed-series.json)
+ *      ✓ Always available — committed to git, ~30 dates
+ *      → Refreshed by GitHub Actions daily; guaranteed floor
+ *
+ *   4. Live Agmarknet API  (fallback enrichment)
+ *      ✓ When DATAGOV_API_KEY is set
+ *      → Overlays the most recent 7 days on top of the seed
+ *      → Only called with explicit commodity+state filters (≤ 10 API calls)
+ *
+ * The source field tells callers which tier was used.
  */
 
 import fs from 'fs';
@@ -22,9 +31,7 @@ import { mergeRecords } from '../preprocessing/pipeline';
 
 const SNAPSHOTS_DIR = path.resolve(process.cwd(), 'mandi-service/data/snapshots');
 
-// Days of live-API history to overlay on top of the seed when no snapshots
-// exist.  Kept small so the 7 parallel date-requests stay well within the
-// Vercel 10 s serverless timeout.
+/** Days of live-API enrichment layered on top of the seed fallback */
 const LIVE_ENRICH_DAYS = 7;
 
 interface SnapshotFile {
@@ -40,118 +47,97 @@ type SnapshotCacheEntry = {
 
 let snapshotCache: SnapshotCacheEntry | null = null;
 
-// ── 1. Snapshot loader (local / self-hosted) ──────────────────────────────────
+// ── Tier 1: local snapshot files ──────────────────────────────────────────────
 
-/**
- * Read all snapshot JSON files and merge their records.
- * Returns null if the snapshots directory does not exist.
- */
 async function loadFromSnapshots(): Promise<{ records: MandiRecord[]; fetchedAt: string } | null> {
   if (!fs.existsSync(SNAPSHOTS_DIR)) return null;
 
   const files = fs.readdirSync(SNAPSHOTS_DIR)
     .filter((f) => f.endsWith('.json'))
-    .sort(); // ascending date order
+    .sort();
 
   if (!files.length) return null;
 
   const lastFile = files.at(-1) ?? '';
-  const stats = lastFile ? fs.statSync(path.join(SNAPSHOTS_DIR, lastFile)) : null;
+  const stats     = lastFile ? fs.statSync(path.join(SNAPSHOTS_DIR, lastFile)) : null;
   const fingerprint = `${files.length}:${lastFile}:${stats?.mtimeMs ?? 0}`;
-  if (snapshotCache?.fingerprint === fingerprint) {
-    return snapshotCache.result;
-  }
+  if (snapshotCache?.fingerprint === fingerprint) return snapshotCache.result;
 
   const batches: MandiRecord[][] = [];
   let latestFetchedAt = new Date(0).toISOString();
 
   for (const file of files) {
     try {
-      const raw = fs.readFileSync(path.join(SNAPSHOTS_DIR, file), 'utf-8');
+      const raw  = fs.readFileSync(path.join(SNAPSHOTS_DIR, file), 'utf-8');
       const snap: SnapshotFile = JSON.parse(raw);
       if (Array.isArray(snap.records) && snap.records.length) {
         batches.push(snap.records);
         if (snap.fetchedAt > latestFetchedAt) latestFetchedAt = snap.fetchedAt;
       }
-    } catch {
-      // Skip corrupt files
-    }
+    } catch { /* skip corrupt */ }
   }
 
   if (!batches.length) return null;
 
-  const merged = mergeRecords(batches);
-  const result = { records: merged, fetchedAt: latestFetchedAt };
+  const result = { records: mergeRecords(batches), fetchedAt: latestFetchedAt };
   snapshotCache = { fingerprint, result };
   return result;
 }
 
-// ── 2. Seed loader (always available, committed to git) ───────────────────────
+// ── Tier 2: MongoDB persistent store ─────────────────────────────────────────
+
+async function loadFromMongoDB(): Promise<{ records: MandiRecord[]; fetchedAt: string; dayCount: number } | null> {
+  try {
+    const { loadFromStore } = await import('./store');
+    const result = await loadFromStore(90);
+    if (!result || !result.records.length) return null;
+    return { records: result.records, fetchedAt: result.fetchedAt, dayCount: result.dayCount };
+  } catch {
+    return null;
+  }
+}
+
+// ── Tier 3: seed file (always available) ─────────────────────────────────────
 
 async function loadFromSeed(): Promise<{ records: MandiRecord[]; fetchedAt: string }> {
   const { getSeedRecords, getSeedFetchedAt } = await import('./seed');
-  return {
-    records:   getSeedRecords(),   // ~115 k rows, all commodities, ~30 dates
-    fetchedAt: getSeedFetchedAt(),
-  };
+  return { records: getSeedRecords(), fetchedAt: getSeedFetchedAt() };
 }
 
-// ── 3. Live API enrichment (recent days only) ─────────────────────────────────
+// ── Tier 4: live Agmarknet API (enrichment only) ──────────────────────────────
 
 /**
- * Fetch the most recent `days` days from the live Agmarknet API, filtered by
- * commodity (and optionally state/market).  Always uses explicit filters so
- * each date-request returns only the records we care about (< 500 per day for
- * most selections) — well within Vercel's serverless time budget.
- *
- * Returns null when DATAGOV_API_KEY is absent or the API call fails.
+ * Fetch the last `days` days from the live API for a specific commodity+state.
+ * Only called when DATAGOV_API_KEY is set.  Always filtered — never fetches
+ * all records unfiltered (that would be ~900 API calls for 90 days).
  */
 async function fetchRecentLive(
   filters: { commodity: string; state?: string; market?: string },
   days = LIVE_ENRICH_DAYS,
 ): Promise<{ records: MandiRecord[]; fetchedAt: string } | null> {
-  const apiKey = process.env.DATAGOV_API_KEY;
-  if (!apiKey || !filters.commodity) return null;
-
+  if (!process.env.DATAGOV_API_KEY || !filters.commodity) return null;
   try {
     const { getHistoricalRecords } = await import('../../mandi/engine');
     const result = await getHistoricalRecords(
-      {
-        commodity: filters.commodity,
-        state:     filters.state   ?? '',
-        district:  '',
-        market:    filters.market  ?? '',
-        variety:   '',
-        grade:     '',
-      },
+      { commodity: filters.commodity, state: filters.state ?? '', district: '', market: filters.market ?? '', variety: '', grade: '' },
       days,
     );
-    if (!result.records.length) return null;
-    return { records: result.records, fetchedAt: result.fetchedAt };
-  } catch {
-    return null;
-  }
+    return result.records.length ? { records: result.records, fetchedAt: result.fetchedAt } : null;
+  } catch { return null; }
 }
 
 /**
- * Fetch today's all-commodity snapshot from the live API (no date filter).
- * Used when building filter options with no commodity selected.
- * MAX_PAGES × 500 = up to 5 000 records in ~10 parallel requests — fast.
- *
- * Returns null when DATAGOV_API_KEY is absent or the API call fails.
+ * Fetch today's all-commodity batch from the live API (no date filter).
+ * Used for options building (no commodity selected yet).
+ * MAX_PAGES × 500 = up to 5 000 records in ≤ 10 parallel requests.
  */
 async function fetchTodayAll(): Promise<{ records: MandiRecord[]; fetchedAt: string } | null> {
-  const apiKey = process.env.DATAGOV_API_KEY;
-  if (!apiKey) return null;
-
+  if (!process.env.DATAGOV_API_KEY) return null;
   try {
     const { getRecords } = await import('../../mandi/engine');
     const result = await getRecords();
-    if (!result.records.length) return null;
-    return { records: result.records, fetchedAt: result.fetchedAt };
-  } catch {
-    return null;
-  }
+    return result.records.length ? { records: result.records, fetchedAt: result.fetchedAt } : null;
+  } catch { return null; }
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -159,29 +145,24 @@ async function fetchTodayAll(): Promise<{ records: MandiRecord[]; fetchedAt: str
 export interface LoadResult {
   records:       MandiRecord[];
   fetchedAt:     string;
-  source:        'snapshots' | 'agmarknet' | 'seed';
+  source:        'snapshots' | 'mongodb' | 'agmarknet' | 'seed';
   snapshotCount: number;
+  /** For MongoDB tier: how many date-days are included */
+  dbDayCount?:   number;
 }
 
 /**
- * Load all available mandi records.
+ * Load all available mandi records using the four-tier strategy above.
  *
- * On local dev (with mandi-service running): uses snapshot files — fast,
- * 90-day window, no network requests.
- *
- * On Vercel (no snapshots): uses seed data (committed to git, ~30 days) as
- * the history baseline and overlays the most recent LIVE_ENRICH_DAYS days
- * from the live Agmarknet API when DATAGOV_API_KEY is set.  Calls are always
- * filtered by commodity+state so the per-call record count stays low.
- *
- * @param filters  Commodity + optional state/market.  Pass these whenever
- *                 available so the live-API enrichment path can apply filters.
+ * Pass `filters` whenever you know the commodity (engine calls always do).
+ * The page-level options call passes no filters — gets today's all-commodity
+ * batch from the live API or falls back to seed.
  */
 export async function loadRecords(
   filters?: { commodity: string; state?: string; market?: string },
 ): Promise<LoadResult> {
 
-  // ── Path A: local snapshot files ───────────────────────────────────────────
+  // ── Tier 1: local snapshots ───────────────────────────────────────────────
   const snap = await loadFromSnapshots();
   if (snap) {
     return {
@@ -192,29 +173,40 @@ export async function loadRecords(
     };
   }
 
-  // ── Path B: Vercel / no mandi-service ─────────────────────────────────────
-  // Load seed as the historical base (always succeeds, no network needed).
+  // ── Tier 2: MongoDB (rich, grows daily) ───────────────────────────────────
+  const mongo = await loadFromMongoDB();
+  if (mongo && mongo.records.length >= 100) {
+    // We have real accumulated data — use it directly (no enrichment needed,
+    // the cron already wrote today's records into Mongo)
+    return {
+      records:       mongo.records,
+      fetchedAt:     mongo.fetchedAt,
+      source:        'mongodb',
+      snapshotCount: 0,
+      dbDayCount:    mongo.dayCount,
+    };
+  }
+
+  // ── Tier 3 + 4: seed baseline + optional live enrichment ─────────────────
   const seed = await loadFromSeed();
 
   if (filters?.commodity) {
-    // Commodity-specific call: enrich seed with live recent days.
+    // Commodity-specific call: layer the most recent LIVE_ENRICH_DAYS on seed
     const live = await fetchRecentLive(filters, LIVE_ENRICH_DAYS);
     if (live?.records.length) {
-      const merged = mergeRecords([seed.records, live.records]);
       return {
-        records:       merged,
+        records:       mergeRecords([seed.records, live.records]),
         fetchedAt:     live.fetchedAt,
         source:        'agmarknet',
         snapshotCount: 0,
       };
     }
   } else {
-    // Options-building call (no commodity): try today's all-commodity snapshot.
+    // Options-building call: add today's full batch to seed
     const today = await fetchTodayAll();
     if (today?.records.length) {
-      const merged = mergeRecords([seed.records, today.records]);
       return {
-        records:       merged,
+        records:       mergeRecords([seed.records, today.records]),
         fetchedAt:     today.fetchedAt,
         source:        'agmarknet',
         snapshotCount: 0,
@@ -222,7 +214,7 @@ export async function loadRecords(
     }
   }
 
-  // ── Seed-only fallback (no API key or API unavailable) ────────────────────
+  // ── Seed-only (no API key / API unavailable) ──────────────────────────────
   return {
     records:       seed.records,
     fetchedAt:     seed.fetchedAt,
