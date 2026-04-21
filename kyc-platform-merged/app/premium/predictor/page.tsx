@@ -10,6 +10,8 @@ import AIAnalysisBar from '@/components/predictor/AIAnalysisBar';
 import { canAccessPredictorRelease, getPredictorReleaseMode } from '@/lib/product/predictor';
 import { buildSeedOptions, buildSeedSummary, getSeedRecords } from '@/lib/forecasting/data/seed';
 import { fallbackForecastResponse } from '@/lib/forecasting/fallback';
+import { buildOptions, buildSummary, filterRecords } from '@/lib/mandi/engine';
+import { loadRecords } from '@/lib/forecasting/data/loader';
 import { forecastingEngine } from '@/lib/forecasting/engine';
 
 export const metadata: Metadata = {
@@ -91,8 +93,13 @@ export default async function PredictorPage({ searchParams }: Props) {
   // ── Resolve filters ────────────────────────────────────────────────────────
   const params = (await searchParams) ?? {};
 
-  // Always use seed options for dropdowns — stable and consistent with engine's seed data
-  const options = buildSeedOptions();
+  // Load live records (snapshots → Agmarknet), fall back to seed options
+  let liveRecordsAll: Awaited<ReturnType<typeof loadRecords>> | null = null;
+  try { liveRecordsAll = await loadRecords(); } catch { /* use seed */ }
+
+  const seedOptions = buildSeedOptions();
+  const liveOptions = liveRecordsAll?.records.length ? buildOptions(liveRecordsAll.records) : null;
+  const options = (liveOptions?.commodities.length ?? 0) > 0 ? liveOptions! : seedOptions;
 
   const fallbackCommodity = 'Wheat';
   const fallbackState     = 'Madhya Pradesh';
@@ -105,16 +112,20 @@ export default async function PredictorPage({ searchParams }: Props) {
 
   const commodity = reqCommodity || fallbackCommodity;
   const state     = reqState     || fallbackState;
-  // Default market = '' (aggregate all markets) — guarantees enough data points
-  // Only honour an explicit ?market= param
-  const market    = hasMarketParam ? (reqMarket ?? '') : '';
+  // Only offer markets that belong to the selected state
+  const markets   = options.marketsByState[state] ?? [];
+  const market    = hasMarketParam ? (reqMarket ?? '') : (markets[0] ?? '');
   const horizon   = Number.isFinite(reqHorizon) ? Math.min(14, Math.max(3, reqHorizon)) : 14;
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
-  // Use seed records for the market table and summary (stable, always available)
+  const liveFilter = { commodity, state, district: '', market: market || '', variety: '', grade: '' };
+  const liveRecords = liveRecordsAll?.records.length ? filterRecords(liveRecordsAll.records, liveFilter) : [];
   const seedRecords = getSeedRecords({ commodity, state, market: market || undefined });
-  const summary = buildSeedSummary({ commodity, state, market: market || undefined });
-  const marketRows = buildMarketRows(seedRecords);
+  const recordsForView = liveRecords.length ? liveRecords : seedRecords;
+  const summary = liveRecords.length
+    ? buildSummary(liveRecords, liveRecordsAll?.fetchedAt ?? null)
+    : buildSeedSummary({ commodity, state, market: market || undefined });
+  const marketRows = buildMarketRows(recordsForView);
 
   const forecast = await forecastingEngine
     .forecast({ commodity, state, market: market || undefined, horizon })
