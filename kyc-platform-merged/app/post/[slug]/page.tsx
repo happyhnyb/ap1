@@ -30,5 +30,5 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     linkedArticle = await postsAdapter.getBySlug(post.linked_article_id).catch(() => null);
   }
 
-  return <Article post={post} canRead={canRead} linkedArticle={linkedArticle} />;
+  return <Article post={post} canRead={canRead} linkedArticle={linkedArticle} isLoggedIn={!!session} />;
 }

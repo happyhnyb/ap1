@@ -18,10 +18,12 @@ export function Article({
   post,
   canRead = true,
   linkedArticle,
+  isLoggedIn = false,
 }: {
   post: Post;
   canRead?: boolean;
   linkedArticle?: Post | null;
+  isLoggedIn?: boolean;
 }) {
   const teaserLen = Math.max(400, Math.floor(post.body.length * 0.22));
 
@@ -76,7 +78,7 @@ export function Article({
             <span className="post-meta-dot" style={{ color: 'var(--dim)' }}>{post.view_count.toLocaleString()} reads</span>
           </div>
 
-          {canRead && <ArticleAISummary slug={post.slug} />}
+          {canRead && <ArticleAISummary slug={post.slug} isLoggedIn={isLoggedIn} />}
 
           {/* Body */}
           <div className="article-body">

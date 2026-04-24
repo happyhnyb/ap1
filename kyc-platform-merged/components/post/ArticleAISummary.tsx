@@ -29,13 +29,15 @@ const PERSONA_LABELS: Record<Persona, string> = {
   procurement: 'Procurement',
 };
 
-export function ArticleAISummary({ slug }: { slug: string }) {
+export function ArticleAISummary({ slug, isLoggedIn = false }: { slug: string; isLoggedIn?: boolean }) {
   const [persona, setPersona] = useState<Persona>('general');
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isLoggedIn);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
+
     let cancelled = false;
 
     async function load() {
@@ -62,7 +64,7 @@ export function ArticleAISummary({ slug }: { slug: string }) {
 
     load();
     return () => { cancelled = true; };
-  }, [slug, persona]);
+  }, [slug, persona, isLoggedIn]);
 
   return (
     <section style={{ marginBottom: 24, padding: 20, borderRadius: 16, border: '1px solid var(--border2)', background: 'rgba(76,175,80,.04)' }}>
@@ -93,7 +95,11 @@ export function ArticleAISummary({ slug }: { slug: string }) {
         </div>
       </div>
 
-      {loading ? (
+      {!isLoggedIn ? (
+        <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+          <a href="/login" style={{ color: 'var(--green)', fontWeight: 600 }}>Sign in</a> to view the AI-grounded brief for this article.
+        </div>
+      ) : loading ? (
         <div style={{ fontSize: 14, color: 'var(--muted)' }}>Building grounded summary…</div>
       ) : error ? (
         <div className="notice notice-gold" style={{ marginBottom: 0 }}>
