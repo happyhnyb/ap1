@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 type Props = {
   commodity: string;
   state: string;
+  district?: string;
   market?: string;
   horizon: number;
 };
@@ -16,7 +17,7 @@ type Analysis = {
   watchouts: string[];
 };
 
-export default function AIAnalysisBar({ commodity, state, market, horizon }: Props) {
+export default function AIAnalysisBar({ commodity, state, district, market, horizon }: Props) {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(false);
@@ -30,7 +31,7 @@ export default function AIAnalysisBar({ commodity, state, market, horizon }: Pro
     fetch('/api/ai/forecast-explain', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commodity, state, market, horizon }),
+      body: JSON.stringify({ commodity, state, district, market, horizon }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((data: { answer?: string; drivers?: string[]; risks?: string[]; watchouts?: string[] }) => {
@@ -45,16 +46,19 @@ export default function AIAnalysisBar({ commodity, state, market, horizon }: Pro
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [commodity, state, market, horizon]);
-
-  if (error) return null;
+  }, [commodity, state, district, market, horizon]);
 
   return (
     <div className="pr-ai-bar">
       <div className="pr-ai-bar-head">
-        <span className="pr-ai-icon" aria-hidden="true">✦</span>
-        <span className="pr-ai-label">AI Analysis</span>
-        <span className="pr-ai-badge">Beta</span>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <span className="unwind-badge">Powered by Unwind AI</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="pr-ai-icon" aria-hidden="true">✦</span>
+            <span className="pr-ai-label">AI Analysis</span>
+            <span className="pr-ai-badge">Local</span>
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -66,6 +70,10 @@ export default function AIAnalysisBar({ commodity, state, market, horizon }: Pro
             <div className="pr-ai-shimmer-dot" />
             <div className="pr-ai-shimmer-dot" />
           </div>
+        </div>
+      ) : error ? (
+        <div className="notice notice-gold" style={{ marginBottom: 0 }}>
+          Local AI analysis is temporarily unavailable. The forecast data below is still safe to use.
         </div>
       ) : analysis ? (
         <>
@@ -86,7 +94,11 @@ export default function AIAnalysisBar({ commodity, state, market, horizon }: Pro
           )}
           <p className="pr-ai-disclaimer">AI analysis · Verify independently · Not financial advice</p>
         </>
-      ) : null}
+      ) : (
+        <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+          No local AI explanation is available for this selection yet.
+        </div>
+      )}
     </div>
   );
 }

@@ -314,32 +314,30 @@ export function buildOptions(records: MandiRecord[]) {
   const uniq = (vals: (string | null | undefined)[]) =>
     [...new Set(vals.filter((v): v is string => !!v))].sort((a, b) => a.localeCompare(b));
 
-  // Build state → markets and state → districts mappings for dependent filters
   const marketsByState: Record<string, string[]> = {};
   const districtsByState: Record<string, string[]> = {};
-  for (const r of records) {
-    if (r.state && r.market) {
-      (marketsByState[r.state] ??= new Set() as unknown as string[]);
-      (districtsByState[r.state] ??= new Set() as unknown as string[]);
-    }
-  }
-  // Use Sets then convert
-  const mbs: Record<string, string[]> = {};
-  const dbs: Record<string, string[]> = {};
+  const marketsByDistrict: Record<string, string[]> = {};
+
   for (const r of records) {
     if (r.state) {
       if (r.market) {
-        const markets = (mbs[r.state] ??= []);
+        const markets = (marketsByState[r.state] ??= []);
         if (!markets.includes(r.market)) markets.push(r.market);
       }
       if (r.district) {
-        const districts = (dbs[r.state] ??= []);
+        const districts = (districtsByState[r.state] ??= []);
         if (!districts.includes(r.district)) districts.push(r.district);
       }
     }
+    if (r.state && r.district && r.market) {
+      const key = `${r.state}::${r.district}`;
+      const markets = (marketsByDistrict[key] ??= []);
+      if (!markets.includes(r.market)) markets.push(r.market);
+    }
   }
-  Object.keys(mbs).forEach((s) => mbs[s].sort((a, b) => a.localeCompare(b)));
-  Object.keys(dbs).forEach((s) => dbs[s].sort((a, b) => a.localeCompare(b)));
+  Object.keys(marketsByState).forEach((s) => marketsByState[s].sort((a, b) => a.localeCompare(b)));
+  Object.keys(districtsByState).forEach((s) => districtsByState[s].sort((a, b) => a.localeCompare(b)));
+  Object.keys(marketsByDistrict).forEach((s) => marketsByDistrict[s].sort((a, b) => a.localeCompare(b)));
 
   return {
     commodities:    uniq(records.map((r) => r.commodity)),
@@ -348,8 +346,9 @@ export function buildOptions(records: MandiRecord[]) {
     markets:        uniq(records.map((r) => r.market)),
     varieties:      uniq(records.map((r) => r.variety)),
     grades:         uniq(records.map((r) => r.grade)),
-    marketsByState: mbs,
-    districtsByState: dbs,
+    marketsByState,
+    districtsByState,
+    marketsByDistrict,
   };
 }
 

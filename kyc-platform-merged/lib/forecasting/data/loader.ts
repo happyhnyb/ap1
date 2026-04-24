@@ -145,7 +145,7 @@ async function fetchTodayAll(): Promise<{ records: MandiRecord[]; fetchedAt: str
 export interface LoadResult {
   records:       MandiRecord[];
   fetchedAt:     string;
-  source:        'snapshots' | 'mongodb' | 'agmarknet' | 'seed';
+  source:        'snapshots' | 'mongodb' | 'agmarknet' | 'seed' | 'hybrid';
   snapshotCount: number;
   /** For MongoDB tier: how many date-days are included */
   dbDayCount?:   number;
@@ -175,51 +175,46 @@ export async function loadRecords(
 
   // ── Tier 2: MongoDB (rich, grows daily) ───────────────────────────────────
   const mongo = await loadFromMongoDB();
-  if (mongo && mongo.records.length >= 100) {
-    // We have real accumulated data — use it directly (no enrichment needed,
-    // the cron already wrote today's records into Mongo)
-    return {
-      records:       mongo.records,
-      fetchedAt:     mongo.fetchedAt,
-      source:        'mongodb',
-      snapshotCount: 0,
-      dbDayCount:    mongo.dayCount,
-    };
-  }
-
-  // ── Tier 3 + 4: seed baseline + optional live enrichment ─────────────────
   const seed = await loadFromSeed();
+  const baseRecords = mongo?.records.length
+    ? mergeRecords([seed.records, mongo.records])
+    : seed.records;
+  const baseFetchedAt = mongo?.records.length ? mongo.fetchedAt : seed.fetchedAt;
+  const baseSource: LoadResult['source'] = mongo?.records.length ? 'hybrid' : 'seed';
 
   if (filters?.commodity) {
-    // Commodity-specific call: layer the most recent LIVE_ENRICH_DAYS on seed
+    // Commodity-specific call: layer recent live rows on top of seed + Mongo.
     const live = await fetchRecentLive(filters, LIVE_ENRICH_DAYS);
     if (live?.records.length) {
       return {
-        records:       mergeRecords([seed.records, live.records]),
+        records:       mergeRecords([baseRecords, live.records]),
         fetchedAt:     live.fetchedAt,
-        source:        'agmarknet',
+        source:        mongo?.records.length ? 'hybrid' : 'agmarknet',
         snapshotCount: 0,
+        dbDayCount:    mongo?.dayCount,
       };
     }
   } else {
-    // Options-building call: add today's full batch to seed
+    // Options-building call: add today's full batch to the best local base.
     const today = await fetchTodayAll();
     if (today?.records.length) {
       return {
-        records:       mergeRecords([seed.records, today.records]),
+        records:       mergeRecords([baseRecords, today.records]),
         fetchedAt:     today.fetchedAt,
-        source:        'agmarknet',
+        source:        mongo?.records.length ? 'hybrid' : 'agmarknet',
         snapshotCount: 0,
+        dbDayCount:    mongo?.dayCount,
       };
     }
   }
 
-  // ── Seed-only (no API key / API unavailable) ──────────────────────────────
+  // ── Best available local base (seed-only or seed + Mongo) ─────────────────
   return {
-    records:       seed.records,
-    fetchedAt:     seed.fetchedAt,
-    source:        'seed',
+    records:       baseRecords,
+    fetchedAt:     baseFetchedAt,
+    source:        baseSource,
     snapshotCount: 0,
+    dbDayCount:    mongo?.dayCount,
   };
 }
 

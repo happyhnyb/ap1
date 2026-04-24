@@ -106,30 +106,39 @@ export default async function PredictorPage({ searchParams }: Props) {
 
   const reqCommodity   = first(params.commodity)?.trim();
   const reqState       = first(params.state)?.trim();
+  const reqDistrict    = first(params.district)?.trim() || first(params.city)?.trim();
   const reqMarket      = first(params.market)?.trim();
   const hasMarketParam = first(params.market) !== undefined;
   const reqHorizon     = Number.parseInt(first(params.horizon) ?? '', 10);
 
   const commodity = reqCommodity || fallbackCommodity;
   const state     = reqState     || fallbackState;
-  // Only offer markets that belong to the selected state
-  const markets   = options.marketsByState[state] ?? [];
-  const market    = hasMarketParam ? (reqMarket ?? '') : (markets[0] ?? '');
+  const validDistricts = state ? (options.districtsByState[state] ?? []) : options.districts;
+  const district = reqDistrict && validDistricts.includes(reqDistrict) ? reqDistrict : '';
+  const marketScopeKey = district ? `${state}::${district}` : '';
+  const validMarkets = district
+    ? (options.marketsByDistrict?.[marketScopeKey] ?? [])
+    : state
+      ? (options.marketsByState[state] ?? [])
+      : options.markets;
+  const market = hasMarketParam && reqMarket && validMarkets.includes(reqMarket)
+    ? reqMarket
+    : '';
   const horizon   = Number.isFinite(reqHorizon) ? Math.min(14, Math.max(3, reqHorizon)) : 14;
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
-  const liveFilter = { commodity, state, district: '', market: market || '', variety: '', grade: '' };
+  const liveFilter = { commodity, state, district, market: market || '', variety: '', grade: '' };
   const liveRecords = liveRecordsAll?.records.length ? filterRecords(liveRecordsAll.records, liveFilter) : [];
-  const seedRecords = getSeedRecords({ commodity, state, market: market || undefined });
+  const seedRecords = getSeedRecords({ commodity, state, district: district || undefined, market: market || undefined });
   const recordsForView = liveRecords.length ? liveRecords : seedRecords;
   const summary = liveRecords.length
     ? buildSummary(liveRecords, liveRecordsAll?.fetchedAt ?? null)
-    : buildSeedSummary({ commodity, state, market: market || undefined });
+    : buildSeedSummary({ commodity, state, district: district || undefined, market: market || undefined });
   const marketRows = buildMarketRows(recordsForView);
 
   const forecast = await forecastingEngine
-    .forecast({ commodity, state, market: market || undefined, horizon })
-    .catch(() => fallbackForecastResponse({ commodity, state, market: market || undefined, horizon }));
+    .forecast({ commodity, state, district: district || undefined, market: market || undefined, horizon })
+    .catch(() => fallbackForecastResponse({ commodity, state, district: district || undefined, market: market || undefined, horizon }));
 
   const quality = {
     commodity,
@@ -172,6 +181,13 @@ export default async function PredictorPage({ searchParams }: Props) {
   const dataPoints = forecast.meta.data_points;
   const isFallbackModel = forecast.model_used.includes('fallback') || forecast.meta.model_type.includes('fallback');
   const latestBand = endPoint ? `${fmt(endPoint.lower)} - ${fmt(endPoint.upper)}` : null;
+  const usingFallbackData = !liveRecords.length;
+  const isSeedOnly = liveRecordsAll?.source === 'seed' || !liveRecordsAll;
+  const dataWarning = usingFallbackData
+    ? isSeedOnly
+      ? 'Live Agmarknet data was unavailable, so this view is using cached/sample data.'
+      : 'This selection had no live rows, so cached/sample data is shown as a fallback.'
+    : null;
 
   let forecastText: string;
   if (forecast.insufficient) {
@@ -186,10 +202,14 @@ export default async function PredictorPage({ searchParams }: Props) {
   const filterOptions = {
     commodities:    options.commodities,
     states:         options.states,
+    districts:      options.districts,
     markets:        options.markets,
+    districtsByState: options.districtsByState,
     marketsByState: options.marketsByState,
+    marketsByDistrict: options.marketsByDistrict ?? {},
   };
-  const filterCurrent = { commodity, state, market, horizon };
+  const filterCurrent = { commodity, state, district, market, horizon };
+  const hasNoRecords = recordsForView.length === 0;
 
   return (
     <main className="pr-shell">
@@ -199,7 +219,7 @@ export default async function PredictorPage({ searchParams }: Props) {
         <div className="pr-topbar-left">
           <span className="pr-topbar-commodity">{commodity}</span>
           <span className="pr-topbar-sep" aria-hidden="true">·</span>
-          <span className="pr-topbar-loc">{state}{market ? ` · ${market}` : ''}</span>
+          <span className="pr-topbar-loc">{state}{district ? ` · ${district}` : ''}{market ? ` · ${market}` : ''}</span>
         </div>
         <a href="#pr-filters" className="pr-topbar-edit" aria-label="Edit filters">
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
@@ -216,6 +236,12 @@ export default async function PredictorPage({ searchParams }: Props) {
           <span className="pr-stale-text">
             Data {fresh.staleDays}d old · Refreshes after midnight IST
           </span>
+        </div>
+      )}
+
+      {dataWarning && (
+        <div className="notice notice-gold" style={{ marginBottom: 16 }}>
+          {dataWarning}
         </div>
       )}
 
@@ -278,7 +304,11 @@ export default async function PredictorPage({ searchParams }: Props) {
               )}
             </div>
 
-            {forecast.insufficient ? (
+            {hasNoRecords ? (
+              <div className="notice notice-gold pr-narrative">
+                No matching records were found for this filter combination. Try a broader state, city, or all-markets selection.
+              </div>
+            ) : forecast.insufficient ? (
               <div className="notice notice-gold pr-narrative">{forecast.message}</div>
             ) : (
               <>
@@ -305,6 +335,7 @@ export default async function PredictorPage({ searchParams }: Props) {
                 <AIAnalysisBar
                   commodity={commodity}
                   state={state}
+                  district={district || undefined}
                   market={market || undefined}
                   horizon={horizon}
                 />

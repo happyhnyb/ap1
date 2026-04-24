@@ -1,0 +1,49 @@
+{
+	"folders": [
+		{
+			"name": "app",
+			"path": "."
+		},
+		{
+			"name": "components",
+			"path": "../components"
+		},
+		{
+			"name": "docs",
+			"path": "../docs"
+		},
+		{
+			"name": "lib",
+			"path": "../lib"
+		},
+		{
+			"name": "predictor-backend-mandi-service",
+			"path": "../mandi-service"
+		},
+		{
+			"name": "mocks",
+			"path": "../mocks"
+		},
+		{
+			"name": "node_modules",
+			"path": "../node_modules"
+		},
+		{
+			"name": "public",
+			"path": "../public"
+		},
+		{
+			"name": "scripts",
+			"path": "../scripts"
+		},
+		{
+			"name": "tests",
+			"path": "../tests"
+		},
+		{
+			"name": "types",
+			"path": "../types"
+		}
+	],
+	"settings": {}
+}

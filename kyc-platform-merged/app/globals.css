@@ -793,6 +793,22 @@ a:hover .post-thumb img {
 }
 .pr-legend-history { background: var(--muted); }
 .pr-legend-forecast { height: 2px; border-radius: 2px; width: 14px; }
+
+.unwind-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 193, 7, 0.24);
+  background: linear-gradient(135deg, rgba(255,193,7,0.08), rgba(255,255,255,0.03));
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
 .pr-legend-band {
   display: inline-block; width: 9px; height: 5px; border-radius: 2px;
   opacity: 0.25; flex-shrink: 0;

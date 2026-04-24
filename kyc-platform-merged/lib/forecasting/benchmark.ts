@@ -46,7 +46,7 @@ export type BenchmarkModelSummary = {
 
 export type BenchmarkReport = {
   generatedAt: string;
-  source: 'snapshots' | 'agmarknet' | 'seed' | 'mongodb';
+  source: 'snapshots' | 'agmarknet' | 'seed' | 'mongodb' | 'hybrid';
   snapshotCount: number;
   horizon: number;
   minRealPoints: number;

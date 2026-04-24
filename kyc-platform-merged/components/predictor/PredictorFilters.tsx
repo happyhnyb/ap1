@@ -6,7 +6,10 @@ type FilterOptions = {
   commodities: string[];
   states: string[];
   markets: string[];
+  districts: string[];
   marketsByState: Record<string, string[]>;
+  districtsByState: Record<string, string[]>;
+  marketsByDistrict: Record<string, string[]>;
 };
 
 type Props = {
@@ -14,6 +17,7 @@ type Props = {
   current: {
     commodity: string;
     state: string;
+    district: string;
     market: string;
     horizon: number;
   };
@@ -25,18 +29,37 @@ const HORIZONS = [3, 5, 7, 10, 14] as const;
 export default function PredictorFilters({ options, current, isSidebar }: Props) {
   const [commodity, setCommodity] = useState(current.commodity);
   const [state,     setState]     = useState(current.state);
+  const [district,  setDistrict]  = useState(current.district);
   const [market,    setMarket]    = useState(current.market);
   const [horizon,   setHorizon]   = useState(current.horizon);
 
-  const availableMarkets = state ? (options.marketsByState[state] ?? []) : options.markets;
+  const availableDistricts = state ? (options.districtsByState[state] ?? []) : options.districts;
+  const districtKey = `${state}::${district}`;
+  const availableMarkets = district
+    ? (options.marketsByDistrict[districtKey] ?? [])
+    : state
+      ? (options.marketsByState[state] ?? [])
+      : options.markets;
 
   const handleStateChange = useCallback((newState: string) => {
     setState(newState);
+    setDistrict('');
     const validMarkets = newState ? (options.marketsByState[newState] ?? []) : options.markets;
     if (market && !validMarkets.includes(market)) setMarket('');
   }, [market, options.marketsByState, options.markets]);
 
-  const summaryText = `${current.commodity} · ${current.state}${current.market ? ` · ${current.market}` : ''} · ${current.horizon}d`;
+  const handleDistrictChange = useCallback((newDistrict: string) => {
+    setDistrict(newDistrict);
+    const key = `${state}::${newDistrict}`;
+    const validMarkets = newDistrict
+      ? (options.marketsByDistrict[key] ?? [])
+      : state
+        ? (options.marketsByState[state] ?? [])
+        : options.markets;
+    if (market && !validMarkets.includes(market)) setMarket('');
+  }, [market, options.markets, options.marketsByDistrict, options.marketsByState, state]);
+
+  const summaryText = `${commodity} · ${state || 'All states'}${district ? ` · ${district}` : ''}${market ? ` · ${market}` : ''} · ${horizon}d`;
 
   const fields = (
     <>
@@ -71,7 +94,27 @@ export default function PredictorFilters({ options, current, isSidebar }: Props)
 
       <div className="pr-filter-group">
         <label className="pr-filter-label">
-          Market{state ? ` (${availableMarkets.length})` : ''}
+          City{state ? ` (${availableDistricts.length})` : ''}
+        </label>
+        <select
+          name="district"
+          className="pr-filter-select"
+          value={district}
+          onChange={(e) => handleDistrictChange(e.target.value)}
+          disabled={state !== '' && availableDistricts.length === 0}
+        >
+          <option value="">
+            {state && availableDistricts.length === 0 ? 'None' : 'All cities'}
+          </option>
+          {availableDistricts.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="pr-filter-group">
+        <label className="pr-filter-label">
+          Market{district || state ? ` (${availableMarkets.length})` : ''}
         </label>
         <select
           name="market"

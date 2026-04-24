@@ -30,7 +30,7 @@ const STORE_DAYS_BACK = 90;
 // ── Lazy model import to avoid Mongoose registration at module load time ───────
 
 async function getModel() {
-  const { default: MandiSnapshot } = await import('@/lib/db/models/MandiSnapshot');
+  const { default: MandiSnapshot } = await import('../../db/models/MandiSnapshot');
   return MandiSnapshot;
 }
 

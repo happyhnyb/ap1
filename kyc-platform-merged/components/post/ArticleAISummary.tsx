@@ -68,6 +68,7 @@ export function ArticleAISummary({ slug }: { slug: string }) {
     <section style={{ marginBottom: 24, padding: 20, borderRadius: 16, border: '1px solid var(--border2)', background: 'rgba(76,175,80,.04)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
         <div>
+          <div className="unwind-badge" style={{ marginBottom: 8 }}>Powered by Unwind AI</div>
           <div style={{ fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6, fontWeight: 700 }}>
             AI Summary
           </div>

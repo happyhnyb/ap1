@@ -59,6 +59,36 @@ function isoToAgmarknet(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
+function parseToIso(dateStr: string): string {
+  if (!dateStr) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  const parts = dateStr.split('/');
+  if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  return dateStr;
+}
+
+function shiftIsoDate(iso: string, days: number): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function listRefreshDates(latestStoredDate: string | null, opts?: { maxDays?: number; fallbackLookbackDays?: number; overlapDays?: number }) {
+  const maxDays = opts?.maxDays ?? 8;
+  const fallbackLookbackDays = opts?.fallbackLookbackDays ?? 7;
+  const overlapDays = opts?.overlapDays ?? 1;
+  const today = getIstDate(0);
+  const fallbackStart = shiftIsoDate(today, -fallbackLookbackDays);
+  const catchupStart = latestStoredDate ? shiftIsoDate(latestStoredDate, -overlapDays) : fallbackStart;
+  const start = catchupStart > fallbackStart ? catchupStart : fallbackStart;
+
+  const dates: string[] = [];
+  for (let cursor = start; cursor <= today && dates.length < maxDays; cursor = shiftIsoDate(cursor, 1)) {
+    dates.push(cursor);
+  }
+  return dates;
+}
+
 function parseNumber(v: unknown): number | null {
   if (v == null || v === '') return null;
   const n = Number(String(v).replace(/,/g, '').trim());
@@ -73,7 +103,7 @@ function normalizeRecord(r: Record<string, unknown>): MandiRecord {
     commodity:    String(r.commodity    || ''),
     variety:      String(r.variety      || ''),
     grade:        String(r.grade        || ''),
-    arrival_date: String(r.arrival_date || ''),
+    arrival_date: parseToIso(String(r.arrival_date || '')),
     min_price:    parseNumber(r.min_price),
     max_price:    parseNumber(r.max_price),
     modal_price:  parseNumber(r.modal_price),
@@ -105,7 +135,7 @@ async function fetchDayRecords(
 
   // Fetch remaining pages in parallel (capped at MAX_PAGES)
   const pages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(total / FETCH_LIMIT)));
-  let allRaw  = [...first];
+  const allRaw = [...first];
 
   if (pages > 1) {
     const rest = await Promise.allSettled(
@@ -131,7 +161,19 @@ async function fetchDayRecords(
   const out: MandiRecord[] = [];
   for (const r of allRaw) {
     const norm = normalizeRecord(r);
-    const key  = `${norm.state}|${norm.district}|${norm.market}|${norm.commodity}|${norm.arrival_date}`;
+    const key  = [
+      norm.state,
+      norm.district,
+      norm.market,
+      norm.commodity,
+      norm.variety,
+      norm.grade,
+      norm.arrival_date,
+      norm.min_price,
+      norm.max_price,
+      norm.modal_price,
+      norm.arrivals,
+    ].join('|');
     if (!seen.has(key)) { seen.add(key); out.push(norm); }
   }
   return out;
@@ -187,13 +229,14 @@ export async function GET(req: NextRequest) {
   const apiKey    = process.env.DATAGOV_API_KEY || '';
   const fetchedAt = new Date().toISOString();
   const results: Array<{ date: string; stored: number; error?: string }> = [];
+  const storeStatus = await getStoreStatus();
+  const refreshDates = listRefreshDates(storeStatus.latestDate);
 
   // ── Phase 1: fetch & store today + yesterday ──────────────────────────────
   if (apiKey) {
-    // Agmarknet often publishes yesterday's data only by midnight IST.
-    // We fetch today AND yesterday to maximise the chance of fresh data.
-    for (const daysAgo of [0, 1]) {
-      const date = getIstDate(daysAgo);
+    // Re-fetch a small overlapping recent window so Vercel can recover from
+    // missed cron runs and pick up late Agmarknet corrections automatically.
+    for (const date of refreshDates) {
       try {
         const records = await fetchDayRecords(apiKey, date);
         const stored  = records.length
@@ -210,7 +253,6 @@ export async function GET(req: NextRequest) {
   const dispatch = await dispatchGitHubWorkflow();
 
   // ── Response ──────────────────────────────────────────────────────────────
-  const storeStatus = await getStoreStatus();
   const seedDate    = getSeedFetchedAt();
   const seedAgeDays = Math.floor(
     (Date.now() - new Date(seedDate).getTime()) / 86_400_000
@@ -221,6 +263,7 @@ export async function GET(req: NextRequest) {
     checkedAt:  fetchedAt,
     phase1: {
       apiKeySet: !!apiKey,
+      refreshDates,
       days:      results,
       totalStored: results.reduce((s, r) => s + r.stored, 0),
     },

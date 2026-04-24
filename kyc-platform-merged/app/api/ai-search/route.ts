@@ -5,9 +5,9 @@ import { UsageLogModel } from '@/lib/db/models/UsageLog';
 import { isMongoConfigured, connectDB } from '@/lib/db/connect';
 import { checkRateLimit, getClientId, LIMITS } from '@/lib/ratelimit';
 import { usersAdapter } from '@/lib/adapters';
-import { assertSafeUserText } from '@/lib/ai/moderation';
 import { semanticSearch } from '@/lib/ai/retrieval';
 import type { AICitation } from '@/lib/ai/types';
+import { getFromMacMini, shouldProxyToMacMini } from '@/lib/server/mac-mini';
 
 function groundedAnswer(query: string, citations: AICitation[]) {
   if (!citations.length) {
@@ -75,30 +75,45 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    await assertSafeUserText(query, 'AI search query');
-    const retrieval = await semanticSearch(query, { limit: 6, disableEmbeddings: true });
-    const grounded = groundedAnswer(query, retrieval.results);
-    const result = {
-      mode: 'copilot' as const,
-      query,
-      persona,
-      answer: grounded.answer,
-      bullets: grounded.bullets,
-      followUps: [
-        'Ask for a commodity-specific summary',
-        'Ask for a mandi comparison in Predictor',
-        'Search the cited article for policy details',
-      ],
-      guardrails: [
-        'Uses internal KYC records only',
-        'Does not invent forecast numbers',
-        `Retrieval mode: ${retrieval.retrievalMode}`,
-      ],
-      confidence: grounded.confidence,
-      citations: retrieval.results,
-      sources: retrieval.results,
-      snippets: retrieval.results.map((citation) => citation.snippet),
-    };
+    const result = shouldProxyToMacMini()
+      ? await getFromMacMini<{
+          mode: 'copilot';
+          query: string;
+          persona: 'farmer' | 'trader' | 'procurement' | 'general';
+          answer: string;
+          bullets: string[];
+          followUps: string[];
+          guardrails: string[];
+          confidence: 'high' | 'medium' | 'low' | 'insufficient';
+          citations: AICitation[];
+          sources: AICitation[];
+          snippets: string[];
+        }>(`/api/internal/ai-search?q=${encodeURIComponent(query)}&persona=${encodeURIComponent(persona)}`)
+      : await (async () => {
+          const retrieval = await semanticSearch(query, { limit: 6, disableEmbeddings: true });
+          const grounded = groundedAnswer(query, retrieval.results);
+          return {
+            mode: 'copilot' as const,
+            query,
+            persona,
+            answer: grounded.answer,
+            bullets: grounded.bullets,
+            followUps: [
+              'Ask for a commodity-specific summary',
+              'Ask for a mandi comparison in Predictor',
+              'Search the cited article for policy details',
+            ],
+            guardrails: [
+              'Uses internal KYC records only',
+              'Does not invent forecast numbers',
+              `Retrieval mode: ${retrieval.retrievalMode}`,
+            ],
+            confidence: grounded.confidence,
+            citations: retrieval.results,
+            sources: retrieval.results,
+            snippets: retrieval.results.map((citation) => citation.snippet),
+          };
+        })();
 
     // Log usage asynchronously — best-effort, never blocks the response
     if (isMongoConfigured()) {

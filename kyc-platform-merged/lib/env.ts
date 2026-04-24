@@ -25,7 +25,9 @@ export const env = {
   NODE_ENV:         process.env.NODE_ENV ?? 'development',
   IS_PROD:          isProd,
   IS_DEV:           !isProd,
-  ENABLE_DEMO_AUTH: process.env.ENABLE_DEMO_AUTH === 'true',
+  LOCAL_SERVER_PORT: Number(process.env.LOCAL_SERVER_PORT ?? process.env.PORT ?? '3000'),
+  INTERNAL_API_KEY: process.env.INTERNAL_API_KEY ?? '',
+  ENABLE_DEMO_AUTH: process.env.ENABLE_DEMO_AUTH !== 'false',
   PREDICTOR_RELEASE_MODE: (process.env.PREDICTOR_RELEASE_MODE === 'public' || process.env.PREDICTOR_RELEASE_MODE === 'auth' || process.env.PREDICTOR_RELEASE_MODE === 'premium'
     ? process.env.PREDICTOR_RELEASE_MODE
     : 'public') as 'public' | 'auth' | 'premium',
@@ -41,6 +43,12 @@ export const env = {
 
   // Predictor sidecar
   MANDI_SERVICE_URL: process.env.MANDI_SERVICE_URL ?? 'http://localhost:4000',
+  MAC_MINI_API_BASE_URL: process.env.MAC_MINI_API_BASE_URL ?? '',
+
+  // Local AI
+  OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434',
+  OLLAMA_MODEL: process.env.OLLAMA_MODEL ?? 'llama3.2',
+  OLLAMA_TIMEOUT_MS: Number(process.env.OLLAMA_TIMEOUT_MS ?? '20000'),
 
   // AI features — optional, degrade gracefully
   OPENAI_API_KEY:   process.env.OPENAI_API_KEY ?? '',
@@ -61,7 +69,7 @@ export const env = {
 
   // Site
   SITE_NAME:        process.env.NEXT_PUBLIC_SITE_NAME ?? 'Know Your Commodity',
-  BASE_URL:         process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000',
+  BASE_URL:         process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? `http://localhost:${process.env.LOCAL_SERVER_PORT ?? process.env.PORT ?? '3000'}`,
   NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID ?? '',
 
   // Stripe — optional in dev; required when payments are enabled
@@ -83,7 +91,7 @@ export const env = {
   R2_BUCKET:            process.env.R2_BUCKET            ?? '',
   R2_PUBLIC_URL:        process.env.R2_PUBLIC_URL        ?? '',
 
-  // Demo auth is an explicit local-only opt-in.
+  // In local dev, fall back to seeded in-memory auth unless explicitly disabled.
   get IS_DEMO(): boolean { return this.IS_DEV && this.ENABLE_DEMO_AUTH && !this.MONGODB_URI; },
   // Stripe mode: true when Stripe key is present
   get STRIPE_ENABLED(): boolean { return !!process.env.STRIPE_SECRET_KEY; },

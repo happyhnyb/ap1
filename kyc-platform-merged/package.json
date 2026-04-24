@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "benchmark:forecast": "tsx scripts/forecast-benchmark.ts",
     "seed": "tsx scripts/seed.ts",
+    "seed:auth": "tsx scripts/seed-auth-users.ts",
     "ai:nightly": "tsx scripts/ai-nightly.ts",
     "seed:refresh": "tsx scripts/regenerate-seed.ts",
     "mandi:install": "cd mandi-service && npm install",

@@ -11,11 +11,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });
   }
 
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (!openaiKey) {
-    return NextResponse.json({ error: 'OPENAI_API_KEY not configured.' }, { status: 503 });
-  }
-
   const q: Record<string, string> = {};
   req.nextUrl.searchParams.forEach((v, k) => { q[k] = v; });
   const filters = filtersFromQuery(q);
@@ -37,37 +32,51 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Could not compute forecast.' }, { status: 422 });
     }
 
-    const histSummary  = history.slice(-30).map((h) => `${h.arrival_date}: ₹${h.avg_modal_price ?? '–'}/qtl`).join(' | ');
-    const fcastSummary = forecastResult.forecast.slice(0, 7).map((f) => `${f.date}: ₹${f.price} (${f.lower}–${f.upper})`).join(' | ');
-
-    const prompt = `You are a senior commodity analyst for Indian agricultural markets.
-Commodity: ${filters.commodity || 'All'}  State: ${filters.state || 'All India'}  Market: ${filters.market || 'All'}
-Historical: ${histSummary}
-Forecast (α=${forecastResult.alpha}, β=${forecastResult.beta}): ${fcastSummary}
-Trend: ${forecastResult.direction} (${forecastResult.trend_pct > 0 ? '+' : ''}${forecastResult.trend_pct}%)  MAPE: ${forecastResult.mape}%
-
-Respond ONLY with JSON:
-{"outlook":"<2-3 sentences>","drivers":["<d1>","<d2>","<d3>"],"risks":["<r1>","<r2>"],"signal":"Buy"|"Hold"|"Wait","signal_reason":"<1 sentence>","confidence":"high"|"medium"|"low"}`;
-
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini', temperature: 0.25, max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-      }),
-    });
-    if (!res.ok) return NextResponse.json({ error: 'AI analysis failed.' }, { status: 500 });
-
-    const data = await res.json() as { choices?: { message?: { content?: string } }[] };
-    const raw  = data.choices?.[0]?.message?.content;
-    if (!raw) return NextResponse.json({ error: 'AI analysis failed.' }, { status: 500 });
+    const directionLabel = forecastResult.direction === 'up'
+      ? 'firming'
+      : forecastResult.direction === 'down'
+        ? 'softening'
+        : 'moving sideways';
+    const latestPrice = prices.at(-1) ?? null;
+    const confidence =
+      forecastResult.mape <= 6 ? 'high'
+        : forecastResult.mape <= 12 ? 'medium'
+          : 'low';
+    const signal =
+      forecastResult.direction === 'up' && forecastResult.trend_pct > 3 ? 'Buy'
+        : forecastResult.direction === 'down' && forecastResult.trend_pct < -3 ? 'Wait'
+          : 'Hold';
+    const recentWindow = prices.slice(-7);
+    const recentMin = Math.min(...recentWindow);
+    const recentMax = Math.max(...recentWindow);
+    const outlook = `${filters.commodity || 'This market'} is ${directionLabel} over the next 14 days based on local mandi history and Holt trend smoothing. The latest observed modal price is ${latestPrice != null ? `Rs ${latestPrice}/qtl` : 'not available'}, with model error around ${forecastResult.mape}% in recent backtests.`;
+    const drivers = [
+      `Recent 7-day price band: Rs ${recentMin} to Rs ${recentMax}/qtl`,
+      `Trend direction: ${forecastResult.direction} (${forecastResult.trend_pct > 0 ? '+' : ''}${forecastResult.trend_pct}%)`,
+      `Model parameters alpha ${forecastResult.alpha}, beta ${forecastResult.beta}`,
+    ];
+    const risks = [
+      'Mandi arrivals or local supply can shift faster than the model updates.',
+      forecastResult.mape > 10 ? 'Backtest error is elevated, so treat the signal as directional only.' : 'Forecast error remains moderate but not exact for daily execution.',
+    ];
+    const signalReason =
+      signal === 'Buy'
+        ? 'Momentum is positive and recent prices are trending higher.'
+        : signal === 'Wait'
+          ? 'Momentum is negative, so waiting may reduce downside timing risk.'
+          : 'The current setup is mixed, so staying neutral is safer than forcing a trade.';
 
     return NextResponse.json({
       commodity: filters.commodity || 'All', state: filters.state || 'All', market: filters.market || 'All',
-      ...JSON.parse(raw),
-      latestPrice: prices.at(-1) ?? null, data_points: prices.length, real_data_points: prices.length,
+      outlook,
+      drivers,
+      risks,
+      signal,
+      signal_reason: signalReason,
+      confidence,
+      latestPrice,
+      data_points: prices.length,
+      real_data_points: prices.length,
     });
   } catch {
     return NextResponse.json({ error: 'Insights service unavailable.' }, { status: 503 });
