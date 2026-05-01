@@ -119,7 +119,8 @@ export default async function PredictorPage({ searchParams }: Props) {
   const arrow       = forecast.direction === 'up' ? '↑' : forecast.direction === 'down' ? '↓' : '→';
   const smape       = forecast.meta.backtest.smape;
   const conf        = confidenceLevel(smape);
-  const fresh       = dateFreshness(summary.latestArrivalDate);
+  const freshestDataDate = summary.latestSnapshotDate ?? summary.latestArrivalDate;
+  const fresh       = dateFreshness(freshestDataDate);
   const isStale     = fresh.staleDays >= 3;
   const isVeryStale = fresh.staleDays >= 7;
 
@@ -368,7 +369,7 @@ export default async function PredictorPage({ searchParams }: Props) {
               ['Records', summary.recordsCount.toLocaleString()],
               ['Markets', summary.marketsCount.toLocaleString()],
               ['States', options.states.length.toLocaleString()],
-              ['Last mandi date', summary.latestArrivalDate ?? '—'],
+              ['Latest data date', freshestDataDate ?? '—'],
               ['Last updated', sourceFetchedAt ? new Date(sourceFetchedAt).toLocaleString('en-IN') : (summary.latestSnapshotDate ?? '—')],
               ['Data source', sourceStatus],
               ['Model', forecast.meta.model_description],
