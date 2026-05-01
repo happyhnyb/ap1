@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { unstable_noStore as noStore } from 'next/cache';
 import type { Metadata } from 'next';
+import { cookies, headers } from 'next/headers';
 import { getEffectiveServerSession } from '@/lib/auth/current-user';
 import PredictorPaywall from '@/components/predictor/PredictorPaywall';
 import PredictorFilters from '@/components/predictor/PredictorFilters';
@@ -12,6 +13,7 @@ import { getPredictorPageData, type PredictorPageData } from '@/lib/predictor/pa
 import { getPredictorSummaryData } from '@/lib/predictor/summary-data';
 import { filtersFromQuery } from '@/lib/mandi/engine';
 import { getFromMacMini, shouldProxyToMacMini } from '@/lib/server/mac-mini';
+import { env } from '@/lib/env';
 
 export const metadata: Metadata = {
   title: 'Price Predictor | KYC Agri',
@@ -51,6 +53,26 @@ function confidenceLevel(smape: number | null): { label: string; cls: string } {
   return                    { label: 'Low',      cls: 'pr-conf-low' };
 }
 
+async function getFreshSummaryFromRoute(queryString: string, fallback: PredictorPageData['summary']) {
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore.getAll().map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
+  const headerStore = await headers();
+  const host = headerStore.get('x-forwarded-host') || headerStore.get('host') || '';
+  const proto = headerStore.get('x-forwarded-proto') || (host.includes('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https');
+  const baseUrl = host ? `${proto}://${host}` : env.APP_BASE_URL;
+
+  const response = await fetch(`${baseUrl}/api/predictor/summary${queryString}`, {
+    method: 'GET',
+    headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+    cache: 'no-store',
+  }).catch(() => null);
+
+  if (!response?.ok) return fallback;
+
+  const data = await response.json().catch(() => null) as PredictorPageData['summary'] | null;
+  return data ?? fallback;
+}
+
 export default async function PredictorPage({ searchParams }: Props) {
   noStore();
 
@@ -74,7 +96,7 @@ export default async function PredictorPage({ searchParams }: Props) {
     : await getPredictorPageData(params);
   const filters = filtersFromQuery(Object.fromEntries(query.entries()));
   const freshSummary = shouldProxyToMacMini()
-    ? await getFromMacMini<typeof pageData.summary>(`/api/internal/predictor/summary${queryString}`).catch(() => pageData.summary)
+    ? await getFreshSummaryFromRoute(queryString, pageData.summary)
     : await getPredictorSummaryData(filters).catch(() => pageData.summary);
 
   const {
