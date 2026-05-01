@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getEffectiveServerSession } from '@/lib/auth/current-user';
 import { NextRequest } from 'next/server';
-import { proxyRouteToMacMini } from '@/lib/server/mac-mini-proxy';
+import { proxyRouteToMacMini, shouldForceMacMiniProxy } from '@/lib/server/mac-mini-proxy';
 import { env } from '@/lib/env';
 
 export async function GET(req: NextRequest) {
-  if (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL) {
+  if (shouldForceMacMiniProxy(req) || (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL)) {
     return proxyRouteToMacMini(req);
   }
 

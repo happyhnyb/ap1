@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { usersAdapter } from '@/lib/adapters';
 import { COOKIE_NAME, cookieOptions, getServerSession, refreshServerSessionToken, sessionPayloadFromUser } from '@/lib/auth/jwt';
-import { proxyRouteToMacMini } from '@/lib/server/mac-mini-proxy';
+import { proxyRouteToMacMini, shouldForceMacMiniProxy } from '@/lib/server/mac-mini-proxy';
 import { env } from '@/lib/env';
 import { NextRequest } from 'next/server';
 
 export async function POST(req: NextRequest) {
-  if (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL) {
+  if (shouldForceMacMiniProxy(req) || (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL)) {
     return proxyRouteToMacMini(req);
   }
 

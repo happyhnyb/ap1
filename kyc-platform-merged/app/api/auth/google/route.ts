@@ -5,7 +5,7 @@ import { usersAdapter } from '@/lib/adapters/users';
 import { COOKIE_NAME, cookieOptions, createServerSessionToken, sessionPayloadFromUser } from '@/lib/auth/jwt';
 import { checkRateLimit, getClientId, LIMITS } from '@/lib/ratelimit';
 import { AuthStoreUnavailableError } from '@/lib/adapters/users';
-import { proxyRouteToMacMini } from '@/lib/server/mac-mini-proxy';
+import { proxyRouteToMacMini, shouldForceMacMiniProxy } from '@/lib/server/mac-mini-proxy';
 import { env } from '@/lib/env';
 
 const BodySchema = z.object({
@@ -13,7 +13,7 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  if (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL) {
+  if (shouldForceMacMiniProxy(req) || (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL)) {
     return proxyRouteToMacMini(req);
   }
 

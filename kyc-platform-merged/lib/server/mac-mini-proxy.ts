@@ -18,6 +18,31 @@ export async function routeShouldProxy() {
   return shouldProxyToMacMini();
 }
 
+export function shouldForceMacMiniProxy(req?: NextRequest) {
+  if (!shouldProxyToMacMini()) return false;
+  const runtimeEnv = globalThis.process?.env ?? {};
+  const host = req?.headers.get('host') ?? '';
+  return Boolean(
+    runtimeEnv.NETLIFY
+    || runtimeEnv.DEPLOY_ID
+    || runtimeEnv.SITE_ID
+    || host.endsWith('.netlify.app')
+  );
+}
+
+function rewriteSetCookieForHost(req: NextRequest, setCookie: string) {
+  const host = req.headers.get('host') ?? '';
+  const configuredDomain = (env.COOKIE_DOMAIN ?? '').replace(/^\./, '').toLowerCase();
+  if (!host || !configuredDomain) return setCookie;
+
+  const normalizedHost = host.toLowerCase();
+  if (normalizedHost === configuredDomain || normalizedHost.endsWith(`.${configuredDomain}`)) {
+    return setCookie;
+  }
+
+  return setCookie.replace(/;\s*Domain=[^;]+/gi, '');
+}
+
 export async function proxyRouteToMacMini(req: NextRequest, path?: string) {
   const baseUrl = getBackendBaseUrl();
   if (!baseUrl) {
@@ -54,7 +79,7 @@ export async function proxyRouteToMacMini(req: NextRequest, path?: string) {
 
   const setCookie = upstream.headers.get('set-cookie');
   if (setCookie) {
-    response.headers.set('set-cookie', setCookie);
+    response.headers.set('set-cookie', rewriteSetCookieForHost(req, setCookie));
   }
 
   return response;

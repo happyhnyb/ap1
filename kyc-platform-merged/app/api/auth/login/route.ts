@@ -4,11 +4,11 @@ import { COOKIE_NAME, cookieOptions, createServerSessionToken, sessionPayloadFro
 import { parseBody, LoginSchema } from '@/lib/validation';
 import { checkRateLimit, getClientId, LIMITS } from '@/lib/ratelimit';
 import { AuthStoreUnavailableError } from '@/lib/adapters/users';
-import { proxyRouteToMacMini } from '@/lib/server/mac-mini-proxy';
+import { proxyRouteToMacMini, shouldForceMacMiniProxy } from '@/lib/server/mac-mini-proxy';
 import { env } from '@/lib/env';
 
 export async function POST(req: NextRequest) {
-  if (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL) {
+  if (shouldForceMacMiniProxy(req) || (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL)) {
     return proxyRouteToMacMini(req);
   }
 
