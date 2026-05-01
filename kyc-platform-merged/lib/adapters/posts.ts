@@ -38,7 +38,9 @@ async function runSnapshotFallback<T>(reason: unknown, loader: () => T | Promise
 
 async function proxyJson<T>(path: string, init?: RequestInit): Promise<T> {
   const baseUrl = getBackendBaseUrl();
-  if (!baseUrl) {
+  // On Netlify the Mac Mini is unreachable from Netlify's IP range — fail fast
+  // so the snapshot fallback runs within the 10-second function timeout.
+  if (!baseUrl || process.env.NETLIFY) {
     throw new Error('No local database or Mac Mini backend is configured.');
   }
 
