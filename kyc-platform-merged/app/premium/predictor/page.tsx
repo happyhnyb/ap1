@@ -66,7 +66,10 @@ export default async function PredictorPage({ searchParams }: Props) {
     if (firstValue) query.set(key, firstValue);
   }
 
-  const pageData: PredictorPageData = shouldProxyToMacMini()
+  // On Netlify (process.env.NETLIFY is set by the platform) use local seed + live
+  // Agmarknet data — the Mac Mini proxy is unreliable from Netlify's IP range.
+  const isNetlify = Boolean(process.env.NETLIFY);
+  const pageData: PredictorPageData = (!isNetlify && shouldProxyToMacMini())
     ? await getFromMacMini<PredictorPageData>(`/api/internal/predictor/page-data${query.size ? `?${query.toString()}` : ''}`).catch(() => getPredictorPageData(params))
     : await getPredictorPageData(params);
 

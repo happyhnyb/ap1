@@ -20,16 +20,24 @@ export async function POST(req: NextRequest) {
     // request there so the Mac Mini's local Ollama handles the actual inference.
     const isLocalOllama = /^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(env.OLLAMA_BASE_URL);
     if (isLocalOllama && env.MAC_MINI_API_BASE_URL) {
-      const macRes = await fetch(`${env.MAC_MINI_API_BASE_URL.replace(/\/$/, '')}/api/local-ai/summarize`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(env.INTERNAL_API_KEY ? { 'x-internal-api-key': env.INTERNAL_API_KEY } : {}),
-        },
-        body: JSON.stringify({ text: body.text }),
-        cache: 'no-store',
-      });
-      return NextResponse.json(await macRes.json(), { status: macRes.status });
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 5_000);
+        const macRes = await fetch(`${env.MAC_MINI_API_BASE_URL.replace(/\/$/, '')}/api/local-ai/summarize`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(env.INTERNAL_API_KEY ? { 'x-internal-api-key': env.INTERNAL_API_KEY } : {}),
+          },
+          body: JSON.stringify({ text: body.text }),
+          cache: 'no-store',
+          signal: ctrl.signal,
+        });
+        clearTimeout(timer);
+        return NextResponse.json(await macRes.json(), { status: macRes.status });
+      } catch {
+        // Mac Mini unreachable — fall through to local Ollama / text fallback below
+      }
     }
 
     const result = await summarizeTextWithOllama(body.text);

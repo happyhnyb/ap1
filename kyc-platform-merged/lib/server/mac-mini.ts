@@ -32,7 +32,7 @@ export async function postToMacMini<T>(path: string, body: unknown): Promise<T> 
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const timeout = setTimeout(() => controller.abort(), 5_000);
 
   try {
     const res = await fetch(`${baseUrl}${path}`, {
@@ -62,7 +62,7 @@ export async function getFromMacMini<T>(path: string): Promise<T> {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const timeout = setTimeout(() => controller.abort(), 5_000);
 
   try {
     const res = await fetch(`${baseUrl}${path}`, {

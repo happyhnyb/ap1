@@ -51,7 +51,7 @@ async function proxyJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const timeout = setTimeout(() => controller.abort(), 5_000);
 
   try {
     const res = await fetch(`${baseUrl}${path}`, {

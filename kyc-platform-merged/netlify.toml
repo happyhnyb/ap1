@@ -2,6 +2,9 @@
   command = "npm run build"
   publish = ".next"
 
+[functions]
+  included_files = ["data/**", "mocks/**"]
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 

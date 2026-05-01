@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = BodySchema.parse(await req.json());
     if (body.question) await assertSafeUserText(body.question, 'forecast question');
-    const response = shouldProxyToMacMini()
+    const isNetlify = Boolean(process.env.NETLIFY);
+    const response = (!isNetlify && shouldProxyToMacMini())
       ? await postToMacMini('/api/internal/forecast-explain', body)
       : await explainForecast(body);
     return NextResponse.json(response);

@@ -2,6 +2,13 @@ import fs from 'fs';
 import path from 'path';
 import type { Post } from '@/types/post';
 
+// Statically imported so bundlers always include the file regardless of
+// how process.cwd() resolves at runtime in serverless environments.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const BUNDLED_SNAPSHOT: { posts?: unknown[] } | unknown[] | null = (() => {
+  try { return require('../../data/fallback/posts-snapshot.json'); } catch { return null; }
+})();
+
 type SnapshotFile = {
   generatedAt?: string;
   source?: string;
@@ -74,14 +81,24 @@ function normalizePost(candidate: SnapshotCandidate, index: number): Post | null
 }
 
 function readSnapshotCandidates() {
-  const paths = [SNAPSHOT_PATH, MOCKS_PATH];
-
-  for (const filePath of paths) {
+  // Try filesystem paths first (self-hosted / local dev)
+  for (const filePath of [SNAPSHOT_PATH, MOCKS_PATH]) {
     if (!fs.existsSync(filePath)) continue;
+    try {
+      const raw = fs.readFileSync(filePath, 'utf8');
+      const parsed = JSON.parse(raw) as SnapshotFile | SnapshotCandidate[];
+      const candidates = Array.isArray(parsed) ? parsed : parsed.posts;
+      if (Array.isArray(candidates) && candidates.length) {
+        return candidates as SnapshotCandidate[];
+      }
+    } catch { /* skip corrupt file */ }
+  }
 
-    const raw = fs.readFileSync(filePath, 'utf8');
-    const parsed = JSON.parse(raw) as SnapshotFile | SnapshotCandidate[];
-    const candidates = Array.isArray(parsed) ? parsed : parsed.posts;
+  // Fall back to the statically bundled copy (always available in serverless)
+  if (BUNDLED_SNAPSHOT) {
+    const candidates = Array.isArray(BUNDLED_SNAPSHOT)
+      ? BUNDLED_SNAPSHOT
+      : (BUNDLED_SNAPSHOT as SnapshotFile).posts;
     if (Array.isArray(candidates) && candidates.length) {
       return candidates as SnapshotCandidate[];
     }
