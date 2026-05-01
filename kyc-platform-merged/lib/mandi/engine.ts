@@ -4,7 +4,7 @@
  * Fetches commodity price data from data.gov.in (Agmarknet) and processes
  * it using Adaptive Holt's Double Exponential Smoothing for forecasting.
  *
- * Each API page URL is cached for 24 h by Next.js fetch cache.
+ * Each API page URL is cached for 1 h by Next.js fetch cache.
  * Max pages: MAX_PAGES (caps fetch time in serverless environments).
  */
 
@@ -114,7 +114,7 @@ export function filtersFromQuery(q: Record<string, string>): MandiFilters {
   };
 }
 
-// ── API fetch (each page URL cached 24 h by Next.js fetch cache) ──────────────
+// ── API fetch (each page URL cached for 1 h by Next.js fetch cache) ───────────
 
 function applyFilterParams(url: URL, filters: Partial<MandiFilters> & { arrival_date?: string }) {
   if (filters.arrival_date) url.searchParams.set('filters[arrival_date]', filters.arrival_date);
@@ -138,10 +138,10 @@ async function fetchPage(
   url.searchParams.set('offset',  String(offset));
   applyFilterParams(url, filters);
 
-  // next.revalidate caches this URL for 24 h in Next.js data cache
+  // Keep a short cache so the predictor can pick up fresher mandi data.
   const res = await fetch(url.toString(), {
     headers: { Accept: 'application/json' },
-    next: { revalidate: 86400 },
+    next: { revalidate: 3600 },
   });
 
   if (!res.ok) throw new Error(`Agmarknet API ${res.status}`);

@@ -10,7 +10,10 @@ export const metadata: Metadata = {
 export const revalidate = 300;
 
 export default async function HomePage() {
-  const posts = await postsAdapter.listPublished();
+  const posts = await postsAdapter.listPublished().catch((error) => {
+    console.error('[app/page] Failed to load published posts for homepage.', error);
+    return [];
+  });
 
   return (
     <>

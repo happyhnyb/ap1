@@ -3,26 +3,31 @@ import type { Metadata } from 'next';
 import { Article } from '@/components/post/Article';
 import { getPost } from '@/lib/api';
 import { getEffectiveServerSession } from '@/lib/auth/current-user';
-import { canAccessPost, isPremium } from '@/lib/auth/entitlement';
+import { canAccessPost, isEditor, isPremium } from '@/lib/auth/entitlement';
 import { postsAdapter } from '@/lib/adapters';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPost(slug);
-  if (!post) return {};
+  const session = await getEffectiveServerSession();
+  if (!post || (post.status !== 'published' && !isEditor(session))) return {};
   return { title: post.title, description: post.excerpt };
 }
 
 export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const post = await getPost(slug);
-  if (!post || post.status !== 'published') notFound();
-
-  // Increment view count (fire-and-forget)
-  postsAdapter.incrementViews(slug).catch(() => {});
-
   const session = await getEffectiveServerSession();
+  const canPreviewUnpublished = isEditor(session);
+  if (!post || (post.status !== 'published' && !canPreviewUnpublished)) notFound();
+
   const canRead = canAccessPost(session, post.is_premium);
+  const isPublished = post.status === 'published';
+
+  if (isPublished) {
+    // Increment view count (fire-and-forget) only for public posts.
+    postsAdapter.incrementViews(slug).catch(() => {});
+  }
 
   // Fetch linked premium article if this story has one
   let linkedArticle = null;

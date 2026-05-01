@@ -4,13 +4,29 @@ import type { Post } from '@/types/post';
 import { fmtDate } from '@/lib/utils';
 import { PostThumb } from '@/components/feed/PostThumb';
 import { ArticleAISummary } from './ArticleAISummary';
+import { parsePostBodySections } from '@/lib/posts/body';
 
 function renderBody(body: string) {
-  return body.split('\n\n').map((part, i) => {
-    if (part.startsWith('## ')) return <h2 key={i} className="article-body-h2">{part.slice(3)}</h2>;
-    if (part.startsWith('### ')) return <h3 key={i} className="article-body-h3">{part.slice(4)}</h3>;
-    if (part.startsWith('> ')) return <blockquote key={i} className="article-body-bq">{part.slice(2)}</blockquote>;
-    return <p key={i}>{part}</p>;
+  return parsePostBodySections(body).map((section, i) => {
+    if (section.type === 'image') {
+      return (
+        <figure key={i} style={{ margin: '28px 0' }}>
+          {/* Inline blog images can come from local media or arbitrary remote URLs pasted by editors. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={section.src} alt={section.alt} style={{ width: '100%', borderRadius: 16, display: 'block' }} />
+          {section.alt !== 'Article image' ? (
+            <figcaption style={{ marginTop: 10, fontSize: 13, color: 'var(--dim)', textAlign: 'center' }}>
+              {section.alt}
+            </figcaption>
+          ) : null}
+        </figure>
+      );
+    }
+
+    if (section.type === 'heading2') return <h2 key={i} className="article-body-h2">{section.content}</h2>;
+    if (section.type === 'heading3') return <h3 key={i} className="article-body-h3">{section.content}</h3>;
+    if (section.type === 'blockquote') return <blockquote key={i} className="article-body-bq">{section.content}</blockquote>;
+    return <p key={i}>{section.content}</p>;
   });
 }
 

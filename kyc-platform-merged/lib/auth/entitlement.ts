@@ -13,7 +13,7 @@ import type { User } from '@/types/user';
 export function isPremium(session: SessionPayload | null): boolean {
   if (!session) return false;
   if (['admin', 'editor'].includes(session.role)) return true;
-  return session.role === 'premium' && session.sub_status === 'active';
+  return session.sub_status === 'active' && session.plan !== 'free';
 }
 
 export function isAdmin(session: SessionPayload | null): boolean {
@@ -43,7 +43,7 @@ export function canAccessAISearch(session: SessionPayload | null): boolean {
 export function tierLabel(session: SessionPayload | null): string {
   if (!session) return 'Guest';
   if (['admin', 'editor'].includes(session.role)) return session.role.charAt(0).toUpperCase() + session.role.slice(1);
-  if (session.role === 'premium' && session.sub_status === 'active') return 'Pro';
+  if (session.sub_status === 'active' && session.plan !== 'free') return 'Pro';
   return 'Free';
 }
 
@@ -58,8 +58,8 @@ export function tierLabel(session: SessionPayload | null): string {
 export function isPremiumUser(user: User | null): boolean {
   if (!user) return false;
   if (['admin', 'editor'].includes(user.role)) return true;
-  if (user.role !== 'premium') return false;
   if (user.subscription.status !== 'active') return false;
+  if (user.subscription.plan === 'free') return false;
   // Check expiry date if present
   if (user.subscription.expires_at) {
     const expires = new Date(user.subscription.expires_at);

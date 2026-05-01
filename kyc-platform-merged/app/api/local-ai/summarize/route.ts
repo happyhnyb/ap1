@@ -15,6 +15,23 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = BodySchema.parse(await req.json());
+
+    // When Ollama is a localhost URL but a Mac Mini backend is configured, proxy the
+    // request there so the Mac Mini's local Ollama handles the actual inference.
+    const isLocalOllama = /^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(env.OLLAMA_BASE_URL);
+    if (isLocalOllama && env.MAC_MINI_API_BASE_URL) {
+      const macRes = await fetch(`${env.MAC_MINI_API_BASE_URL.replace(/\/$/, '')}/api/local-ai/summarize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(env.INTERNAL_API_KEY ? { 'x-internal-api-key': env.INTERNAL_API_KEY } : {}),
+        },
+        body: JSON.stringify({ text: body.text }),
+        cache: 'no-store',
+      });
+      return NextResponse.json(await macRes.json(), { status: macRes.status });
+    }
+
     const result = await summarizeTextWithOllama(body.text);
 
     return NextResponse.json({

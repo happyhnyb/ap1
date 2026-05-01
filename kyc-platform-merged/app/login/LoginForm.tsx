@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
-import { EmailOTPCard } from '@/components/auth/EmailOTPCard';
 
 export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
   const router = useRouter();
@@ -50,7 +49,7 @@ export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
         {isDemo && (
           <div className="notice notice-gold" style={{ marginBottom: 18 }}>
             <strong>Demo mode</strong> — new registrations reset when the server restarts.
-            Use a demo account below, or ask the admin to add <code style={{ fontSize: 11, background: 'rgba(0,0,0,.3)', padding: '1px 5px', borderRadius: 4 }}>MONGODB_URI</code> in Vercel to enable persistent accounts.
+            Use a demo account below, or configure the Mac Mini backend database to enable persistent accounts.
           </div>
         )}
         {error && (
@@ -66,6 +65,11 @@ export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
             <label className="form-label">Password</label>
             <input className="field" name="password" type="password" placeholder="••••••••" required autoComplete="current-password" />
           </div>
+          <div style={{ marginTop: -4, textAlign: 'right' }}>
+            <Link href="/forgot-password" style={{ color: 'var(--green)', fontSize: 13, fontWeight: 500 }}>
+              Forgot password?
+            </Link>
+          </div>
           <button className="btn btn-primary" type="submit" disabled={loading} style={{ marginTop: 4, justifyContent: 'center' }}>
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
@@ -73,9 +77,6 @@ export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
 
         <div className="divider" style={{ margin: '20px 0' }} />
         <GoogleAuthButton text="signin_with" />
-
-        <div className="divider" style={{ margin: '20px 0' }} />
-        <EmailOTPCard intent="login" />
 
         <div className="divider" style={{ margin: '24px 0' }} />
         <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--muted)', margin: 0 }}>
@@ -87,11 +88,11 @@ export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
           <div className="notice" style={{ marginTop: 20, fontSize: 12 }}>
             <div style={{ fontWeight: 600, marginBottom: 8, color: 'var(--muted)' }}>Demo accounts — click to fill</div>
             <div style={{ display: 'grid', gap: 6 }}>
-              {[
-                { email: 'admin@kyc.news', pass: 'admin123', label: 'Admin', color: 'var(--green)' },
-                { email: 'reader@kyc.news', pass: 'reader123', label: 'Reader', color: 'var(--muted)' },
-                { email: 'free@kyc.news', pass: 'free123', label: 'Free', color: 'var(--dim)' },
-              ].map(({ email, pass, label, color }) => (
+                {[
+                  { email: 'admin@kyc.news', pass: 'admin123', label: 'Admin', color: 'var(--green)' },
+                  { email: 'reader@kyc.news', pass: 'reader123', label: 'Research', color: 'var(--muted)' },
+                  { email: 'free@kyc.news', pass: 'free123', label: 'Free', color: 'var(--dim)' },
+                ].map(({ email, pass, label, color }) => (
                 <button
                   key={email}
                   type="button"

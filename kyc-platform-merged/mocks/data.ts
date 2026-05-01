@@ -50,8 +50,8 @@ export const INITIAL_USERS: User[] = [
   { _id: 'u1', name: 'Dhairya Pareek', email: 'admin@kyc.news', password_hash: 'admin123', mobile: '+919876543210', role: 'admin', auth_methods: ['email', 'google'], subscription: { status: 'active', plan: 'annual', expires_at: '2027-03-28' }, created_at: '2025-01-01' },
   { _id: 'u2', name: 'Deepak Pareek', email: 'editor@kyc.news', password_hash: 'editor123', mobile: '+919876543211', role: 'editor', auth_methods: ['email'], subscription: { status: 'active', plan: 'annual', expires_at: '2027-03-28' }, created_at: '2025-01-01' },
   { _id: 'u3', name: 'Niraj Shah', email: 'niraj@kyc.news', password_hash: 'editor123', mobile: '+919876543212', role: 'editor', auth_methods: ['email', 'google'], subscription: { status: 'active', plan: 'annual', expires_at: '2027-03-28' }, created_at: '2025-02-01' },
-  { _id: 'u4', name: 'Demo Reader', email: 'reader@kyc.news', password_hash: 'reader123', mobile: null, role: 'premium', auth_methods: ['email'], subscription: { status: 'active', plan: 'monthly', expires_at: '2026-04-28' }, created_at: '2026-01-15' },
-  { _id: 'u5', name: 'Free User', email: 'free@kyc.news', password_hash: 'free123', mobile: null, role: 'reader', auth_methods: ['email'], subscription: { status: 'none', plan: 'free', expires_at: null }, created_at: '2026-03-01' }
+  { _id: 'u4', name: 'Demo Reader', email: 'reader@kyc.news', password_hash: 'reader123', mobile: null, role: 'user', auth_methods: ['email'], subscription: { status: 'active', plan: 'monthly', expires_at: '2026-04-28' }, created_at: '2026-01-15' },
+  { _id: 'u5', name: 'Free User', email: 'free@kyc.news', password_hash: 'free123', mobile: null, role: 'user', auth_methods: ['email'], subscription: { status: 'none', plan: 'free', expires_at: null }, created_at: '2026-03-01' }
 ];
 
 export const INITIAL_CONTACTS: ContactSubmission[] = [];

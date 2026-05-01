@@ -25,7 +25,7 @@ export function SuccessState({ provider, billingEnabled }: { provider?: string; 
       try {
         const res = await fetch('/api/auth/refresh', { method: 'POST' });
         const data = await res.json().catch(() => ({}));
-        if (res.ok && data?.user?.role === 'premium' && data?.user?.sub_status === 'active') {
+        if (res.ok && data?.user?.sub_status === 'active' && data?.user?.plan && data.user.plan !== 'free') {
           setState('active');
           setMessage('Payment confirmed. Your KYC Pro access is live now.');
           window.clearInterval(interval);

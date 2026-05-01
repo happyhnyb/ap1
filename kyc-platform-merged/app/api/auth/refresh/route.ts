@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { usersAdapter } from '@/lib/adapters';
-import { COOKIE_NAME, cookieOptions, getServerSession, sessionPayloadFromUser, signToken } from '@/lib/auth/jwt';
+import { COOKIE_NAME, cookieOptions, getServerSession, refreshServerSessionToken, sessionPayloadFromUser } from '@/lib/auth/jwt';
+import { proxyRouteToMacMini } from '@/lib/server/mac-mini-proxy';
+import { env } from '@/lib/env';
+import { NextRequest } from 'next/server';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  if (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL) {
+    return proxyRouteToMacMini(req);
+  }
+
   const session = await getServerSession();
   if (!session) {
     return NextResponse.json({ error: 'Login required.' }, { status: 401 });
@@ -14,8 +21,11 @@ export async function POST() {
   }
 
   const payload = sessionPayloadFromUser(user);
-  const token = await signToken(payload);
+  const token = await refreshServerSessionToken();
+  if (!token) {
+    return NextResponse.json({ error: 'Session refresh failed.' }, { status: 401 });
+  }
   const res = NextResponse.json({ ok: true, user: payload });
-  res.cookies.set(COOKIE_NAME, token, cookieOptions());
+  res.cookies.set(COOKIE_NAME, token.token, cookieOptions(token.expiresAt));
   return res;
 }

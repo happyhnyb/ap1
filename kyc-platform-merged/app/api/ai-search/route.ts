@@ -8,6 +8,7 @@ import { usersAdapter } from '@/lib/adapters';
 import { semanticSearch } from '@/lib/ai/retrieval';
 import type { AICitation } from '@/lib/ai/types';
 import { getFromMacMini, shouldProxyToMacMini } from '@/lib/server/mac-mini';
+import { isPremium } from '@/lib/auth/entitlement';
 
 function groundedAnswer(query: string, citations: AICitation[]) {
   if (!citations.length) {
@@ -39,9 +40,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const hasSessionPremiumAccess = session.role === 'admin'
-    || session.role === 'editor'
-    || (session.role === 'premium' && session.sub_status === 'active');
+  const hasSessionPremiumAccess = isPremium(session);
   let hasPremiumAccess = hasSessionPremiumAccess;
 
   if (!hasSessionPremiumAccess) {

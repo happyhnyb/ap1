@@ -8,11 +8,8 @@ import ForecastLineChart from '@/components/predictor/ForecastLineChart';
 import PredictorTabs from '@/components/predictor/PredictorTabs';
 import AIAnalysisBar from '@/components/predictor/AIAnalysisBar';
 import { canAccessPredictorRelease, getPredictorReleaseMode } from '@/lib/product/predictor';
-import { buildSeedOptions, buildSeedSummary, getSeedRecords } from '@/lib/forecasting/data/seed';
-import { fallbackForecastResponse } from '@/lib/forecasting/fallback';
-import { buildOptions, buildSummary, filterRecords } from '@/lib/mandi/engine';
-import { loadRecords } from '@/lib/forecasting/data/loader';
-import { forecastingEngine } from '@/lib/forecasting/engine';
+import { getPredictorPageData, type PredictorPageData } from '@/lib/predictor/page-data';
+import { getFromMacMini, shouldProxyToMacMini } from '@/lib/server/mac-mini';
 
 export const metadata: Metadata = {
   title: 'Price Predictor | KYC Agri',
@@ -35,34 +32,6 @@ function fmt(value: number | null) {
 
 function trendColor(d: 'up' | 'down' | 'flat') {
   return d === 'up' ? 'var(--green)' : d === 'down' ? 'var(--red)' : 'var(--muted)';
-}
-
-function buildMarketRows(records: Array<{
-  market: string;
-  state: string;
-  district: string;
-  modal_price: number | null;
-  min_price: number | null;
-  max_price: number | null;
-}>) {
-  const map = new Map<string, { modal: number[]; min: number[]; max: number[]; state: string; district: string }>();
-  for (const r of records) {
-    const key = r.market || 'Unknown';
-    const ex  = map.get(key) ?? { modal: [], min: [], max: [], state: r.state, district: r.district };
-    if (typeof r.modal_price === 'number') ex.modal.push(r.modal_price);
-    if (typeof r.min_price   === 'number') ex.min.push(r.min_price);
-    if (typeof r.max_price   === 'number') ex.max.push(r.max_price);
-    map.set(key, ex);
-  }
-  const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((s, n) => s + n, 0) / arr.length) : null;
-  return [...map.entries()]
-    .map(([market, row]) => ({
-      market, state: row.state, district: row.district,
-      modal_price: avg(row.modal), min_price: avg(row.min), max_price: avg(row.max),
-    }))
-    .filter((r) => r.modal_price !== null)
-    .sort((a, b) => (b.modal_price ?? 0) - (a.modal_price ?? 0))
-    .slice(0, 20);
 }
 
 function dateFreshness(isoDate: string | null): { label: string; staleDays: number; cls: string } {
@@ -90,78 +59,31 @@ export default async function PredictorPage({ searchParams }: Props) {
   if (!session && mode === 'auth') redirect('/login?from=/premium/predictor');
   if (!hasAccess) return <PredictorPaywall />;
 
-  // ── Resolve filters ────────────────────────────────────────────────────────
   const params = (await searchParams) ?? {};
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const firstValue = first(value);
+    if (firstValue) query.set(key, firstValue);
+  }
 
-  // Load live records (snapshots → Agmarknet), fall back to seed options
-  let liveRecordsAll: Awaited<ReturnType<typeof loadRecords>> | null = null;
-  try { liveRecordsAll = await loadRecords(); } catch { /* use seed */ }
+  const pageData: PredictorPageData = shouldProxyToMacMini()
+    ? await getFromMacMini<PredictorPageData>(`/api/internal/predictor/page-data${query.size ? `?${query.toString()}` : ''}`).catch(() => getPredictorPageData(params))
+    : await getPredictorPageData(params);
 
-  const seedOptions = buildSeedOptions();
-  const liveOptions = liveRecordsAll?.records.length ? buildOptions(liveRecordsAll.records) : null;
-  const options = (liveOptions?.commodities.length ?? 0) > 0 ? liveOptions! : seedOptions;
-
-  const fallbackCommodity = 'Wheat';
-  const fallbackState     = 'Madhya Pradesh';
-
-  const reqCommodity   = first(params.commodity)?.trim();
-  const reqState       = first(params.state)?.trim();
-  const reqDistrict    = first(params.district)?.trim() || first(params.city)?.trim();
-  const reqMarket      = first(params.market)?.trim();
-  const hasMarketParam = first(params.market) !== undefined;
-  const reqHorizon     = Number.parseInt(first(params.horizon) ?? '', 10);
-
-  const commodity = reqCommodity || fallbackCommodity;
-  const state     = reqState     || fallbackState;
-  const validDistricts = state ? (options.districtsByState[state] ?? []) : options.districts;
-  const district = reqDistrict && validDistricts.includes(reqDistrict) ? reqDistrict : '';
-  const marketScopeKey = district ? `${state}::${district}` : '';
-  const validMarkets = district
-    ? (options.marketsByDistrict?.[marketScopeKey] ?? [])
-    : state
-      ? (options.marketsByState[state] ?? [])
-      : options.markets;
-  const market = hasMarketParam && reqMarket && validMarkets.includes(reqMarket)
-    ? reqMarket
-    : '';
-  const horizon   = Number.isFinite(reqHorizon) ? Math.min(14, Math.max(3, reqHorizon)) : 14;
-
-  // ── Fetch data ──────────────────────────────────────────────────────────────
-  const liveFilter = { commodity, state, district, market: market || '', variety: '', grade: '' };
-  const liveRecords = liveRecordsAll?.records.length ? filterRecords(liveRecordsAll.records, liveFilter) : [];
-  const seedRecords = getSeedRecords({ commodity, state, district: district || undefined, market: market || undefined });
-  const recordsForView = liveRecords.length ? liveRecords : seedRecords;
-  const summary = liveRecords.length
-    ? buildSummary(liveRecords, liveRecordsAll?.fetchedAt ?? null)
-    : buildSeedSummary({ commodity, state, district: district || undefined, market: market || undefined });
-  const marketRows = buildMarketRows(recordsForView);
-
-  const forecast = await forecastingEngine
-    .forecast({ commodity, state, district: district || undefined, market: market || undefined, horizon })
-    .catch(() => fallbackForecastResponse({ commodity, state, district: district || undefined, market: market || undefined, horizon }));
-
-  const quality = {
-    commodity,
-    market: market || 'All',
-    state,
-    data_quality: {
-      missing_ratio: forecast.meta.data_points > 0
-        ? Math.max(0, (forecast.meta.data_points - forecast.meta.real_data_points) / forecast.meta.data_points)
-        : 1,
-      real_days: forecast.meta.real_data_points,
-      stale_days: 0,
-      missing_days: Math.max(0, forecast.meta.data_points - forecast.meta.real_data_points),
-      outlier_days: forecast.explanation.anomaly_flags.filter((flag) => flag.type === 'outlier').length,
-      date_range: forecast.history_series?.length
-        ? [forecast.history_series[0].date, forecast.history_series.at(-1)!.date] as [string, string]
-        : null,
-    },
-  };
-
-  const drivers = {
-    top_features: forecast.explanation.top_features,
-    recent_error_band: forecast.explanation.recent_error_band,
-  };
+  const {
+    options,
+    current,
+    summary,
+    marketRows,
+    forecast,
+    quality,
+    drivers,
+    hasNoRecords,
+    dataWarning,
+    source,
+    sourceFetchedAt,
+  } = pageData;
+  const { commodity, state, district, market, horizon } = current;
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const tc          = trendColor(forecast.direction);
@@ -181,13 +103,15 @@ export default async function PredictorPage({ searchParams }: Props) {
   const dataPoints = forecast.meta.data_points;
   const isFallbackModel = forecast.model_used.includes('fallback') || forecast.meta.model_type.includes('fallback');
   const latestBand = endPoint ? `${fmt(endPoint.lower)} - ${fmt(endPoint.upper)}` : null;
-  const usingFallbackData = !liveRecords.length;
-  const isSeedOnly = liveRecordsAll?.source === 'seed' || !liveRecordsAll;
-  const dataWarning = usingFallbackData
-    ? isSeedOnly
-      ? 'Live Agmarknet data was unavailable, so this view is using cached/sample data.'
-      : 'This selection had no live rows, so cached/sample data is shown as a fallback.'
-    : null;
+  const sourceStatus = source === 'hybrid'
+    ? 'Mongo + snapshot history'
+    : source === 'agmarknet'
+      ? 'Live Agmarknet'
+      : source === 'mongodb'
+        ? 'MongoDB history'
+        : source === 'snapshots'
+          ? 'Snapshot cache'
+          : 'Seed fallback';
 
   let forecastText: string;
   if (forecast.insufficient) {
@@ -198,18 +122,6 @@ export default async function PredictorPage({ searchParams }: Props) {
     const dir = forecast.direction === 'up' ? 'upward' : 'downward';
     forecastText = `${dataPoints} days of data point to a ${dir} move of ${Math.abs(forecast.trend_pct).toFixed(1)}%${endDate && endPrice ? `, with an estimated ${endDate} level near ${endPrice}` : ''}${latestBand ? ` and a model range of ${latestBand}` : ''}.`;
   }
-
-  const filterOptions = {
-    commodities:    options.commodities,
-    states:         options.states,
-    districts:      options.districts,
-    markets:        options.markets,
-    districtsByState: options.districtsByState,
-    marketsByState: options.marketsByState,
-    marketsByDistrict: options.marketsByDistrict ?? {},
-  };
-  const filterCurrent = { commodity, state, district, market, horizon };
-  const hasNoRecords = recordsForView.length === 0;
 
   return (
     <main className="pr-shell">
@@ -253,8 +165,8 @@ export default async function PredictorPage({ searchParams }: Props) {
           {/* ── Mobile filters — top of content so they're always reachable ── */}
           <section id="pr-filters" className="pr-mobile-filters">
             <PredictorFilters
-              options={filterOptions}
-              current={filterCurrent}
+              options={options}
+              current={current}
             />
           </section>
 
@@ -413,8 +325,8 @@ export default async function PredictorPage({ searchParams }: Props) {
           <div className="card pr-meta-card">
             <div className="pr-meta-title">Filters</div>
             <PredictorFilters
-              options={filterOptions}
-              current={filterCurrent}
+              options={options}
+              current={current}
               isSidebar
             />
           </div>
@@ -422,12 +334,15 @@ export default async function PredictorPage({ searchParams }: Props) {
           <div className="card pr-meta-card">
             <div className="pr-meta-title">Data status</div>
             {([
-              ['Records',     summary.recordsCount.toLocaleString()],
-              ['Markets',     summary.marketsCount.toLocaleString()],
-              ['States',      options.states.length.toLocaleString()],
-              ['Latest data', summary.latestArrivalDate ?? '—'],
-              ['Window',      summary.latestSnapshotDate ?? '—'],
-              ['Model',       forecast.meta.model_description],
+              ['Selected State', state || 'All states'],
+              ['Selected Market', market || (district ? `${district} · all markets` : 'All markets')],
+              ['Records', summary.recordsCount.toLocaleString()],
+              ['Markets', summary.marketsCount.toLocaleString()],
+              ['States', options.states.length.toLocaleString()],
+              ['Last mandi date', summary.latestArrivalDate ?? '—'],
+              ['Last updated', sourceFetchedAt ? new Date(sourceFetchedAt).toLocaleString('en-IN') : (summary.latestSnapshotDate ?? '—')],
+              ['Data source', sourceStatus],
+              ['Model', forecast.meta.model_description],
             ] as [string, string][]).map(([label, value]) => (
               <div key={label} className="pr-meta-row">
                 <span className="pr-meta-lbl">{label}</span>

@@ -87,6 +87,22 @@ export function ImageUpload({ name = 'hero_image', label = 'Hero Image', initial
         )}
       </div>
 
+      <div className="form-group" style={{ margin: 0 }}>
+        <input
+          className="field"
+          value={url}
+          onChange={(e) => {
+            setUrl(e.target.value.trim());
+            if (error) setError('');
+          }}
+          placeholder="Or paste an image URL or /uploads/... path"
+          inputMode="url"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+      </div>
+
       {error && (
         <p className="notice notice-red" style={{ margin: 0, padding: '8px 12px', fontSize: 13 }}>
           {error}

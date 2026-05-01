@@ -1,70 +1,152 @@
-import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
+import { SignJWT, jwtVerify } from 'jose';
 import { env } from '@/lib/env';
 import type { User } from '@/types/user';
+import { getUserBySessionToken, revokeSessionToken, rotateSessionToken } from '@/lib/db/repositories/users';
+import { shouldProxyToMacMini } from '@/lib/server/mac-mini';
 
 export interface SessionPayload {
-  _id:        string;
-  name:       string;
-  email:      string;
-  role:       'reader' | 'premium' | 'editor' | 'admin';
-  plan:       'free' | 'monthly' | 'annual';
+  _id: string;
+  name: string;
+  email: string;
+  role: 'user' | 'editor' | 'admin';
+  plan: 'free' | 'monthly' | 'annual';
   sub_status: 'active' | 'expired' | 'cancelled' | 'none';
 }
 
-export const COOKIE_NAME = 'kyc_token';
-export const EXPIRY_SECS = 60 * 60 * 24 * 7; // 7 days
+export const COOKIE_NAME = 'kyc_session';
+export const EXPIRY_SECS = 60 * 60 * 24 * 7;
 
 const IS_PROD = process.env.NODE_ENV === 'production';
+const isLocalhostSite = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(env.BASE_URL || '');
 
-/** Lazily encoded so env validation fires at call-time, not module-load-time in tests. */
-function getSecret(): Uint8Array {
+function getJwtSecret() {
   return new TextEncoder().encode(env.JWT_SECRET);
 }
 
-export async function signToken(payload: SessionPayload): Promise<string> {
-  return new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime(`${EXPIRY_SECS}s`)
-    .sign(getSecret());
-}
-
-export async function verifyToken(token: string): Promise<SessionPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, getSecret());
-    return payload as unknown as SessionPayload;
-  } catch {
-    return null;
-  }
-}
-
-/** Read and verify session from the request cookie (server-side only). */
-export async function getServerSession(): Promise<SessionPayload | null> {
-  const store = await cookies();
-  const token = store.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  return verifyToken(token);
+function useLocalJwtSessions() {
+  return !env.DATABASE_URL && !env.MAC_MINI_API_BASE_URL;
 }
 
 export function sessionPayloadFromUser(user: User): SessionPayload {
+  const role = user.role === 'admin' || user.role === 'editor' ? user.role : 'user';
   return {
     _id: user._id,
     name: user.name,
     email: user.email,
-    role: user.role,
+    role,
     plan: user.subscription.plan,
     sub_status: user.subscription.status,
   };
 }
 
-/** Cookie options — secure flag on in production. */
-export function cookieOptions() {
+export function cookieOptions(expiresAt?: Date) {
   return {
     httpOnly: true,
     sameSite: 'lax' as const,
-    secure:   IS_PROD,
-    maxAge:   EXPIRY_SECS,
-    path:     '/',
+    secure: IS_PROD && !isLocalhostSite,
+    maxAge: EXPIRY_SECS,
+    path: '/',
+    ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {}),
+    ...(expiresAt ? { expires: expiresAt } : {}),
   } as const;
+}
+
+async function getCookieToken() {
+  const store = await cookies();
+  return store.get(COOKIE_NAME)?.value ?? null;
+}
+
+async function readProxySession() {
+  const token = await getCookieToken();
+  if (!token || !env.MAC_MINI_API_BASE_URL) return null;
+
+  const response = await fetch(`${env.MAC_MINI_API_BASE_URL.replace(/\/$/, '')}/api/auth/me`, {
+    method: 'GET',
+    headers: {
+      cookie: `${COOKIE_NAME}=${token}`,
+    },
+    cache: 'no-store',
+  });
+  if (!response.ok) return null;
+  const payload = await response.json().catch(() => null) as { user?: SessionPayload | null } | null;
+  return payload?.user ?? null;
+}
+
+async function signLocalSession(payload: SessionPayload) {
+  const expiresAt = new Date(Date.now() + EXPIRY_SECS * 1000);
+  const token = await new SignJWT(payload as unknown as Record<string, unknown>)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(Math.floor(expiresAt.getTime() / 1000))
+    .sign(getJwtSecret());
+
+  return { token, expiresAt };
+}
+
+async function readLocalSession(token: string): Promise<SessionPayload | null> {
+  try {
+    const verified = await jwtVerify(token, getJwtSecret());
+    const payload = verified.payload as Partial<SessionPayload>;
+    if (!payload._id || !payload.email || !payload.name) return null;
+    return {
+      _id: payload._id,
+      email: payload.email,
+      name: payload.name,
+      role: payload.role === 'admin' || payload.role === 'editor' ? payload.role : 'user',
+      plan: payload.plan === 'monthly' || payload.plan === 'annual' ? payload.plan : 'free',
+      sub_status: payload.sub_status === 'active' || payload.sub_status === 'expired' || payload.sub_status === 'cancelled' ? payload.sub_status : 'none',
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getServerSession(): Promise<SessionPayload | null> {
+  if (shouldProxyToMacMini() && !env.DATABASE_URL) {
+    return readProxySession();
+  }
+
+  const token = await getCookieToken();
+  if (!token) return null;
+  if (useLocalJwtSessions()) {
+    return readLocalSession(token);
+  }
+  const user = await getUserBySessionToken(token).catch(() => null);
+  return user ? sessionPayloadFromUser(user) : null;
+}
+
+export async function createServerSessionToken(payload: SessionPayload, input?: {
+  userId?: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}) {
+  if (useLocalJwtSessions()) {
+    return signLocalSession(payload);
+  }
+
+  const { createSession } = await import('@/lib/db/repositories/users');
+  return createSession({
+    userId: input?.userId ?? payload._id,
+    ipAddress: input?.ipAddress,
+    userAgent: input?.userAgent,
+  });
+}
+
+export async function refreshServerSessionToken() {
+  const token = await getCookieToken();
+  if (!token) return null;
+  if (useLocalJwtSessions()) {
+    const session = await readLocalSession(token);
+    if (!session) return null;
+    return signLocalSession(session);
+  }
+  return rotateSessionToken(token).catch(() => null);
+}
+
+export async function clearServerSessionToken() {
+  const token = await getCookieToken();
+  if (!token) return;
+  if (useLocalJwtSessions()) return;
+  await revokeSessionToken(token).catch(() => undefined);
 }

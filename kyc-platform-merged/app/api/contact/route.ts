@@ -4,8 +4,14 @@ import { getServerSession } from '@/lib/auth/jwt';
 import { isEditor } from '@/lib/auth/entitlement';
 import { parseBody, ContactSchema } from '@/lib/validation';
 import { checkRateLimit, getClientId, LIMITS } from '@/lib/ratelimit';
+import { proxyRouteToMacMini } from '@/lib/server/mac-mini-proxy';
+import { env } from '@/lib/env';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL) {
+    return proxyRouteToMacMini(req);
+  }
+
   const session = await getServerSession();
   if (!isEditor(session)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -14,6 +20,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL) {
+    return proxyRouteToMacMini(req);
+  }
+
   const rl = checkRateLimit(getClientId(req), 'contact', LIMITS.contact);
   if (!rl.ok) {
     return NextResponse.json(

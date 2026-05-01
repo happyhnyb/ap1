@@ -1,19 +1,25 @@
-/**
- * Users adapter — MongoDB in production, in-memory in demo/dev mode.
- *
- * SECURITY: The in-memory adapter accepts plaintext passwords ONLY for
- * seeded demo accounts and ONLY when NODE_ENV !== 'production'.
- * In production, every password comparison goes through bcrypt.
- */
-import type { User } from '@/types/user';
-import { INITIAL_USERS } from '@/mocks/data';
-import { isMongoConfigured, connectDB } from '@/lib/db/connect';
-import { UserModel } from '@/lib/db/models/User';
-import bcrypt from 'bcryptjs';
-import { env } from '@/lib/env';
+import 'server-only';
 
-const IS_PROD = process.env.NODE_ENV === 'production';
-const DEMO_AUTH_ENABLED = env.IS_DEMO;
+import bcrypt from 'bcryptjs';
+import type { User } from '@/types/user';
+import { env } from '@/lib/env';
+import { connectDB, isMongoConfigured } from '@/lib/db/connect';
+import { UserModel } from '@/lib/db/models/User';
+import {
+  activatePremium as pgActivatePremium,
+  createUser,
+  ensureRoleSeeds,
+  expireStaleSubscriptions as pgExpireStaleSubscriptions,
+  findOrCreateAuthUser as pgFindOrCreateAuthUser,
+  getByStripeCustomerId as pgGetByStripeCustomerId,
+  getUserByEmail,
+  listUsers,
+  loginUser,
+  setStripeCustomerId as pgSetStripeCustomerId,
+  syncStripeSubscription as pgSyncStripeSubscription,
+  updateUserPassword as pgUpdateUserPassword,
+  upsertUserWithPassword as pgUpsertUserWithPassword,
+} from '@/lib/db/repositories/users';
 
 export class AuthStoreUnavailableError extends Error {
   constructor(message = 'Authentication is temporarily unavailable.') {
@@ -22,372 +28,385 @@ export class AuthStoreUnavailableError extends Error {
   }
 }
 
-function toUser(doc: Record<string, unknown>): User {
-  const sub = doc.subscription as Record<string, unknown>;
+function getBackendBaseUrl() {
+  return env.MAC_MINI_API_BASE_URL.replace(/\/$/, '');
+}
+
+async function proxyJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const baseUrl = getBackendBaseUrl();
+  if (!baseUrl) {
+    throw new AuthStoreUnavailableError('No local database or Mac Mini backend is configured.');
+  }
+
+  const headers = new Headers(init?.headers);
+  if (env.INTERNAL_API_KEY) {
+    headers.set('x-internal-api-key', env.INTERNAL_API_KEY);
+  }
+  if (!headers.has('Content-Type') && init?.body) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const res = await fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers,
+    cache: 'no-store',
+  });
+
+  const payload = await res.json().catch(() => null) as { error?: string } & T | null;
+  if (!res.ok) {
+    throw new AuthStoreUnavailableError(payload?.error || `Mac Mini user request failed (${res.status}).`);
+  }
+
+  return payload as T;
+}
+
+async function ensureLocalSeeds() {
+  if (env.DATABASE_URL) {
+    await ensureRoleSeeds();
+  }
+}
+
+function normalizeRole(role: string): User['role'] {
+  if (role === 'admin' || role === 'editor') return role;
+  return 'user';
+}
+
+function toMongoUser(doc: Record<string, unknown>): User {
+  const subscription = (doc.subscription as Record<string, unknown> | undefined) ?? {};
   return {
-    _id:           String(doc._id),
-    name:          doc.name as string,
-    email:         doc.email as string,
-    mobile:        (doc.mobile as string | null) ?? null,
+    _id: String(doc._id),
+    name: doc.name as string,
+    email: doc.email as string,
+    mobile: (doc.mobile as string | null) ?? null,
     password_hash: (doc.password_hash as string) ?? '',
-    auth_methods:  (doc.auth_methods as User['auth_methods']) ?? ['email'],
-    role:          doc.role as User['role'],
+    role: normalizeRole((doc.role as string) ?? 'user'),
+    auth_methods: ((doc.auth_methods as ('email' | 'google')[]) ?? ['email']),
+    stripe_customer_id: (doc.stripe_customer_id as string | null) ?? null,
+    stripe_subscription_id: (subscription.stripe_subscription_id as string | null) ?? null,
     subscription: {
-      status:     (sub?.status as User['subscription']['status']) ?? 'none',
-      plan:       (sub?.plan   as User['subscription']['plan'])   ?? 'free',
-      payment_ref: (sub?.payment_ref as string | null) ?? null,
-      expires_at: sub?.expires_at
-        ? new Date(sub.expires_at as string).toISOString().slice(0, 10)
-        : null,
+      status: ((subscription.status as User['subscription']['status']) ?? 'none'),
+      plan: ((subscription.plan as User['subscription']['plan']) ?? 'free'),
+      started_at: subscription.started_at ? new Date(subscription.started_at as string).toISOString() : null,
+      expires_at: subscription.expires_at ? new Date(subscription.expires_at as string).toISOString() : null,
+      payment_ref: (subscription.payment_ref as string | null) ?? null,
     },
     created_at: new Date(doc.created_at as string).toISOString(),
+    updated_at: doc.updated_at ? new Date(doc.updated_at as string).toISOString() : undefined,
+    last_login_at: null,
   };
 }
 
-// ── Mongo implementation ─────────────────────────────────────────
-const mongo = {
-  async list() {
-    await connectDB();
-    const docs = await UserModel.find().sort({ created_at: -1 }).lean();
-    return docs.map((d) => toUser(d as unknown as Record<string, unknown>));
+export const usersAdapter = {
+  async list(): Promise<User[]> {
+    if (env.DATABASE_URL) {
+      await ensureLocalSeeds();
+      return listUsers();
+    }
+    if (isMongoConfigured()) {
+      await connectDB();
+      const docs = await UserModel.find().sort({ created_at: -1 }).lean();
+      return docs.map((doc) => toMongoUser(doc as unknown as Record<string, unknown>));
+    }
+    return proxyJson<User[]>('/api/internal/users');
   },
-  async getByEmail(email: string) {
-    await connectDB();
-    const doc = await UserModel.findOne({ email: email.toLowerCase() }).lean();
-    return doc ? toUser(doc as unknown as Record<string, unknown>) : null;
+
+  async getByEmail(email: string): Promise<User | null> {
+    if (env.DATABASE_URL) {
+      await ensureLocalSeeds();
+      return getUserByEmail(email);
+    }
+    if (isMongoConfigured()) {
+      await connectDB();
+      const doc = await UserModel.findOne({ email: email.toLowerCase() }).lean();
+      return doc ? toMongoUser(doc as unknown as Record<string, unknown>) : null;
+    }
+    const query = new URLSearchParams({ email }).toString();
+    const result = await proxyJson<{ user: User | null }>(`/api/internal/users?${query}`);
+    return result.user;
   },
-  async login(email: string, password: string) {
-    await connectDB();
-    const doc = await UserModel.findOne({ email: email.toLowerCase() }).lean();
-    if (!doc || !doc.password_hash) return null;
-    const ok = await bcrypt.compare(password, String(doc.password_hash));
-    return ok ? toUser(doc as unknown as Record<string, unknown>) : null;
-  },
-  async register(input: { name: string; email: string; password: string }) {
-    await connectDB();
-    const hash = await bcrypt.hash(input.password, 12);
-    const doc = await UserModel.create({
-      name:          input.name,
-      email:         input.email.toLowerCase(),
-      password_hash: hash,
-      auth_methods:  ['email'],
-      role:          'reader',
-      subscription:  { status: 'none', plan: 'free', expires_at: null },
+
+  async login(email: string, password: string): Promise<User | null> {
+    if (env.DATABASE_URL) {
+      await ensureLocalSeeds();
+      return loginUser(email, password);
+    }
+    if (isMongoConfigured()) {
+      await connectDB();
+      const doc = await UserModel.findOne({ email: email.toLowerCase() }).lean();
+      if (!doc?.password_hash) return null;
+      const ok = await bcrypt.compare(password, doc.password_hash);
+      if (!ok) return null;
+      return toMongoUser(doc as unknown as Record<string, unknown>);
+    }
+    const result = await proxyJson<{ user: User | null }>('/api/internal/users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'login', email, password }),
     });
-    return toUser(doc.toObject() as unknown as Record<string, unknown>);
+    return result.user;
   },
-  async findOrCreateAuthUser(input: { name: string; email: string; method: 'email' | 'google' }) {
-    await connectDB();
-    const email = input.email.toLowerCase();
-    const existing = await UserModel.findOne({ email }).lean();
-    if (existing) {
-      const methods = new Set((existing.auth_methods as User['auth_methods']) ?? []);
-      methods.add(input.method);
-      if (!methods.has('email') && input.method === 'email') methods.add('email');
-      await UserModel.updateOne(
-        { email },
+
+  async register(input: { name: string; email: string; password: string }): Promise<User> {
+    if (env.DATABASE_URL) {
+      await ensureLocalSeeds();
+      return createUser(input);
+    }
+    if (isMongoConfigured()) {
+      await connectDB();
+      const passwordHash = await bcrypt.hash(input.password, 12);
+      const doc = await UserModel.create({
+        name: input.name.trim(),
+        email: input.email.toLowerCase(),
+        password_hash: passwordHash,
+        auth_methods: ['email'],
+        role: 'reader',
+        subscription: {
+          status: 'none',
+          plan: 'free',
+        },
+      });
+      return toMongoUser(doc.toObject() as unknown as Record<string, unknown>);
+    }
+    const result = await proxyJson<{ user: User }>('/api/internal/users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'register', ...input }),
+    });
+    return result.user;
+  },
+
+  async updatePassword(userId: string, password: string): Promise<User | null> {
+    if (env.DATABASE_URL) {
+      await ensureLocalSeeds();
+      return pgUpdateUserPassword(userId, password);
+    }
+    if (isMongoConfigured()) {
+      await connectDB();
+      const passwordHash = await bcrypt.hash(password, 12);
+      const doc = await UserModel.findByIdAndUpdate(
+        userId,
         {
-          $set: { name: existing.name || input.name || email.split('@')[0] },
-          $addToSet: { auth_methods: input.method },
+          $set: {
+            password_hash: passwordHash,
+            updated_at: new Date(),
+          },
+          $addToSet: { auth_methods: 'email' },
+        },
+        { new: true }
+      ).lean();
+      return doc ? toMongoUser(doc as unknown as Record<string, unknown>) : null;
+    }
+    const result = await proxyJson<{ user: User | null }>('/api/internal/users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'updatePassword', userId, password }),
+    });
+    return result.user;
+  },
+
+  async upsertPrivilegedUser(input: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'editor' | 'admin';
+  }): Promise<User> {
+    if (env.DATABASE_URL) {
+      await ensureLocalSeeds();
+      return pgUpsertUserWithPassword(input);
+    }
+    if (isMongoConfigured()) {
+      await connectDB();
+      const passwordHash = await bcrypt.hash(input.password, 12);
+      const doc = await UserModel.findOneAndUpdate(
+        { email: input.email.toLowerCase() },
+        {
+          $set: {
+            name: input.name.trim(),
+            email: input.email.toLowerCase(),
+            password_hash: passwordHash,
+            role: input.role,
+            updated_at: new Date(),
+          },
+          $addToSet: { auth_methods: 'email' },
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true,
         }
-      );
-      const updated = await UserModel.findOne({ email }).lean();
-      return toUser((updated ?? existing) as unknown as Record<string, unknown>);
+      ).lean();
+      return toMongoUser(doc as unknown as Record<string, unknown>);
     }
-
-    const doc = await UserModel.create({
-      name: input.name,
-      email,
-      password_hash: null,
-      auth_methods: [input.method],
-      role: 'reader',
-      subscription: { status: 'none', plan: 'free', expires_at: null },
+    const result = await proxyJson<{ user: User }>('/api/internal/users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'upsertPrivilegedUser', ...input }),
     });
-    return toUser(doc.toObject() as unknown as Record<string, unknown>);
+    return result.user;
   },
+
+  async findOrCreateAuthUser(input: { name: string; email: string; method: 'email' | 'google' }): Promise<User> {
+    if (env.DATABASE_URL) {
+      await ensureLocalSeeds();
+      return pgFindOrCreateAuthUser(input);
+    }
+    if (isMongoConfigured()) {
+      await connectDB();
+      const existing = await UserModel.findOne({ email: input.email.toLowerCase() });
+      if (existing) {
+        existing.name = existing.name || input.name.trim();
+        existing.auth_methods = Array.from(new Set([...(existing.auth_methods || []), input.method])) as ('email' | 'google')[];
+        await existing.save();
+        return toMongoUser(existing.toObject() as unknown as Record<string, unknown>);
+      }
+
+      const doc = await UserModel.create({
+        name: input.name.trim(),
+        email: input.email.toLowerCase(),
+        password_hash: null,
+        auth_methods: [input.method],
+        role: 'reader',
+        subscription: {
+          status: 'none',
+          plan: 'free',
+        },
+      });
+      return toMongoUser(doc.toObject() as unknown as Record<string, unknown>);
+    }
+    const result = await proxyJson<{ user: User }>('/api/internal/users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'findOrCreateAuthUser', ...input }),
+    });
+    return result.user;
+  },
+
   async activatePremium(userId: string, plan: 'monthly' | 'annual', opts?: { paymentRef?: string | null; effectiveAt?: Date }) {
-    await connectDB();
-    const existing = await UserModel.findById(userId).lean();
-    if (!existing) return null;
-
-    const nextPaymentRef = opts?.paymentRef ?? null;
-    const currentPaymentRef = existing.subscription?.payment_ref ?? null;
-    if (nextPaymentRef && currentPaymentRef === nextPaymentRef) {
-      return toUser(existing as unknown as Record<string, unknown>);
+    if (env.DATABASE_URL) {
+      return pgActivatePremium(userId, plan, opts);
     }
-
-    const months = plan === 'annual' ? 12 : 1;
-    const effectiveAt = opts?.effectiveAt ?? new Date();
-    const existingExpiry = existing.subscription?.expires_at ? new Date(existing.subscription.expires_at) : null;
-    const anchor = existingExpiry && existingExpiry > effectiveAt ? new Date(existingExpiry) : new Date(effectiveAt);
-    const expires = new Date(anchor);
-    expires.setMonth(expires.getMonth() + months);
-    await UserModel.findByIdAndUpdate(userId, {
-      role:                        'premium',
-      'subscription.status':       'active',
-      'subscription.plan':         plan,
-      'subscription.started_at':   existing.subscription?.status === 'active' && existing.subscription?.started_at
-        ? existing.subscription.started_at
-        : effectiveAt,
-      'subscription.expires_at':   expires,
-      'subscription.payment_ref':  nextPaymentRef,
+    if (isMongoConfigured()) {
+      await connectDB();
+      const effectiveAt = opts?.effectiveAt ?? new Date();
+      const expiresAt = new Date(effectiveAt);
+      expiresAt.setMonth(expiresAt.getMonth() + (plan === 'annual' ? 12 : 1));
+      const doc = await UserModel.findByIdAndUpdate(
+        userId,
+        {
+          role: 'premium',
+          subscription: {
+            status: 'active',
+            plan,
+            started_at: effectiveAt,
+            expires_at: expiresAt,
+            payment_ref: opts?.paymentRef ?? null,
+          },
+        },
+        { new: true }
+      ).lean();
+      return doc ? toMongoUser(doc as unknown as Record<string, unknown>) : null;
+    }
+    const result = await proxyJson<{ user: User | null }>('/api/internal/users', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'activatePremium',
+        userId,
+        plan,
+        paymentRef: opts?.paymentRef ?? null,
+        effectiveAt: opts?.effectiveAt?.toISOString() ?? null,
+      }),
     });
-    const updated = await UserModel.findById(userId).lean();
-    return updated ? toUser(updated as unknown as Record<string, unknown>) : null;
+    return result.user;
   },
 
-  /** Set Stripe customer ID on a user (called at checkout creation). */
   async setStripeCustomerId(userId: string, customerId: string) {
-    await connectDB();
-    await UserModel.findByIdAndUpdate(userId, { stripe_customer_id: customerId });
+    if (env.DATABASE_URL) {
+      await pgSetStripeCustomerId(userId, customerId);
+      return;
+    }
+    if (isMongoConfigured()) {
+      await connectDB();
+      await UserModel.updateOne({ _id: userId }, { $set: { stripe_customer_id: customerId } });
+      return;
+    }
+    await proxyJson<{ ok: true }>('/api/internal/users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'setStripeCustomerId', userId, customerId }),
+    });
   },
 
-  /** Find a user by their Stripe customer ID (used in webhooks). */
   async getByStripeCustomerId(customerId: string) {
-    await connectDB();
-    const doc = await UserModel.findOne({ stripe_customer_id: customerId }).lean();
-    return doc ? toUser(doc as unknown as Record<string, unknown>) : null;
+    if (env.DATABASE_URL) {
+      return pgGetByStripeCustomerId(customerId);
+    }
+    if (isMongoConfigured()) {
+      await connectDB();
+      const doc = await UserModel.findOne({ stripe_customer_id: customerId }).lean();
+      return doc ? toMongoUser(doc as unknown as Record<string, unknown>) : null;
+    }
+    const query = new URLSearchParams({ customerId }).toString();
+    const result = await proxyJson<{ user: User | null }>(`/api/internal/users?${query}`);
+    return result.user;
   },
 
-  /** Full subscription sync from a Stripe subscription object (webhook handler). */
   async syncStripeSubscription(customerId: string, opts: {
     stripeSubscriptionId: string;
     status: 'active' | 'expired' | 'cancelled' | 'none';
     plan: 'monthly' | 'annual';
     expiresAt: Date | null;
   }) {
-    await connectDB();
-    const update: Record<string, unknown> = {
-      'subscription.stripe_subscription_id': opts.stripeSubscriptionId,
-      'subscription.status':  opts.status,
-      'subscription.plan':    opts.plan,
-      'subscription.expires_at': opts.expiresAt,
-    };
-    if (opts.status === 'active') {
-      update['role'] = 'premium';
-      update['subscription.started_at'] = new Date();
-    } else {
-      // Revoke premium access on cancel/expire/failure
-      update['role'] = 'reader';
+    if (env.DATABASE_URL) {
+      await pgSyncStripeSubscription(customerId, opts);
+      return;
     }
-    await UserModel.findOneAndUpdate({ stripe_customer_id: customerId }, update);
-  },
-
-  /** Expire all subscriptions whose expires_at has passed (run on a schedule). */
-  async expireStaleSubscriptions() {
-    await connectDB();
-    const now = new Date();
-    await UserModel.updateMany(
-      { 'subscription.status': 'active', 'subscription.expires_at': { $lte: now } },
-      { 'subscription.status': 'expired', role: 'reader' }
-    );
-  },
-};
-
-// ── In-memory implementation (local demo only) ───────────────────
-let memoryUsers: User[] = DEMO_AUTH_ENABLED ? [...INITIAL_USERS] : [];
-
-const memory = {
-  async list() { return [...memoryUsers]; },
-  async getByEmail(email: string) {
-    return memoryUsers.find((u) => u.email.toLowerCase() === email.toLowerCase()) ?? null;
-  },
-  async login(email: string, password: string) {
-    const user = memoryUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (!user) return null;
-
-    // Seed/demo users store plaintext passwords (not bcrypt hashes).
-    // Detect by checking if the stored value looks like a bcrypt hash ($2a/$2b prefix).
-    // This allows the local in-memory demo to work without MongoDB.
-    const isBcrypt = user.password_hash?.startsWith('$2');
-    if (!isBcrypt) {
-      return user.password_hash === password ? user : null;
+    if (isMongoConfigured()) {
+      await connectDB();
+      await UserModel.updateOne(
+        { stripe_customer_id: customerId },
+        {
+          $set: {
+            'subscription.stripe_subscription_id': opts.stripeSubscriptionId,
+            'subscription.status': opts.status,
+            'subscription.plan': opts.plan,
+            'subscription.expires_at': opts.expiresAt,
+            role: opts.status === 'active' ? 'premium' : 'reader',
+          },
+        }
+      );
+      return;
     }
-
-    const ok = await bcrypt.compare(password, user.password_hash);
-    return ok ? user : null;
-  },
-  async register(input: { name: string; email: string; password: string }) {
-    const hash = await bcrypt.hash(input.password, 12);
-    const now = new Date().toISOString();
-    const user: User = {
-      _id:           `u${Date.now()}`,
-      name:          input.name,
-      email:         input.email.toLowerCase(),
-      mobile:        null,
-      password_hash: hash,
-      auth_methods:  ['email'],
-      role:          'reader',
-      subscription:  { status: 'none', plan: 'free', expires_at: null },
-      created_at:    now,
-    };
-    memoryUsers = [user, ...memoryUsers];
-    return user;
-  },
-  async findOrCreateAuthUser(input: { name: string; email: string; method: 'email' | 'google' }) {
-    const email = input.email.toLowerCase();
-    const existing = memoryUsers.find((u) => u.email.toLowerCase() === email);
-    if (existing) {
-      const methods = Array.from(new Set([...(existing.auth_methods ?? []), input.method])) as User['auth_methods'];
-      const updated: User = {
-        ...existing,
-        name: existing.name || input.name,
-        auth_methods: methods,
-      };
-      memoryUsers = memoryUsers.map((u) => (u._id === existing._id ? updated : u));
-      return updated;
-    }
-
-    const now = new Date().toISOString();
-    const user: User = {
-      _id: `u${Date.now()}`,
-      name: input.name,
-      email,
-      mobile: null,
-      password_hash: '',
-      auth_methods: [input.method],
-      role: 'reader',
-      subscription: { status: 'none', plan: 'free', expires_at: null },
-      created_at: now,
-    };
-    memoryUsers = [user, ...memoryUsers];
-    return user;
-  },
-  async activatePremium(userId: string, plan: 'monthly' | 'annual', opts?: { paymentRef?: string | null; effectiveAt?: Date }) {
-    const existing = memoryUsers.find((u) => u._id === userId) ?? null;
-    if (!existing) return null;
-    const nextPaymentRef = opts?.paymentRef ?? null;
-    if (nextPaymentRef && existing.subscription.payment_ref === nextPaymentRef) {
-      return existing;
-    }
-
-    const months = plan === 'annual' ? 12 : 1;
-    const effectiveAt = opts?.effectiveAt ?? new Date();
-    const existingExpiry = existing.subscription.expires_at ? new Date(existing.subscription.expires_at) : null;
-    const anchor = existingExpiry && existingExpiry > effectiveAt ? new Date(existingExpiry) : new Date(effectiveAt);
-    const expires = new Date(anchor);
-    expires.setMonth(expires.getMonth() + months);
-    memoryUsers = memoryUsers.map((u) => u._id !== userId ? u : {
-      ...u,
-      role:         'premium',
-      subscription: {
-        ...u.subscription,
-        status: 'active',
-        plan,
-        started_at: u.subscription.status === 'active' ? u.subscription.started_at ?? effectiveAt.toISOString() : effectiveAt.toISOString(),
-        expires_at: expires.toISOString().slice(0, 10),
-        payment_ref: nextPaymentRef,
-      },
-    } as User);
-    return memoryUsers.find((u) => u._id === userId) ?? null;
-  },
-  // Stripe methods are no-ops in demo mode — payments require MongoDB
-  async setStripeCustomerId(_userId: string, _customerId: string) {
-    if (IS_PROD) throw new Error('Stripe requires MongoDB — set MONGODB_URI');
-  },
-  async getByStripeCustomerId(_customerId: string) {
-    if (IS_PROD) throw new Error('Stripe requires MongoDB — set MONGODB_URI');
-    return null;
-  },
-  async syncStripeSubscription(_customerId: string, _opts: Parameters<typeof mongo.syncStripeSubscription>[1]) {
-    if (IS_PROD) throw new Error('Stripe requires MongoDB — set MONGODB_URI');
-  },
-  async expireStaleSubscriptions() {
-    const now = new Date().toISOString().slice(0, 10);
-    memoryUsers = memoryUsers.map((u) => {
-      if (u.subscription.status === 'active' && u.subscription.expires_at && u.subscription.expires_at < now) {
-        return { ...u, role: 'reader', subscription: { ...u.subscription, status: 'expired' } } as User;
-      }
-      return u;
+    await proxyJson<{ ok: true }>('/api/internal/users', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'syncStripeSubscription',
+        customerId,
+        stripeSubscriptionId: opts.stripeSubscriptionId,
+        status: opts.status,
+        plan: opts.plan,
+        expiresAt: opts.expiresAt?.toISOString() ?? null,
+      }),
     });
   },
-};
 
-// ── In production: require Mongo ─────────────────────────────────
-if (IS_PROD && !isMongoConfigured()) {
-  console.error(
-    '[users] FATAL: MONGODB_URI is not configured. ' +
-    'The in-memory adapter must not be used in production. ' +
-    'Set MONGODB_URI in your environment.'
-  );
-}
-
-async function withUserFallback<T>(
-  label: string,
-  mongoOp: () => Promise<T>,
-  memoryOp: () => Promise<T>
-): Promise<T> {
-  if (!isMongoConfigured()) {
-    if (IS_PROD || !DEMO_AUTH_ENABLED) {
-      throw new AuthStoreUnavailableError('Authentication is temporarily unavailable. Please try again shortly.');
-    }
-    return memoryOp();
-  }
-
-  try {
-    return await mongoOp();
-  } catch (error) {
-    console.error(`[users:${label}] auth store operation failed`, error);
-    if (IS_PROD || !DEMO_AUTH_ENABLED) {
-      throw new AuthStoreUnavailableError('Authentication is temporarily unavailable. Please try again shortly.');
-    }
-    return memoryOp();
-  }
-}
-
-export const usersAdapter = {
-  async list() {
-    return withUserFallback('list', () => mongo.list(), () => memory.list());
-  },
-  async getByEmail(email: string) {
-    return withUserFallback('getByEmail', () => mongo.getByEmail(email), () => memory.getByEmail(email));
-  },
-  async login(email: string, password: string) {
-    return withUserFallback('login', () => mongo.login(email, password), () => memory.login(email, password));
-  },
-  async register(input: { name: string; email: string; password: string }) {
-    return withUserFallback('register', () => mongo.register(input), () => memory.register(input));
-  },
-  async findOrCreateAuthUser(input: { name: string; email: string; method: 'email' | 'google' }) {
-    return withUserFallback(
-      'findOrCreateAuthUser',
-      () => mongo.findOrCreateAuthUser(input),
-      () => memory.findOrCreateAuthUser(input)
-    );
-  },
-  async activatePremium(userId: string, plan: 'monthly' | 'annual', opts?: { paymentRef?: string | null; effectiveAt?: Date }) {
-    return withUserFallback(
-      'activatePremium',
-      () => mongo.activatePremium(userId, plan, opts),
-      () => memory.activatePremium(userId, plan, opts)
-    );
-  },
-  async setStripeCustomerId(userId: string, customerId: string) {
-    return withUserFallback(
-      'setStripeCustomerId',
-      () => mongo.setStripeCustomerId(userId, customerId),
-      () => memory.setStripeCustomerId(userId, customerId)
-    );
-  },
-  async getByStripeCustomerId(customerId: string) {
-    return withUserFallback(
-      'getByStripeCustomerId',
-      () => mongo.getByStripeCustomerId(customerId),
-      () => memory.getByStripeCustomerId(customerId)
-    );
-  },
-  async syncStripeSubscription(customerId: string, opts: Parameters<typeof mongo.syncStripeSubscription>[1]) {
-    return withUserFallback(
-      'syncStripeSubscription',
-      () => mongo.syncStripeSubscription(customerId, opts),
-      () => memory.syncStripeSubscription(customerId, opts)
-    );
-  },
   async expireStaleSubscriptions() {
-    return withUserFallback(
-      'expireStaleSubscriptions',
-      () => mongo.expireStaleSubscriptions(),
-      () => memory.expireStaleSubscriptions()
-    );
+    if (env.DATABASE_URL) {
+      await pgExpireStaleSubscriptions();
+      return;
+    }
+    if (isMongoConfigured()) {
+      await connectDB();
+      await UserModel.updateMany(
+        {
+          'subscription.status': 'active',
+          'subscription.expires_at': { $lte: new Date() },
+        },
+        {
+          $set: {
+            'subscription.status': 'expired',
+            role: 'reader',
+          },
+        }
+      );
+      return;
+    }
+    await proxyJson<{ ok: true }>('/api/internal/users', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'expireStaleSubscriptions' }),
+    });
   },
 };

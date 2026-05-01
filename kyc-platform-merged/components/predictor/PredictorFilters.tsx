@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo, useTransition, type FormEvent } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 
 type FilterOptions = {
   commodities: string[];
@@ -27,26 +28,37 @@ type Props = {
 const HORIZONS = [3, 5, 7, 10, 14] as const;
 
 export default function PredictorFilters({ options, current, isSidebar }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isPending, startTransition] = useTransition();
   const [commodity, setCommodity] = useState(current.commodity);
   const [state,     setState]     = useState(current.state);
   const [district,  setDistrict]  = useState(current.district);
   const [market,    setMarket]    = useState(current.market);
   const [horizon,   setHorizon]   = useState(current.horizon);
 
-  const availableDistricts = state ? (options.districtsByState[state] ?? []) : options.districts;
+  useEffect(() => {
+    setCommodity(current.commodity);
+    setState(current.state);
+    setDistrict(current.district);
+    setMarket(current.market);
+    setHorizon(current.horizon);
+  }, [current.commodity, current.state, current.district, current.market, current.horizon]);
+
+  const availableDistricts = state ? (options.districtsByState[state] ?? []) : [];
   const districtKey = `${state}::${district}`;
   const availableMarkets = district
     ? (options.marketsByDistrict[districtKey] ?? [])
     : state
       ? (options.marketsByState[state] ?? [])
-      : options.markets;
+      : [];
 
   const handleStateChange = useCallback((newState: string) => {
     setState(newState);
     setDistrict('');
-    const validMarkets = newState ? (options.marketsByState[newState] ?? []) : options.markets;
+    const validMarkets = newState ? (options.marketsByState[newState] ?? []) : [];
     if (market && !validMarkets.includes(market)) setMarket('');
-  }, [market, options.marketsByState, options.markets]);
+  }, [market, options.marketsByState]);
 
   const handleDistrictChange = useCallback((newDistrict: string) => {
     setDistrict(newDistrict);
@@ -55,11 +67,27 @@ export default function PredictorFilters({ options, current, isSidebar }: Props)
       ? (options.marketsByDistrict[key] ?? [])
       : state
         ? (options.marketsByState[state] ?? [])
-        : options.markets;
+        : [];
     if (market && !validMarkets.includes(market)) setMarket('');
-  }, [market, options.markets, options.marketsByDistrict, options.marketsByState, state]);
+  }, [market, options.marketsByDistrict, options.marketsByState, state]);
 
   const summaryText = `${commodity} · ${state || 'All states'}${district ? ` · ${district}` : ''}${market ? ` · ${market}` : ''} · ${horizon}d`;
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams();
+    if (commodity) params.set('commodity', commodity);
+    if (state) params.set('state', state);
+    if (district) params.set('district', district);
+    if (market) params.set('market', market);
+    params.set('horizon', String(horizon));
+    return params.toString();
+  }, [commodity, state, district, market, horizon]);
+
+  const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    startTransition(() => {
+      router.push(queryString ? `${pathname}?${queryString}` : pathname);
+    });
+  }, [pathname, queryString, router]);
 
   const fields = (
     <>
@@ -101,10 +129,10 @@ export default function PredictorFilters({ options, current, isSidebar }: Props)
           className="pr-filter-select"
           value={district}
           onChange={(e) => handleDistrictChange(e.target.value)}
-          disabled={state !== '' && availableDistricts.length === 0}
+          disabled={!state || availableDistricts.length === 0}
         >
           <option value="">
-            {state && availableDistricts.length === 0 ? 'None' : 'All cities'}
+            {!state ? 'Select a state first' : availableDistricts.length === 0 ? 'None' : 'All cities'}
           </option>
           {availableDistricts.map((d) => (
             <option key={d} value={d}>{d}</option>
@@ -121,10 +149,10 @@ export default function PredictorFilters({ options, current, isSidebar }: Props)
           className="pr-filter-select"
           value={market}
           onChange={(e) => setMarket(e.target.value)}
-          disabled={state !== '' && availableMarkets.length === 0}
+          disabled={!state || availableMarkets.length === 0}
         >
           <option value="">
-            {state && availableMarkets.length === 0 ? 'None' : 'All markets'}
+            {!state ? 'Select a state first' : availableMarkets.length === 0 ? 'None' : 'All markets'}
           </option>
           {availableMarkets.map((m) => (
             <option key={m} value={m}>{m}</option>
@@ -151,16 +179,18 @@ export default function PredictorFilters({ options, current, isSidebar }: Props)
   // ── Sidebar variant: vertical stacked form, always open ──────────────────
   if (isSidebar) {
     return (
-      <form method="get" className="pr-sidebar-form">
+      <form onSubmit={handleSubmit} className="pr-sidebar-form">
         {fields}
-        <button type="submit" className="pr-sidebar-apply">Apply Filters</button>
+        <button type="submit" className="pr-sidebar-apply" disabled={isPending}>
+          {isPending ? 'Updating…' : 'Apply Filters'}
+        </button>
       </form>
     );
   }
 
   // ── Mobile variant: always-visible compact card ──────────────────────────
   return (
-    <form method="get" className="pr-mf-form">
+    <form onSubmit={handleSubmit} className="pr-mf-form">
       <div className="pr-mf-header">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
           <path d="M1 2.5h10M3 6h6M5 9.5h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
@@ -171,7 +201,9 @@ export default function PredictorFilters({ options, current, isSidebar }: Props)
       <div className="pr-mf-grid">
         {fields}
       </div>
-      <button type="submit" className="pr-mf-apply">Apply</button>
+      <button type="submit" className="pr-mf-apply" disabled={isPending}>
+        {isPending ? 'Updating…' : 'Apply'}
+      </button>
     </form>
   );
 }

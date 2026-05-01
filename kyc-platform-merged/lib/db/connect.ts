@@ -1,10 +1,11 @@
 import mongoose from 'mongoose';
 
 const MONGODB_URI = process.env.MONGODB_URI || '';
+const DATABASE_URL = process.env.DATABASE_URL || '';
 const IS_PROD = process.env.NODE_ENV === 'production';
 
-// Production must not imply demo persistence when the database is missing.
-if (IS_PROD && !MONGODB_URI) {
+// Warn only when neither supported database backend is configured.
+if (IS_PROD && !MONGODB_URI && !DATABASE_URL) {
   console.error('[db] ERROR: MONGODB_URI is not set. Persistent data features will be unavailable.');
 }
 

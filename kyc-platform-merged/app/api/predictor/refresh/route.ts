@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { isAdmin } from '@/lib/auth/entitlement';
-import { revalidatePath } from 'next/cache';
+import { refreshPredictorData } from '@/lib/predictor/refresh';
+import { postToMacMini, shouldProxyToMacMini } from '@/lib/server/mac-mini';
 
 export async function POST() {
   const session = await getServerSession();
@@ -9,10 +10,13 @@ export async function POST() {
     return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
   }
 
-  // Invalidate all predictor routes so next request re-fetches from Agmarknet
-  revalidatePath('/api/predictor/options');
-  revalidatePath('/api/predictor/summary');
-  revalidatePath('/api/predictor/history');
-  revalidatePath('/api/predictor/forecast');
-  return NextResponse.json({ ok: true, message: 'Cache cleared — data will refresh on next request.' });
+  try {
+    const result = shouldProxyToMacMini()
+      ? await postToMacMini('/api/internal/predictor/refresh', {})
+      : await refreshPredictorData();
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('[POST /api/predictor/refresh]', error);
+    return NextResponse.json({ error: 'Predictor refresh failed.' }, { status: 500 });
+  }
 }

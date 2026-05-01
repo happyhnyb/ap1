@@ -3,6 +3,8 @@ import { postsAdapter } from '@/lib/adapters';
 import { getServerSession } from '@/lib/auth/jwt';
 import { isEditor } from '@/lib/auth/entitlement';
 import { parseBody, CreatePostSchema } from '@/lib/validation';
+import { proxyRouteToMacMini } from '@/lib/server/mac-mini-proxy';
+import { env } from '@/lib/env';
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,6 +25,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL) {
+    return proxyRouteToMacMini(req);
+  }
+
   const session = await getServerSession();
   if (!isEditor(session)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -5,19 +5,19 @@
  */
 
 const isProd = process.env.NODE_ENV === 'production';
+const sharedAuthSecret = process.env.AUTH_SECRET || process.env.JWT_SECRET;
 
-function requireEnv(name: string, fallback?: string): string {
+function resolveEnv(name: string, fallback?: string): string {
   const value = process.env[name];
   if (value) return value;
-  if (!isProd && fallback !== undefined) {
-    console.warn(`[env] ${name} not set — using dev fallback. Set it before deploying to production.`);
+  if (fallback !== undefined) {
+    if (!isProd) {
+      console.warn(`[env] ${name} not set — using fallback. Set it before deploying to production.`);
+    }
     return fallback;
   }
   const msg = `[env] FATAL: Required environment variable "${name}" is not set.`;
-  if (isProd) {
-    console.error(msg);
-    process.exit(1);
-  }
+  console.error(msg);
   throw new Error(msg);
 }
 
@@ -33,13 +33,25 @@ export const env = {
     : 'public') as 'public' | 'auth' | 'premium',
   BILLING_ENABLED_FLAG: process.env.BILLING_ENABLED === 'true',
 
-  // Auth — required in production
-  JWT_SECRET:       requireEnv('JWT_SECRET', 'kyc-dev-secret-unsafe-change-for-production'),
+  // Auth secrets are resolved lazily so public pages can still render even if auth is misconfigured.
+  get AUTH_SECRET(): string {
+    return resolveEnv('AUTH_SECRET', sharedAuthSecret ?? 'kyc-dev-secret-unsafe-change-for-production');
+  },
+  get JWT_SECRET(): string {
+    return resolveEnv('JWT_SECRET', sharedAuthSecret ?? 'kyc-dev-secret-unsafe-change-for-production');
+  },
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '',
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? '',
 
   // Database
   MONGODB_URI:      process.env.MONGODB_URI ?? '',
+  DATABASE_URL: process.env.DATABASE_URL ?? '',
+  COOKIE_DOMAIN: process.env.COOKIE_DOMAIN ?? '',
+  APP_BASE_URL: process.env.APP_BASE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? `http://localhost:${process.env.LOCAL_SERVER_PORT ?? process.env.PORT ?? '3000'}`,
+  API_BASE_URL: process.env.API_BASE_URL ?? process.env.MAC_MINI_API_BASE_URL ?? '',
+  KYC_STORAGE_ROOT: process.env.KYC_STORAGE_ROOT ?? '',
+  POSTGRES_DATA_PATH: process.env.POSTGRES_DATA_PATH ?? '',
+  MEDIA_STORAGE_PATH: process.env.MEDIA_STORAGE_PATH ?? '',
 
   // Predictor sidecar
   MANDI_SERVICE_URL: process.env.MANDI_SERVICE_URL ?? 'http://localhost:4000',
@@ -91,8 +103,8 @@ export const env = {
   R2_BUCKET:            process.env.R2_BUCKET            ?? '',
   R2_PUBLIC_URL:        process.env.R2_PUBLIC_URL        ?? '',
 
-  // In local dev, fall back to seeded in-memory auth unless explicitly disabled.
-  get IS_DEMO(): boolean { return this.IS_DEV && this.ENABLE_DEMO_AUTH && !this.MONGODB_URI; },
+  // In local dev, fall back to seeded in-memory auth only when no real backend store is configured.
+  get IS_DEMO(): boolean { return this.IS_DEV && this.ENABLE_DEMO_AUTH && !this.DATABASE_URL && !this.MAC_MINI_API_BASE_URL; },
   // Stripe mode: true when Stripe key is present
   get STRIPE_ENABLED(): boolean { return !!process.env.STRIPE_SECRET_KEY; },
   // Razorpay hosted-link mode: true when a live payment link is present
@@ -124,4 +136,5 @@ export const env = {
   },
   RESEND_API_KEY: process.env.RESEND_API_KEY ?? '',
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL ?? process.env.CONTACT_EMAIL ?? 'editor@kyc.news',
+  PASSWORD_RESET_FROM_EMAIL: process.env.PASSWORD_RESET_FROM_EMAIL ?? 'info@kycagri.com',
 } as const;

@@ -29,7 +29,12 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession();
+  const session = await getServerSession().catch((error) => {
+    if ((error as { digest?: string } | null)?.digest !== 'DYNAMIC_SERVER_USAGE') {
+      console.error('[app/layout] Failed to load session for shell render.', error);
+    }
+    return null;
+  });
   const predictorPublic = env.PREDICTOR_RELEASE_MODE === 'public';
 
   return (

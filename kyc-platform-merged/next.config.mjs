@@ -27,6 +27,13 @@ const nextConfig = {
   // Keep server-only packages out of the client bundle
   serverExternalPackages: ['mongoose', 'bcryptjs'],
 
+  // Ensure fallback data files (snapshot JSON) are included in serverless function bundles
+  experimental: {
+    outputFileTracingIncludes: {
+      '**/*': ['./data/**/*'],
+    },
+  },
+
   // ── Security headers ──────────────────────────────────────────
   async headers() {
     return [

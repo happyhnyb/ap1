@@ -29,8 +29,13 @@ export default function Feed({ posts }: { posts: Post[] }) {
   const uniquePosts = posts.filter((post, index, arr) =>
     arr.findIndex((item) => item.slug === post.slug || item.title.toLowerCase() === post.title.toLowerCase()) === index
   );
+  const sortedPosts = [...uniquePosts].sort((a, b) => {
+    const aTime = new Date(a.published_at || a.created_at).getTime();
+    const bTime = new Date(b.published_at || b.created_at).getTime();
+    return bTime - aTime;
+  });
 
-  if (!uniquePosts.length) {
+  if (!sortedPosts.length) {
     return (
       <main className="container" style={{ padding: '80px 0', textAlign: 'center', color: 'var(--muted)' }}>
         <div style={{ fontSize: 40, marginBottom: 16 }}>🌾</div>
@@ -39,18 +44,20 @@ export default function Feed({ posts }: { posts: Post[] }) {
     );
   }
 
-  const hero     = uniquePosts[0];
-  const side     = uniquePosts.slice(1, 4);
+  const latest = sortedPosts.slice(0, 6);
+  const usedLatestSlugs = new Set(latest.map((post) => post.slug));
+  const remainingPosts = sortedPosts.filter((post) => !usedLatestSlugs.has(post.slug));
+  const hero = remainingPosts[0] ?? sortedPosts[0];
+  const side = remainingPosts.slice(1, 4);
   const usedTopSlugs = new Set([hero.slug, ...side.map((post) => post.slug)]);
-  const latest   = uniquePosts.filter((post) => !usedTopSlugs.has(post.slug)).slice(0, 6);
-  const usedLatestSlugs = new Set([...usedTopSlugs, ...latest.map((post) => post.slug)]);
-  const analysis = uniquePosts.filter((p) => p.type !== 'SHORT' && !usedLatestSlugs.has(p.slug)).slice(0, 4);
+  const usedSectionSlugs = new Set([...usedLatestSlugs, ...usedTopSlugs]);
+  const analysis = sortedPosts.filter((p) => p.type !== 'SHORT' && !usedSectionSlugs.has(p.slug)).slice(0, 4);
   const usedAnalysisSlugs = new Set([...usedLatestSlugs, ...analysis.map((post) => post.slug)]);
-  const nonZeroViewPosts = uniquePosts.filter((p) => p.view_count > 0);
+  const nonZeroViewPosts = sortedPosts.filter((p) => p.view_count > 0);
   const hasReliableViewData = nonZeroViewPosts.length >= 20;
   const mostRead = hasReliableViewData
-    ? uniquePosts.filter((post) => !usedAnalysisSlugs.has(post.slug)).sort((a, b) => b.view_count - a.view_count).slice(0, 5)
-    : uniquePosts.filter((post) => !usedAnalysisSlugs.has(post.slug)).slice(0, 5);
+    ? sortedPosts.filter((post) => !usedAnalysisSlugs.has(post.slug)).sort((a, b) => b.view_count - a.view_count).slice(0, 5)
+    : sortedPosts.filter((post) => !usedAnalysisSlugs.has(post.slug)).slice(0, 5);
 
   return (
     <main className="container" style={{ paddingBottom: 24 }}>

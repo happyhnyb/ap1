@@ -2,19 +2,24 @@ import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getAllPosts, getContacts, getUsers } from '@/lib/api';
 import { getServerSession } from '@/lib/auth/jwt';
+import type { SessionPayload } from '@/lib/auth/jwt';
 import { isEditor } from '@/lib/auth/entitlement';
 import { postsAdapter } from '@/lib/adapters';
 import { CATEGORIES } from '@/mocks/data';
 import Link from 'next/link';
 import { ImageUpload } from '@/components/cms/ImageUpload';
+import { PostBodyEditor } from '@/components/cms/PostBodyEditor';
+import { SystemMonitor } from '@/components/admin/SystemMonitor';
 
 export const metadata: Metadata = { title: 'CMS Admin' };
 
-async function createPost(formData: FormData) {
-  'use server';
+async function requireEditorSession(): Promise<SessionPayload> {
   const session = await getServerSession();
-  if (!isEditor(session)) redirect('/login');
+  if (!session || !isEditor(session)) redirect('/login');
+  return session;
+}
 
+function getPostInput(formData: FormData) {
   const title   = String(formData.get('title') || '');
   const excerpt = String(formData.get('excerpt') || '');
   const body    = String(formData.get('body') || '');
@@ -23,28 +28,78 @@ async function createPost(formData: FormData) {
   const tags       = String(formData.get('tags') || '').split(',').map((t) => t.trim()).filter(Boolean);
   const isPremium  = formData.get('is_premium') === 'on';
   const linked     = String(formData.get('linked_article_id') || '') || null;
-  const status     = String(formData.get('status') || 'draft') as 'draft' | 'published';
+  const status     = String(formData.get('status') || 'draft') as 'draft' | 'published' | 'archived';
   const heroImage  = String(formData.get('hero_image') || '') || null;
 
-  await postsAdapter.create({
+  return {
     title, excerpt, body, category, type, tags,
     is_premium: isPremium,
     linked_article_id: linked,
     hero_image: heroImage,
-    author: session!.name,
-    author_id: session!._id,
     status,
+  };
+}
+
+async function createPost(formData: FormData) {
+  'use server';
+  const session = await requireEditorSession();
+
+  await postsAdapter.create({
+    ...getPostInput(formData),
+    author: session.name,
+    author_id: session._id,
   });
   redirect('/admin');
 }
 
-export default async function AdminPage() {
-  const session = await getServerSession();
-  if (!isEditor(session)) redirect('/login');
+async function publishPost(formData: FormData) {
+  'use server';
+  await requireEditorSession();
+
+  const id = String(formData.get('id') || '');
+  if (!id) redirect('/admin');
+
+  await postsAdapter.publishById(id);
+  redirect('/admin');
+}
+
+async function updatePost(formData: FormData) {
+  'use server';
+  await requireEditorSession();
+
+  const slug = String(formData.get('slug') || '');
+  if (!slug) redirect('/admin');
+
+  await postsAdapter.update(slug, getPostInput(formData));
+  redirect('/admin');
+}
+
+async function deletePost(formData: FormData) {
+  'use server';
+  await requireEditorSession();
+
+  const id = String(formData.get('id') || '');
+  if (!id) redirect('/admin');
+
+  await postsAdapter.deleteById(id);
+  redirect('/admin');
+}
+
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ edit?: string }>;
+}) {
+  const session = await requireEditorSession();
 
   const [posts, contacts, users] = await Promise.all([getAllPosts(), getContacts(), getUsers()]);
+  const { edit: editSlug = '' } = (await searchParams) ?? {};
   const published = posts.filter((p) => p.status === 'published');
   const drafts    = posts.filter((p) => p.status === 'draft');
+  const postToEdit = editSlug ? posts.find((post) => post.slug === editSlug) ?? null : null;
+  const formAction = postToEdit ? updatePost : createPost;
+  const formTitle = postToEdit ? `Edit Post: ${postToEdit.title}` : 'Create Post';
+  const submitLabel = postToEdit ? 'Update post' : 'Save post';
 
   return (
     <main className="admin-shell">
@@ -52,7 +107,7 @@ export default async function AdminPage() {
         <div>
           <h1 className="serif" style={{ fontSize: 28, margin: 0 }}>CMS Dashboard</h1>
           <p style={{ color: 'var(--muted)', margin: '4px 0 0', fontSize: 14 }}>
-            Logged in as <strong>{session!.name}</strong> · {session!.role}
+            Logged in as <strong>{session.name}</strong> · {session.role}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -85,27 +140,34 @@ export default async function AdminPage() {
         </aside>
 
         <div style={{ display: 'grid', gap: 20 }}>
-          {/* Create post */}
+          <SystemMonitor />
+
+          {/* Create or edit post */}
           <div className="card admin-panel">
-            <h2 className="serif" style={{ marginTop: 0, fontSize: 20 }}>Create Post</h2>
-            <form action={createPost} className="form-grid">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+              <h2 className="serif" style={{ margin: 0, fontSize: 20 }}>{formTitle}</h2>
+              {postToEdit && (
+                <Link href="/admin" className="btn btn-sm" style={{ fontSize: 12 }}>
+                  Cancel editing
+                </Link>
+              )}
+            </div>
+            <form action={formAction} className="form-grid">
+              {postToEdit && <input type="hidden" name="slug" value={postToEdit.slug} />}
               <div className="form-group">
                 <label className="form-label">Title *</label>
-                <input className="field" name="title" placeholder="Headline" required />
+                <input className="field" name="title" placeholder="Headline" required defaultValue={postToEdit?.title ?? ''} />
               </div>
               <div className="form-group">
                 <label className="form-label">Excerpt *</label>
-                <textarea className="textarea" name="excerpt" rows={2} placeholder="One-sentence summary (max 500 chars)" required style={{ minHeight: 'unset' }} />
+                <textarea className="textarea" name="excerpt" rows={2} placeholder="One-sentence summary (max 500 chars)" required style={{ minHeight: 'unset' }} defaultValue={postToEdit?.excerpt ?? ''} />
               </div>
-              <div className="form-group">
-                <label className="form-label">Body * (use ## for section headings)</label>
-                <textarea className="textarea" name="body" rows={12} placeholder="Article body. Use ## H2, ### H3, > for quotes." required />
-              </div>
+              <PostBodyEditor defaultValue={postToEdit?.body ?? ''} />
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <div className="form-group" style={{ flex: '1 1 140px' }}>
                   <label className="form-label">Type</label>
-                  <select className="select" name="type" defaultValue="SHORT">
+                  <select className="select" name="type" defaultValue={postToEdit?.type ?? 'SHORT'}>
                     <option value="SHORT">SHORT (≤1,000)</option>
                     <option value="STORY">STORY (≤3,000)</option>
                     <option value="ARTICLE">ARTICLE (≤10,000)</option>
@@ -113,15 +175,16 @@ export default async function AdminPage() {
                 </div>
                 <div className="form-group" style={{ flex: '1 1 140px' }}>
                   <label className="form-label">Category</label>
-                  <select className="select" name="category" defaultValue="Crops">
+                  <select className="select" name="category" defaultValue={postToEdit?.category ?? 'Crops'}>
                     {CATEGORIES.filter((c) => c !== 'Top Stories').map((c) => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="form-group" style={{ flex: '1 1 120px' }}>
                   <label className="form-label">Status</label>
-                  <select className="select" name="status" defaultValue="draft">
+                  <select className="select" name="status" defaultValue={postToEdit?.status ?? 'draft'}>
                     <option value="draft">Draft</option>
                     <option value="published">Publish</option>
+                    <option value="archived">Archive</option>
                   </select>
                 </div>
               </div>
@@ -129,24 +192,24 @@ export default async function AdminPage() {
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <div className="form-group" style={{ flex: 2 }}>
                   <label className="form-label">Tags (comma-separated)</label>
-                  <input className="field" name="tags" placeholder="wheat, monsoon, MSP" />
+                  <input className="field" name="tags" placeholder="wheat, monsoon, MSP" defaultValue={postToEdit?.tags.join(', ') ?? ''} />
                 </div>
                 <div className="form-group" style={{ flex: 2 }}>
-                  <label className="form-label">Linked article slug (for STORY → ARTICLE)</label>
-                  <input className="field" name="linked_article_id" placeholder="article-slug-or-leave-blank" />
+                  <label className="form-label">Linked article slug or ID (for STORY → ARTICLE)</label>
+                  <input className="field" name="linked_article_id" placeholder="article-slug-or-id-or-leave-blank" defaultValue={postToEdit?.linked_article_id ?? ''} />
                 </div>
               </div>
 
-              <ImageUpload name="hero_image" label="Hero Image" />
+              <ImageUpload name="hero_image" label="Hero Image" initialUrl={postToEdit?.hero_image ?? null} />
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
-                  <input type="checkbox" name="is_premium" style={{ width: 16, height: 16 }} />
+                  <input type="checkbox" name="is_premium" style={{ width: 16, height: 16 }} defaultChecked={postToEdit?.is_premium ?? false} />
                   <span>Mark as Premium (★ Pro only)</span>
                 </label>
               </div>
 
-              <button className="btn btn-primary" type="submit">Save post</button>
+              <button className="btn btn-primary" type="submit">{submitLabel}</button>
             </form>
           </div>
 
@@ -165,6 +228,7 @@ export default async function AdminPage() {
                     <th>Status</th>
                     <th>Premium</th>
                     <th>Views</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -184,6 +248,30 @@ export default async function AdminPage() {
                       </td>
                       <td>{p.is_premium ? <span className="badge badge-gold" style={{ fontSize: 10 }}>★ Pro</span> : <span className="muted">—</span>}</td>
                       <td style={{ color: 'var(--muted)' }}>{p.view_count.toLocaleString()}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <Link href={`/post/${p.slug}`} className="btn btn-sm" style={{ fontSize: 12 }}>
+                            {p.status === 'published' ? 'Open' : 'Preview'}
+                          </Link>
+                          <Link href={`/admin?edit=${encodeURIComponent(p.slug)}`} className="btn btn-sm" style={{ fontSize: 12 }}>
+                            Edit
+                          </Link>
+                          {p.status === 'draft' && (
+                            <form action={publishPost}>
+                              <input type="hidden" name="id" value={p._id} />
+                              <button className="btn btn-sm btn-primary" type="submit" style={{ fontSize: 12 }}>
+                                Publish
+                              </button>
+                            </form>
+                          )}
+                          <form action={deletePost}>
+                            <input type="hidden" name="id" value={p._id} />
+                            <button className="btn btn-sm" type="submit" style={{ fontSize: 12, color: 'var(--red)' }}>
+                              Delete
+                            </button>
+                          </form>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

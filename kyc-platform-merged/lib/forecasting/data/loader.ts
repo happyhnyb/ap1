@@ -42,14 +42,14 @@ interface SnapshotFile {
 
 type SnapshotCacheEntry = {
   fingerprint: string;
-  result: { records: MandiRecord[]; fetchedAt: string } | null;
+  result: { records: MandiRecord[]; fetchedAt: string; snapshotCount: number } | null;
 };
 
 let snapshotCache: SnapshotCacheEntry | null = null;
 
 // ── Tier 1: local snapshot files ──────────────────────────────────────────────
 
-async function loadFromSnapshots(): Promise<{ records: MandiRecord[]; fetchedAt: string } | null> {
+async function loadFromSnapshots(): Promise<{ records: MandiRecord[]; fetchedAt: string; snapshotCount: number } | null> {
   if (!fs.existsSync(SNAPSHOTS_DIR)) return null;
 
   const files = fs.readdirSync(SNAPSHOTS_DIR)
@@ -79,7 +79,7 @@ async function loadFromSnapshots(): Promise<{ records: MandiRecord[]; fetchedAt:
 
   if (!batches.length) return null;
 
-  const result = { records: mergeRecords(batches), fetchedAt: latestFetchedAt };
+  const result = { records: mergeRecords(batches), fetchedAt: latestFetchedAt, snapshotCount: files.length };
   snapshotCache = { fingerprint, result };
   return result;
 }
@@ -161,36 +161,48 @@ export interface LoadResult {
 export async function loadRecords(
   filters?: { commodity: string; state?: string; market?: string },
 ): Promise<LoadResult> {
-
-  // ── Tier 1: local snapshots ───────────────────────────────────────────────
   const snap = await loadFromSnapshots();
-  if (snap) {
-    return {
-      records:       snap.records,
-      fetchedAt:     snap.fetchedAt,
-      source:        'snapshots',
-      snapshotCount: fs.readdirSync(SNAPSHOTS_DIR).filter((f) => f.endsWith('.json')).length,
-    };
-  }
-
-  // ── Tier 2: MongoDB (rich, grows daily) ───────────────────────────────────
   const mongo = await loadFromMongoDB();
   const seed = await loadFromSeed();
-  const baseRecords = mongo?.records.length
-    ? mergeRecords([seed.records, mongo.records])
-    : seed.records;
-  const baseFetchedAt = mongo?.records.length ? mongo.fetchedAt : seed.fetchedAt;
-  const baseSource: LoadResult['source'] = mongo?.records.length ? 'hybrid' : 'seed';
+  const baseBatches: MandiRecord[][] = [seed.records];
+  let baseFetchedAt = seed.fetchedAt;
+  let baseSource: LoadResult['source'] = 'seed';
+
+  if (mongo?.records.length) {
+    baseBatches.push(mongo.records);
+    baseFetchedAt = mongo.fetchedAt > baseFetchedAt ? mongo.fetchedAt : baseFetchedAt;
+    baseSource = 'hybrid';
+  }
+
+  if (snap?.records.length) {
+    baseBatches.push(snap.records);
+    baseFetchedAt = snap.fetchedAt > baseFetchedAt ? snap.fetchedAt : baseFetchedAt;
+    baseSource = mongo?.records.length ? 'hybrid' : 'snapshots';
+  }
+
+  const baseRecords = mergeRecords(baseBatches);
+  const snapshotCount = snap?.snapshotCount ?? 0;
 
   if (filters?.commodity) {
     // Commodity-specific call: layer recent live rows on top of seed + Mongo.
     const live = await fetchRecentLive(filters, LIVE_ENRICH_DAYS);
     if (live?.records.length) {
+      console.info('[predictor.loadRecords]', {
+        path: 'commodity',
+        commodity: filters.commodity,
+        state: filters.state ?? '',
+        market: filters.market ?? '',
+        source: mongo?.records.length || snap?.records.length ? 'hybrid' : 'agmarknet',
+        fetchedAt: live.fetchedAt,
+        baseFetchedAt,
+        snapshotCount,
+        dbDayCount: mongo?.dayCount ?? 0,
+      });
       return {
         records:       mergeRecords([baseRecords, live.records]),
         fetchedAt:     live.fetchedAt,
         source:        mongo?.records.length ? 'hybrid' : 'agmarknet',
-        snapshotCount: 0,
+        snapshotCount,
         dbDayCount:    mongo?.dayCount,
       };
     }
@@ -198,22 +210,40 @@ export async function loadRecords(
     // Options-building call: add today's full batch to the best local base.
     const today = await fetchTodayAll();
     if (today?.records.length) {
+      console.info('[predictor.loadRecords]', {
+        path: 'options',
+        source: mongo?.records.length || snap?.records.length ? 'hybrid' : 'agmarknet',
+        fetchedAt: today.fetchedAt,
+        baseFetchedAt,
+        snapshotCount,
+        dbDayCount: mongo?.dayCount ?? 0,
+      });
       return {
         records:       mergeRecords([baseRecords, today.records]),
         fetchedAt:     today.fetchedAt,
         source:        mongo?.records.length ? 'hybrid' : 'agmarknet',
-        snapshotCount: 0,
+        snapshotCount,
         dbDayCount:    mongo?.dayCount,
       };
     }
   }
 
   // ── Best available local base (seed-only or seed + Mongo) ─────────────────
+  console.info('[predictor.loadRecords]', {
+    path: filters?.commodity ? 'commodity-fallback' : 'options-fallback',
+    commodity: filters?.commodity ?? '',
+    state: filters?.state ?? '',
+    market: filters?.market ?? '',
+    source: baseSource,
+    fetchedAt: baseFetchedAt,
+    snapshotCount,
+    dbDayCount: mongo?.dayCount ?? 0,
+  });
   return {
     records:       baseRecords,
     fetchedAt:     baseFetchedAt,
     source:        baseSource,
-    snapshotCount: 0,
+    snapshotCount,
     dbDayCount:    mongo?.dayCount,
   };
 }

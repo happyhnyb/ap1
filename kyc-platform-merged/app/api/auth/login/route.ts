@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { usersAdapter } from '@/lib/adapters/users';
-import { signToken, COOKIE_NAME, cookieOptions, sessionPayloadFromUser } from '@/lib/auth/jwt';
+import { COOKIE_NAME, cookieOptions, createServerSessionToken, sessionPayloadFromUser } from '@/lib/auth/jwt';
 import { parseBody, LoginSchema } from '@/lib/validation';
 import { checkRateLimit, getClientId, LIMITS } from '@/lib/ratelimit';
 import { AuthStoreUnavailableError } from '@/lib/adapters/users';
+import { proxyRouteToMacMini } from '@/lib/server/mac-mini-proxy';
+import { env } from '@/lib/env';
 
 export async function POST(req: NextRequest) {
+  if (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL) {
+    return proxyRouteToMacMini(req);
+  }
+
   const rl = checkRateLimit(getClientId(req), 'login', LIMITS.auth);
   if (!rl.ok) {
     return NextResponse.json(
@@ -26,9 +32,13 @@ export async function POST(req: NextRequest) {
     }
 
     const payload = sessionPayloadFromUser(user);
-    const token = await signToken(payload);
+    const sessionToken = await createServerSessionToken(payload, {
+      userId: user._id,
+      ipAddress: req.headers.get('x-forwarded-for'),
+      userAgent: req.headers.get('user-agent'),
+    });
     const res = NextResponse.json({ ok: true, user: payload });
-    res.cookies.set(COOKIE_NAME, token, cookieOptions());
+    res.cookies.set(COOKIE_NAME, sessionToken.token, cookieOptions(sessionToken.expiresAt));
     return res;
   } catch (err) {
     console.error('[POST /api/auth/login]', err);

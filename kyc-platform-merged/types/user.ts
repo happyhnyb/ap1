@@ -1,6 +1,7 @@
-export type UserRole = 'admin' | 'editor' | 'premium' | 'reader';
+export type UserRole = 'admin' | 'editor' | 'user';
 export type SubStatus = 'active' | 'expired' | 'cancelled' | 'none';
 export type SubPlan = 'free' | 'monthly' | 'annual';
+export type UserStatus = 'active' | 'disabled' | 'pending';
 
 export interface Subscription {
   status: SubStatus;
@@ -17,10 +18,14 @@ export interface User {
   password_hash: string;
   mobile: string | null;
   role: UserRole;
+  status?: UserStatus;
   auth_methods: ('email' | 'google')[];
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
   subscription: Subscription;
   created_at: string;
   updated_at?: string;
+  last_login_at?: string | null;
 }
 
 // Lean payload stored in JWT (no sensitive fields)

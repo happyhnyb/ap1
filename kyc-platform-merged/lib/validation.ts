@@ -47,6 +47,7 @@ const _PostBaseSchema = z.object({
   tags:              z.array(z.string().max(40)).max(10).default([]),
   is_premium:        z.boolean().default(false),
   linked_article_id: z.string().max(120).nullable().optional(),
+  hero_image:        z.string().max(2000).nullable().optional(),
   status:            PostStatusEnum.optional().default('draft'),
 });
 

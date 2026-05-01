@@ -10,7 +10,10 @@ export const metadata: Metadata = {
 const PAGE_SIZE = 12;
 
 export default async function FeedPage() {
-  const { posts, total } = await postsAdapter.listPublishedPaged(1, PAGE_SIZE);
+  const { posts, total } = await postsAdapter.listPublishedPaged(1, PAGE_SIZE).catch((error) => {
+    console.error('[app/feed/page] Failed to load feed page data.', error);
+    return { posts: [], total: 0 };
+  });
   const hasMore = total > PAGE_SIZE;
 
   return (

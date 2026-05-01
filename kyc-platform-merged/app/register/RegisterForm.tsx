@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
-import { EmailOTPCard } from '@/components/auth/EmailOTPCard';
 
 export default function RegisterForm({ isDemo = false }: { isDemo?: boolean }) {
   const router = useRouter();
@@ -57,7 +56,7 @@ export default function RegisterForm({ isDemo = false }: { isDemo?: boolean }) {
         {isDemo && (
           <div className="notice notice-gold" style={{ marginBottom: 18 }}>
             <strong>Demo mode</strong> — new accounts are stored in memory and reset on server restart.
-            To enable persistent accounts, add <code style={{ fontSize: 11, background: 'rgba(0,0,0,.3)', padding: '1px 5px', borderRadius: 4 }}>MONGODB_URI</code> in Vercel environment variables.
+            To enable persistent accounts, configure the Mac Mini backend database and API proxy environment.
           </div>
         )}
         {error && (
@@ -88,9 +87,6 @@ export default function RegisterForm({ isDemo = false }: { isDemo?: boolean }) {
 
         <div className="divider" style={{ margin: '20px 0' }} />
         <GoogleAuthButton text="signup_with" />
-
-        <div className="divider" style={{ margin: '20px 0' }} />
-        <EmailOTPCard intent="register" />
 
         <div className="divider" style={{ margin: '24px 0' }} />
         <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--muted)', margin: 0 }}>
