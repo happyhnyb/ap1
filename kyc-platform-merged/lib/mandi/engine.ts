@@ -25,6 +25,9 @@ const BASE_URL    = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
 const FETCH_LIMIT = 500;
 const MAX_PAGES   = 10; // fetch all pages in parallel → 5 000 records in ~500 ms
 const HISTORY_DAYS = 30;
+const PAGE_RETRY_MAX = 3;
+const PAGE_RETRY_DELAY_MS = 1200;
+const HISTORY_DAY_DELAY_MS = 150;
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -65,6 +68,10 @@ function safeAverage(values: number[]): number | null {
   return clean.length
     ? Number((clean.reduce((s, v) => s + v, 0) / clean.length).toFixed(2))
     : null;
+}
+
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ── Record normalisation ──────────────────────────────────────────────────────
@@ -139,14 +146,22 @@ async function fetchPage(
   applyFilterParams(url, filters);
 
   // Keep a short cache so the predictor can pick up fresher mandi data.
-  const res = await fetch(url.toString(), {
-    headers: { Accept: 'application/json' },
-    next: { revalidate: 3600 },
-  });
+  for (let attempt = 0; attempt <= PAGE_RETRY_MAX; attempt++) {
+    const res = await fetch(url.toString(), {
+      headers: { Accept: 'application/json' },
+      next: { revalidate: 300 },
+    });
 
-  if (!res.ok) throw new Error(`Agmarknet API ${res.status}`);
-  const data = await res.json() as { records?: Record<string, unknown>[]; total?: number };
-  return { records: data.records ?? [], total: Number(data.total ?? 0) };
+    if (res.status === 429 && attempt < PAGE_RETRY_MAX) {
+      await sleep(PAGE_RETRY_DELAY_MS * (attempt + 1));
+      continue;
+    }
+    if (!res.ok) throw new Error(`Agmarknet API ${res.status}`);
+    const data = await res.json() as { records?: Record<string, unknown>[]; total?: number };
+    return { records: data.records ?? [], total: Number(data.total ?? 0) };
+  }
+
+  throw new Error('Agmarknet API retry budget exhausted');
 }
 
 export async function fetchAllRecords(apiKey: string): Promise<MandiRecord[]> {
@@ -185,28 +200,34 @@ export async function fetchHistoricalRecords(
 ): Promise<MandiRecord[]> {
   if (!apiKey) throw new Error('DATAGOV_API_KEY is not configured');
 
-  const batches = await Promise.all(
-    Array.from({ length: daysBack }, async (_, i) => {
-      const isoDate = getIsoDateDaysAgo(i);
-      const arrival_date = isoToAgmarknetDate(isoDate);
-      const first = await fetchPage(apiKey, 0, { ...filters, arrival_date });
-      if (!first.records.length) return [] as MandiRecord[];
+  const batches: MandiRecord[][] = [];
+  for (let i = 0; i < daysBack; i++) {
+    const isoDate = getIsoDateDaysAgo(i);
+    const arrival_date = isoToAgmarknetDate(isoDate);
+    const first = await fetchPage(apiKey, 0, { ...filters, arrival_date });
+    if (!first.records.length) {
+      batches.push([]);
+      continue;
+    }
 
-      const pages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(first.total / FETCH_LIMIT)));
-      const rest = pages > 1
-        ? await Promise.all(
-            Array.from({ length: pages - 1 }, (_, pageIndex) =>
-              fetchPage(apiKey, (pageIndex + 1) * FETCH_LIMIT, { ...filters, arrival_date })
-                .then((page) => page.records)
-                .catch(() => [] as Record<string, unknown>[])
-            )
-          )
-        : [];
+    const pages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(first.total / FETCH_LIMIT)));
+    const rest: Record<string, unknown>[][] = [];
+    for (let pageIndex = 1; pageIndex < pages; pageIndex++) {
+      try {
+        const page = await fetchPage(apiKey, pageIndex * FETCH_LIMIT, { ...filters, arrival_date });
+        rest.push(page.records);
+      } catch {
+        rest.push([]);
+      }
+    }
 
-      const raw = [first.records, ...rest].flat();
-      return raw.map((r) => normaliseRecord({ ...r, arrival_date: isoDate }));
-    })
-  );
+    const raw = [first.records, ...rest].flat();
+    batches.push(raw.map((r) => normaliseRecord({ ...r, arrival_date: isoDate })));
+
+    if (i < daysBack - 1) {
+      await sleep(HISTORY_DAY_DELAY_MS);
+    }
+  }
 
   const dedup = new Map<string, MandiRecord>();
   for (const record of batches.flat()) {

@@ -114,15 +114,15 @@ function normalizeFilterOptions(options: ReturnType<typeof buildOptions> | Retur
 }
 
 export async function getPredictorPageData(params: PredictorSearchParams = {}): Promise<PredictorPageData> {
-  let liveRecordsAll: Awaited<ReturnType<typeof loadRecords>> | null = null;
+  let optionRecordsAll: Awaited<ReturnType<typeof loadRecords>> | null = null;
   try {
-    liveRecordsAll = await loadRecords();
+    optionRecordsAll = await loadRecords();
   } catch {
-    liveRecordsAll = null;
+    optionRecordsAll = null;
   }
 
   const seedOptions = buildSeedOptions();
-  const liveOptions = liveRecordsAll?.records.length ? buildOptions(liveRecordsAll.records) : null;
+  const liveOptions = optionRecordsAll?.records.length ? buildOptions(optionRecordsAll.records) : null;
   const resolvedOptions = (liveOptions?.commodities.length ?? 0) > 0 ? liveOptions! : seedOptions;
   const options = normalizeFilterOptions(resolvedOptions);
 
@@ -155,17 +155,33 @@ export async function getPredictorPageData(params: PredictorSearchParams = {}): 
   const market = reqMarket && validMarkets.includes(reqMarket) ? reqMarket : '';
   const horizon = Number.isFinite(reqHorizon) ? Math.min(14, Math.max(3, reqHorizon)) : 14;
 
+  let filteredRecordsAll: Awaited<ReturnType<typeof loadRecords>> | null = null;
+  try {
+    filteredRecordsAll = await loadRecords({
+      commodity,
+      ...(state ? { state } : {}),
+      ...(market ? { market } : {}),
+    });
+  } catch {
+    filteredRecordsAll = null;
+  }
+
   const liveFilter = { commodity, state, district, market, variety: '', grade: '' };
-  const liveRecords = liveRecordsAll?.records.length ? filterRecords(liveRecordsAll.records, liveFilter) : [];
+  const liveRecords = filteredRecordsAll?.records.length ? filterRecords(filteredRecordsAll.records, liveFilter) : [];
+  const optionFilteredRecords = optionRecordsAll?.records.length ? filterRecords(optionRecordsAll.records, liveFilter) : [];
   const seedRecords = getSeedRecords({
     commodity,
     state,
     district: district || undefined,
     market: market || undefined,
   });
-  const recordsForView = liveRecords.length ? liveRecords : seedRecords;
-  const summary = liveRecords.length
-    ? buildSummary(liveRecords, liveRecordsAll?.fetchedAt ?? null)
+  const recordsForView = liveRecords.length
+    ? liveRecords
+    : optionFilteredRecords.length
+      ? optionFilteredRecords
+      : seedRecords;
+  const summary = liveRecords.length || optionFilteredRecords.length
+    ? buildSummary(recordsForView, liveRecords.length ? (filteredRecordsAll?.fetchedAt ?? null) : (optionRecordsAll?.fetchedAt ?? null))
     : buildSeedSummary({
         commodity,
         state,
@@ -191,11 +207,14 @@ export async function getPredictorPageData(params: PredictorSearchParams = {}): 
 
   const dataPoints = forecast.meta.data_points;
   const usingFallbackData = !liveRecords.length;
-  const isSeedOnly = liveRecordsAll?.source === 'seed' || !liveRecordsAll;
+  const usingOptionFallback = !liveRecords.length && optionFilteredRecords.length > 0;
+  const isSeedOnly = !filteredRecordsAll || filteredRecordsAll.source === 'seed';
   const dataWarning = usingFallbackData
-    ? isSeedOnly
-      ? 'Live Agmarknet data was unavailable, so this view is using cached fallback data.'
-      : 'This selection had no current live rows, so cached fallback data is shown.'
+    ? usingOptionFallback
+      ? 'Recent mandi rows were recovered from the broader live batch while detailed history catches up.'
+      : isSeedOnly
+        ? 'Live Agmarknet data was unavailable, so this view is using cached fallback data.'
+        : 'This selection had no current live rows, so cached fallback data is shown.'
     : null;
 
   console.info('[predictor.page-data]', {
@@ -204,8 +223,8 @@ export async function getPredictorPageData(params: PredictorSearchParams = {}): 
     district,
     market,
     horizon,
-    source: liveRecordsAll?.source ?? 'seed',
-    sourceFetchedAt: liveRecordsAll?.fetchedAt ?? null,
+    source: filteredRecordsAll?.source ?? 'seed',
+    sourceFetchedAt: filteredRecordsAll?.fetchedAt ?? null,
     liveRecords: liveRecords.length,
     viewRecords: recordsForView.length,
     forecastPoints: dataPoints,
@@ -241,7 +260,7 @@ export async function getPredictorPageData(params: PredictorSearchParams = {}): 
     recordsCount: recordsForView.length,
     hasNoRecords: recordsForView.length === 0,
     dataWarning,
-    source: liveRecordsAll?.source ?? 'seed',
-    sourceFetchedAt: liveRecordsAll?.fetchedAt ?? null,
+    source: filteredRecordsAll?.source ?? optionRecordsAll?.source ?? 'seed',
+    sourceFetchedAt: filteredRecordsAll?.fetchedAt ?? optionRecordsAll?.fetchedAt ?? null,
   };
 }

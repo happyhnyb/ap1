@@ -32,7 +32,7 @@ import { mergeRecords } from '../preprocessing/pipeline';
 const SNAPSHOTS_DIR = path.resolve(process.cwd(), 'mandi-service/data/snapshots');
 
 /** Days of live-API enrichment layered on top of the seed fallback */
-const LIVE_ENRICH_DAYS = 7;
+const LIVE_ENRICH_DAYS = 14;
 
 interface SnapshotFile {
   snapshotDate: string;
