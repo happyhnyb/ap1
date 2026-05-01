@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build"
+  command = "DATABASE_URL='' MONGODB_URI='' POSTGRES_PASSWORD='' KYC_STORAGE_ROOT='' MEDIA_STORAGE_PATH='' npm run build"
   publish = ".next"
 
 # Zero out vars that only exist locally so webpack does not embed
