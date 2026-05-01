@@ -9,6 +9,8 @@ import PredictorTabs from '@/components/predictor/PredictorTabs';
 import AIAnalysisBar from '@/components/predictor/AIAnalysisBar';
 import { canAccessPredictorRelease, getPredictorReleaseMode } from '@/lib/product/predictor';
 import { getPredictorPageData, type PredictorPageData } from '@/lib/predictor/page-data';
+import { getPredictorSummaryData } from '@/lib/predictor/summary-data';
+import { filtersFromQuery } from '@/lib/mandi/engine';
 import { getFromMacMini, shouldUseMacMiniBackend } from '@/lib/server/mac-mini';
 
 export const metadata: Metadata = {
@@ -69,11 +71,11 @@ export default async function PredictorPage({ searchParams }: Props) {
   const pageData: PredictorPageData = shouldUseMacMiniBackend()
     ? await getFromMacMini<PredictorPageData>(`/api/internal/predictor/page-data${query.size ? `?${query.toString()}` : ''}`).catch(() => getPredictorPageData(params))
     : await getPredictorPageData(params);
+  const freshSummary = await getPredictorSummaryData(filtersFromQuery(Object.fromEntries(query.entries()))).catch(() => pageData.summary);
 
   const {
     options,
     current,
-    summary,
     marketRows,
     forecast,
     quality,
@@ -83,6 +85,7 @@ export default async function PredictorPage({ searchParams }: Props) {
     source,
     sourceFetchedAt,
   } = pageData;
+  const summary = freshSummary;
   const { commodity, state, district, market, horizon } = current;
 
   // ── Derived values ─────────────────────────────────────────────────────────

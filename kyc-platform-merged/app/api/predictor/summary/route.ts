@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictorRelease, predictorAccessError } from '@/lib/product/predictor';
-import { filterRecords, buildSummary, filtersFromQuery } from '@/lib/mandi/engine';
-import { buildSeedSummary, getSeedRecords } from '@/lib/forecasting/data/seed';
-import { loadRecords } from '@/lib/forecasting/data/loader';
+import { filtersFromQuery } from '@/lib/mandi/engine';
+import { getPredictorSummaryData } from '@/lib/predictor/summary-data';
 import { proxyRouteToMacMini, shouldForceMacMiniProxy } from '@/lib/server/mac-mini-proxy';
 
 export const maxDuration = 60;
@@ -25,15 +24,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const filters = filtersFromQuery(q);
-    const { records, fetchedAt } = await loadRecords({ commodity: filters.commodity, state: filters.state, market: filters.market });
-    const filtered = filterRecords(records, filters);
-    if (filtered.length) {
-      return NextResponse.json(buildSummary(filtered, fetchedAt));
-    }
-
-    const seedRecords = getSeedRecords(filters);
-    if (seedRecords.length) return NextResponse.json(buildSeedSummary(filters));
-    return NextResponse.json({ error: 'Predictor service unavailable.' }, { status: 503 });
+    return NextResponse.json(await getPredictorSummaryData(filters));
   } catch {
     return NextResponse.json({ error: 'Predictor service unavailable.' }, { status: 503 });
   }
