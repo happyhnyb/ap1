@@ -2,6 +2,17 @@
   command = "npm run build"
   publish = ".next"
 
+# Zero out vars that only exist locally so webpack does not embed
+# them in the server bundle. These are set via .env.local on the Mac
+# Mini; on Netlify they must be absent so the fallback paths are taken.
+[build.environment]
+  DATABASE_URL = ""
+  MONGODB_URI = ""
+  POSTGRES_PASSWORD = ""
+  POSTGRES_DATA_PATH = ""
+  KYC_STORAGE_ROOT = ""
+  MEDIA_STORAGE_PATH = ""
+
 [functions]
   included_files = ["data/**", "mocks/**"]
 
