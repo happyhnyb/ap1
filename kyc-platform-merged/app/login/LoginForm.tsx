@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
 
 export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -28,7 +29,10 @@ export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Login failed.'); return; }
-      router.push('/');
+      const requestedPath = searchParams.get('from');
+      const safeRequestedPath = requestedPath && requestedPath.startsWith('/') ? requestedPath : null;
+      const isPrivilegedUser = data?.user?.role === 'admin' || data?.user?.role === 'editor';
+      router.push(safeRequestedPath || (isPrivilegedUser ? '/admin' : '/'));
       router.refresh();
     } catch {
       setError('Network error. Please try again.');
