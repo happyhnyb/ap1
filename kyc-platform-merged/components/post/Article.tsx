@@ -7,14 +7,19 @@ import { ArticleAISummary } from './ArticleAISummary';
 import { parsePostBodySections } from '@/lib/posts/body';
 import { normalizeImageSrc, shouldUnoptimizeImage } from '@/lib/media/url';
 
-function renderBody(body: string) {
+function renderBody(body: string, heroImageSrc?: string | null) {
   return parsePostBodySections(body).map((section, i) => {
     if (section.type === 'image') {
+      const sectionSrc = normalizeImageSrc(section.src);
+      if (heroImageSrc && sectionSrc === heroImageSrc) {
+        return null;
+      }
+
       return (
         <figure key={i} style={{ margin: '28px 0' }}>
           {/* Inline blog images can come from local media or arbitrary remote URLs pasted by editors. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={section.src} alt={section.alt} style={{ width: '100%', borderRadius: 16, display: 'block' }} />
+          <img src={sectionSrc} alt={section.alt} style={{ width: '100%', borderRadius: 16, display: 'block' }} />
           {section.alt !== 'Article image' ? (
             <figcaption style={{ marginTop: 10, fontSize: 13, color: 'var(--dim)', textAlign: 'center' }}>
               {section.alt}
@@ -101,12 +106,12 @@ export function Article({
           {/* Body */}
           <div className="article-body">
             {canRead ? (
-              renderBody(post.body)
+              renderBody(post.body, heroImageSrc)
             ) : (
               <>
                 {/* Teaser */}
                 <div style={{ position: 'relative' }}>
-                  {renderBody(post.body.slice(0, teaserLen))}
+                  {renderBody(post.body.slice(0, teaserLen), heroImageSrc)}
                   {/* Fade out */}
                   <div style={{
                     position: 'absolute', bottom: 0, left: 0, right: 0, height: 120,

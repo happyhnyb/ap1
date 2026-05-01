@@ -11,7 +11,7 @@ import { canAccessPredictorRelease, getPredictorReleaseMode } from '@/lib/produc
 import { getPredictorPageData, type PredictorPageData } from '@/lib/predictor/page-data';
 import { getPredictorSummaryData } from '@/lib/predictor/summary-data';
 import { filtersFromQuery } from '@/lib/mandi/engine';
-import { getFromMacMini, shouldUseMacMiniBackend } from '@/lib/server/mac-mini';
+import { getFromMacMini, shouldProxyToMacMini } from '@/lib/server/mac-mini';
 
 export const metadata: Metadata = {
   title: 'Price Predictor | KYC Agri',
@@ -68,10 +68,14 @@ export default async function PredictorPage({ searchParams }: Props) {
     if (firstValue) query.set(key, firstValue);
   }
 
-  const pageData: PredictorPageData = shouldUseMacMiniBackend()
-    ? await getFromMacMini<PredictorPageData>(`/api/internal/predictor/page-data${query.size ? `?${query.toString()}` : ''}`).catch(() => getPredictorPageData(params))
+  const queryString = query.size ? `?${query.toString()}` : '';
+  const pageData: PredictorPageData = shouldProxyToMacMini()
+    ? await getFromMacMini<PredictorPageData>(`/api/internal/predictor/page-data${queryString}`).catch(() => getPredictorPageData(params))
     : await getPredictorPageData(params);
-  const freshSummary = await getPredictorSummaryData(filtersFromQuery(Object.fromEntries(query.entries()))).catch(() => pageData.summary);
+  const filters = filtersFromQuery(Object.fromEntries(query.entries()));
+  const freshSummary = shouldProxyToMacMini()
+    ? await getFromMacMini<typeof pageData.summary>(`/api/internal/predictor/summary${queryString}`).catch(() => pageData.summary)
+    : await getPredictorSummaryData(filters).catch(() => pageData.summary);
 
   const {
     options,

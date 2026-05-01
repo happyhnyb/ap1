@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { ImageUpload } from '@/components/cms/ImageUpload';
 import { PostBodyEditor } from '@/components/cms/PostBodyEditor';
 import { SystemMonitor } from '@/components/admin/SystemMonitor';
+import { stripDuplicateHeroImage } from '@/lib/posts/hero-image';
 
 export const metadata: Metadata = { title: 'CMS Admin' };
 
@@ -32,7 +33,12 @@ function getPostInput(formData: FormData) {
   const heroImage  = String(formData.get('hero_image') || '') || null;
 
   return {
-    title, excerpt, body, category, type, tags,
+    title,
+    excerpt,
+    body: stripDuplicateHeroImage(body, heroImage),
+    category,
+    type,
+    tags,
     is_premium: isPremium,
     linked_article_id: linked,
     hero_image: heroImage,
