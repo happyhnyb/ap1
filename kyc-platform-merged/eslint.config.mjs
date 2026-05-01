@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 
 export default tseslint.config(
   {
-    ignores: ['.next/**', 'node_modules/**', 'public/uploads/**', 'components/layout/dist/**', 'lib/search/dist/**', 'mandi-service/**', 'tests/**', 'scripts/**', 'next-env.d.ts'],
+    ignores: ['.next/**', '.netlify/**', '.vercel/**', 'node_modules/**', 'public/uploads/**', 'components/layout/dist/**', 'lib/search/dist/**', 'mandi-service/**', 'tests/**', 'scripts/**', 'next-env.d.ts', 'ecosystem.config.cjs', 'ecosystem.config.js'],
   },
   nextPlugin.configs['core-web-vitals'],
   ...tseslint.configs.recommended,

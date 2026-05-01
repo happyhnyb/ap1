@@ -1,4 +1,16 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+vi.mock('next/headers', () => ({
+  cookies: async () => ({
+    get: () => undefined,
+  }),
+}));
+vi.mock('@/lib/db/repositories/users', () => ({
+  getUserBySessionToken: vi.fn(),
+  revokeSessionToken: vi.fn(),
+  rotateSessionToken: vi.fn(),
+}));
 
 // Must be set before importing jwt module so env.ts doesn't throw
 beforeEach(() => {
@@ -13,7 +25,7 @@ describe('JWT sign / verify', () => {
       _id: 'abc123',
       name: 'Test User',
       email: 'test@example.com',
-      role: 'reader' as const,
+      role: 'user' as const,
       plan: 'free' as const,
       sub_status: 'none' as const,
     };
@@ -26,14 +38,14 @@ describe('JWT sign / verify', () => {
     expect(verified).not.toBeNull();
     expect(verified!._id).toBe('abc123');
     expect(verified!.name).toBe('Test User');
-    expect(verified!.role).toBe('reader');
+    expect(verified!.role).toBe('user');
   });
 
   it('returns null for a tampered token', async () => {
     const { signToken, verifyToken } = await import('../lib/auth/jwt');
     const payload = {
       _id: 'x', name: 'X', email: 'x@x.com',
-      role: 'reader' as const, plan: 'free' as const, sub_status: 'none' as const,
+      role: 'user' as const, plan: 'free' as const, sub_status: 'none' as const,
     };
     const token = await signToken(payload);
     const tampered = token.slice(0, -5) + 'XXXXX';

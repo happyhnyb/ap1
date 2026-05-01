@@ -31,5 +31,14 @@ export async function GET() {
     time: new Date().toISOString(),
     ollama,
     predictor,
+    email: {
+      configured: Boolean(env.RESEND_API_KEY),
+      contactRecipientsConfigured: Boolean(env.CONTACT_EMAIL.trim()),
+    },
+    backend: {
+      appBaseUrl: env.APP_BASE_URL,
+      apiBaseUrl: env.API_BASE_URL,
+      macMiniApiBaseUrl: env.MAC_MINI_API_BASE_URL,
+    },
   });
 }

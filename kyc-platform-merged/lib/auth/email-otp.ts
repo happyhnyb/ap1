@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'crypto';
 import { SignJWT, jwtVerify } from 'jose';
 import { env } from '@/lib/env';
+import { sendResendEmail } from '@/lib/email/resend';
 
 type OTPIntent = 'login' | 'register';
 
@@ -91,24 +92,9 @@ export async function sendOTPEmail(input: {
     </div>
   `.trim();
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: env.RESEND_FROM_EMAIL,
-      to: [input.email],
-      subject,
-      html,
-    }),
+  return sendResendEmail({
+    to: [input.email],
+    subject,
+    html,
   });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to send OTP email: ${text}`);
-  }
-
-  return { delivered: true };
 }

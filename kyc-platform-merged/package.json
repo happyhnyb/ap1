@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "rm -f tsconfig.tsbuildinfo && next typegen && tsc --noEmit --incremental false",
     "benchmark:forecast": "tsx scripts/forecast-benchmark.ts",
     "snapshot:posts": "npm run hexo:build",
     "hexo:export": "tsx --env-file=.env.local scripts/export-posts-to-hexo.ts",

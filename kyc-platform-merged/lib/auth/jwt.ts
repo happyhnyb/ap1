@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
 import { env } from '@/lib/env';
 import type { User } from '@/types/user';
@@ -57,11 +57,22 @@ async function getCookieToken() {
   return store.get(COOKIE_NAME)?.value ?? null;
 }
 
+async function getCurrentRequestOrigin() {
+  const headerStore = await headers();
+  const host = headerStore.get('x-forwarded-host') || headerStore.get('host') || '';
+  const proto = headerStore.get('x-forwarded-proto') || (host.includes('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https');
+  if (!host) return null;
+  return `${proto}://${host}`;
+}
+
 async function readProxySession() {
   const token = await getCookieToken();
   if (!token || !env.MAC_MINI_API_BASE_URL) return null;
 
-  const response = await fetch(`${env.MAC_MINI_API_BASE_URL.replace(/\/$/, '')}/api/auth/me`, {
+  const requestOrigin = await getCurrentRequestOrigin().catch(() => null);
+  const targetBase = (requestOrigin || env.MAC_MINI_API_BASE_URL).replace(/\/$/, '');
+
+  const response = await fetch(`${targetBase}/api/auth/me`, {
     method: 'GET',
     headers: {
       cookie: `${COOKIE_NAME}=${token}`,
@@ -100,6 +111,16 @@ async function readLocalSession(token: string): Promise<SessionPayload | null> {
   } catch {
     return null;
   }
+}
+
+// Test-friendly wrappers for local JWT session encoding/decoding.
+export async function signToken(payload: SessionPayload) {
+  const { token } = await signLocalSession(payload);
+  return token;
+}
+
+export async function verifyToken(token: string) {
+  return readLocalSession(token);
 }
 
 export async function getServerSession(): Promise<SessionPayload | null> {

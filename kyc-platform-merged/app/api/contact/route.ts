@@ -6,6 +6,7 @@ import { parseBody, ContactSchema } from '@/lib/validation';
 import { checkRateLimit, getClientId, LIMITS } from '@/lib/ratelimit';
 import { proxyRouteToMacMini } from '@/lib/server/mac-mini-proxy';
 import { env } from '@/lib/env';
+import { sendContactSubmissionNotifications } from '@/lib/email/contact-notifications';
 
 export async function GET(req: NextRequest) {
   if (!env.DATABASE_URL && env.MAC_MINI_API_BASE_URL) {
@@ -37,7 +38,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const entry = await contactsAdapter.create(parsed.data);
-    return NextResponse.json({ ok: true, ref: entry.ref }, { status: 201 });
+    const emailResult = await sendContactSubmissionNotifications({
+      ref: entry.ref,
+      name: entry.name,
+      email: entry.email,
+      subject: entry.subject,
+      message: entry.message,
+    }).catch((error) => {
+      console.error('[POST /api/contact] notification email failed', error);
+      return { delivered: false };
+    });
+
+    return NextResponse.json({ ok: true, ref: entry.ref, email_delivered: emailResult.delivered }, { status: 201 });
   } catch (err) {
     console.error('[POST /api/contact]', err);
     return NextResponse.json({ error: 'Failed to submit. Please try again.' }, { status: 500 });

@@ -26,7 +26,7 @@ function hasLocalMediaStorage() {
   return !!media && path.isAbsolute(media);
 }
 
-export async function uploadImage(file: File, uploadedBy?: string | null): Promise<string> {
+export async function uploadImage(file: File, uploadedBy?: string | null, publicBaseUrl?: string | null): Promise<string> {
   const fileName = buildSafeFileName(file);
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
@@ -38,7 +38,7 @@ export async function uploadImage(file: File, uploadedBy?: string | null): Promi
 
     const mediaRoot = getMediaStoragePath();
     const relativePath = path.relative(mediaRoot, targetPath).split(path.sep).join('/');
-    const publicBase = (env.API_BASE_URL || env.APP_BASE_URL || '').replace(/\/$/, '');
+    const publicBase = (publicBaseUrl || env.MAC_MINI_API_BASE_URL || env.API_BASE_URL || env.APP_BASE_URL || '').replace(/\/$/, '');
     const publicUrl = publicBase ? `${publicBase}/api/media/${relativePath}` : `/api/media/${relativePath}`;
 
     if (isPostgresConfigured()) {

@@ -1,10 +1,11 @@
 import fs from 'fs';
+import { createRequire } from 'module';
 import path from 'path';
 import type { Post } from '@/types/post';
 
 // Statically imported so bundlers always include the file regardless of
 // how process.cwd() resolves at runtime in serverless environments.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+const require = createRequire(import.meta.url);
 const BUNDLED_SNAPSHOT: { posts?: unknown[] } | unknown[] | null = (() => {
   try { return require('../../data/fallback/posts-snapshot.json'); } catch { return null; }
 })();

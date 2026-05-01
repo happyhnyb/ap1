@@ -137,4 +137,5 @@ export const env = {
   RESEND_API_KEY: process.env.RESEND_API_KEY ?? '',
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL ?? process.env.CONTACT_EMAIL ?? 'editor@kyc.news',
   PASSWORD_RESET_FROM_EMAIL: process.env.PASSWORD_RESET_FROM_EMAIL ?? 'info@kycagri.com',
+  CONTACT_EMAIL: process.env.CONTACT_EMAIL ?? 'editor@kyc.news',
 } as const;

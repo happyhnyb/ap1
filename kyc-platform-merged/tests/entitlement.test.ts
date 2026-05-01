@@ -14,7 +14,7 @@ const makeSession = (overrides: Partial<SessionPayload>): SessionPayload => ({
   _id: 'user-1',
   name: 'Test User',
   email: 'test@example.com',
-  role: 'reader',
+  role: 'user',
   plan: 'free',
   sub_status: 'none',
   ...overrides,
@@ -26,15 +26,15 @@ describe('isPremium', () => {
   });
 
   it('returns false for free reader', () => {
-    expect(isPremium(makeSession({ role: 'reader' }))).toBe(false);
+    expect(isPremium(makeSession({ role: 'user' }))).toBe(false);
   });
 
   it('returns true for active premium subscriber', () => {
-    expect(isPremium(makeSession({ role: 'premium', sub_status: 'active' }))).toBe(true);
+    expect(isPremium(makeSession({ role: 'user', plan: 'monthly', sub_status: 'active' }))).toBe(true);
   });
 
   it('returns false for expired premium', () => {
-    expect(isPremium(makeSession({ role: 'premium', sub_status: 'expired' }))).toBe(false);
+    expect(isPremium(makeSession({ role: 'user', plan: 'monthly', sub_status: 'expired' }))).toBe(false);
   });
 
   it('returns true for editor', () => {
@@ -61,8 +61,8 @@ describe('isEditor', () => {
   });
 
   it('returns false for reader and premium', () => {
-    expect(isEditor(makeSession({ role: 'reader' }))).toBe(false);
-    expect(isEditor(makeSession({ role: 'premium', sub_status: 'active' }))).toBe(false);
+    expect(isEditor(makeSession({ role: 'user' }))).toBe(false);
+    expect(isEditor(makeSession({ role: 'user', plan: 'monthly', sub_status: 'active' }))).toBe(false);
     expect(isEditor(null)).toBe(false);
   });
 });
@@ -70,7 +70,7 @@ describe('isEditor', () => {
 describe('canAccessPost', () => {
   it('allows anyone to access free posts', () => {
     expect(canAccessPost(null, false)).toBe(true);
-    expect(canAccessPost(makeSession({ role: 'reader' }), false)).toBe(true);
+    expect(canAccessPost(makeSession({ role: 'user' }), false)).toBe(true);
   });
 
   it('blocks unauthenticated users from premium posts', () => {
@@ -78,11 +78,11 @@ describe('canAccessPost', () => {
   });
 
   it('blocks free readers from premium posts', () => {
-    expect(canAccessPost(makeSession({ role: 'reader' }), true)).toBe(false);
+    expect(canAccessPost(makeSession({ role: 'user' }), true)).toBe(false);
   });
 
   it('allows active premium subscribers to access premium posts', () => {
-    expect(canAccessPost(makeSession({ role: 'premium', sub_status: 'active' }), true)).toBe(true);
+    expect(canAccessPost(makeSession({ role: 'user', plan: 'annual', sub_status: 'active' }), true)).toBe(true);
   });
 
   it('allows editors and admins to access premium posts', () => {
@@ -95,11 +95,11 @@ describe('canAccessPredictor / canAccessAISearch', () => {
   it('blocks non-premium users', () => {
     expect(canAccessPredictor(null)).toBe(false);
     expect(canAccessAISearch(null)).toBe(false);
-    expect(canAccessPredictor(makeSession({ role: 'reader' }))).toBe(false);
+    expect(canAccessPredictor(makeSession({ role: 'user' }))).toBe(false);
   });
 
   it('allows premium, editor, admin', () => {
-    const activeP = makeSession({ role: 'premium', sub_status: 'active' });
+    const activeP = makeSession({ role: 'user', plan: 'monthly', sub_status: 'active' });
     expect(canAccessPredictor(activeP)).toBe(true);
     expect(canAccessAISearch(activeP)).toBe(true);
     expect(canAccessPredictor(makeSession({ role: 'admin' }))).toBe(true);
@@ -112,15 +112,15 @@ describe('tierLabel', () => {
   });
 
   it('returns Free for reader', () => {
-    expect(tierLabel(makeSession({ role: 'reader' }))).toBe('Free');
+    expect(tierLabel(makeSession({ role: 'user' }))).toBe('Free');
   });
 
   it('returns Pro for active premium', () => {
-    expect(tierLabel(makeSession({ role: 'premium', sub_status: 'active' }))).toBe('Pro');
+    expect(tierLabel(makeSession({ role: 'user', plan: 'monthly', sub_status: 'active' }))).toBe('Pro');
   });
 
   it('returns Free for expired premium', () => {
-    expect(tierLabel(makeSession({ role: 'premium', sub_status: 'expired' }))).toBe('Free');
+    expect(tierLabel(makeSession({ role: 'user', plan: 'monthly', sub_status: 'expired' }))).toBe('Free');
   });
 
   it('returns Editor for editor', () => {

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { SignJWT, jwtVerify } from 'jose';
 import { env } from '@/lib/env';
+import { sendResendEmail } from '@/lib/email/resend';
 import type { User } from '@/types/user';
 
 const PASSWORD_RESET_EXPIRY_SECS = 60 * 60;
@@ -72,24 +73,10 @@ export async function sendPasswordResetEmail(input: {
     </div>
   `.trim();
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: env.PASSWORD_RESET_FROM_EMAIL,
-      to: [input.email],
-      subject: 'Reset your KYC Agri password',
-      html,
-    }),
+  return sendResendEmail({
+    from: env.PASSWORD_RESET_FROM_EMAIL,
+    to: [input.email],
+    subject: 'Reset your KYC Agri password',
+    html,
   });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to send password reset email: ${text}`);
-  }
-
-  return { delivered: true };
 }

@@ -25,7 +25,7 @@ import {
 } from '@/lib/db/repositories/articles';
 import { generateSlug } from '@/lib/utils';
 
-export interface CreatePostInput extends ArticleInput {}
+export type CreatePostInput = ArticleInput;
 
 function getBackendBaseUrl() {
   return env.MAC_MINI_API_BASE_URL.replace(/\/$/, '');

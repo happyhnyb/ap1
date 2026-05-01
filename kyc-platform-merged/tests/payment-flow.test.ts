@@ -17,7 +17,7 @@ function makeUser(overrides: Partial<User>): User {
     email:         'test@kyc.news',
     password_hash: 'hashed',
     mobile:        null,
-    role:          'reader',
+    role:          'user',
     auth_methods:  ['email'],
     subscription:  { status: 'none', plan: 'free', expires_at: null },
     created_at:    '2026-01-01',
@@ -31,13 +31,13 @@ describe('isPremiumUser — fresh DB-backed check', () => {
   });
 
   it('returns false for free reader', () => {
-    expect(isPremiumUser(makeUser({ role: 'reader' }))).toBe(false);
+    expect(isPremiumUser(makeUser({ role: 'user' }))).toBe(false);
   });
 
   it('returns true for active premium subscriber', () => {
     const future = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
     expect(isPremiumUser(makeUser({
-      role: 'premium',
+      role: 'user',
       subscription: { status: 'active', plan: 'monthly', expires_at: future },
     }))).toBe(true);
   });
@@ -45,21 +45,21 @@ describe('isPremiumUser — fresh DB-backed check', () => {
   it('returns false for expired premium (expires_at in the past)', () => {
     const past = '2020-01-01';
     expect(isPremiumUser(makeUser({
-      role: 'premium',
+      role: 'user',
       subscription: { status: 'active', plan: 'monthly', expires_at: past },
     }))).toBe(false);
   });
 
   it('returns false for cancelled subscription', () => {
     expect(isPremiumUser(makeUser({
-      role: 'premium',
+      role: 'user',
       subscription: { status: 'cancelled', plan: 'monthly', expires_at: null },
     }))).toBe(false);
   });
 
   it('returns false for subscription with status expired', () => {
     expect(isPremiumUser(makeUser({
-      role: 'premium',
+      role: 'user',
       subscription: { status: 'expired', plan: 'monthly', expires_at: null },
     }))).toBe(false);
   });
@@ -80,7 +80,7 @@ describe('isPremiumUser — fresh DB-backed check', () => {
 
   it('returns false when role is premium but status is none', () => {
     expect(isPremiumUser(makeUser({
-      role: 'premium',
+      role: 'user',
       subscription: { status: 'none', plan: 'free', expires_at: null },
     }))).toBe(false);
   });
