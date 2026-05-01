@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictorRelease, predictorAccessError } from '@/lib/product/predictor';
 import { getHistoricalRecords, filterRecords, buildHistory, holtForecast, filtersFromQuery } from '@/lib/mandi/engine';
+import { proxyRouteToMacMini, shouldForceMacMiniProxy } from '@/lib/server/mac-mini-proxy';
 
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
+  if (shouldForceMacMiniProxy(req)) {
+    return proxyRouteToMacMini(req);
+  }
+
   const session = await getServerSession();
   if (!canAccessPredictorRelease(session)) {
     return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });

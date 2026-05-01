@@ -1,15 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { canAccessPredictorRelease, predictorAccessError } from '@/lib/product/predictor';
 import { buildOptions } from '@/lib/mandi/engine';
 import { buildSeedOptions } from '@/lib/forecasting/data/seed';
 import { loadRecords } from '@/lib/forecasting/data/loader';
+import { proxyRouteToMacMini, shouldForceMacMiniProxy } from '@/lib/server/mac-mini-proxy';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (shouldForceMacMiniProxy(req)) {
+    return proxyRouteToMacMini(req);
+  }
+
   const session = await getServerSession();
   if (!canAccessPredictorRelease(session)) {
     return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });

@@ -3,7 +3,7 @@ import 'server-only';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { env } from '@/lib/env';
-import { shouldProxyToMacMini } from '@/lib/server/mac-mini';
+import { isNetlifyRuntime, shouldProxyToMacMini } from '@/lib/server/mac-mini';
 
 function getBackendBaseUrl() {
   return (env.MAC_MINI_API_BASE_URL || '').replace(/\/$/, '');
@@ -20,12 +20,9 @@ export async function routeShouldProxy() {
 
 export function shouldForceMacMiniProxy(req?: NextRequest) {
   if (!shouldProxyToMacMini()) return false;
-  const runtimeEnv = globalThis.process?.env ?? {};
   const host = req?.headers.get('host') ?? '';
   return Boolean(
-    runtimeEnv.NETLIFY
-    || runtimeEnv.DEPLOY_ID
-    || runtimeEnv.SITE_ID
+    isNetlifyRuntime()
     || host.endsWith('.netlify.app')
   );
 }

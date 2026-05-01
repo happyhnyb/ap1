@@ -4,12 +4,17 @@ import { canAccessPredictorRelease, predictorAccessError } from '@/lib/product/p
 import { filterRecords, filtersFromQuery } from '@/lib/mandi/engine';
 import { getSeedRecords } from '@/lib/forecasting/data/seed';
 import { loadRecords } from '@/lib/forecasting/data/loader';
+import { proxyRouteToMacMini, shouldForceMacMiniProxy } from '@/lib/server/mac-mini-proxy';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
+  if (shouldForceMacMiniProxy(req)) {
+    return proxyRouteToMacMini(req);
+  }
+
   const session = await getServerSession();
   if (!canAccessPredictorRelease(session)) {
     return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });

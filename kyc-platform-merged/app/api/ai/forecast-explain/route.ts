@@ -4,7 +4,7 @@ import { getServerSession } from '@/lib/auth/jwt';
 import { assertSafeUserText } from '@/lib/ai/moderation';
 import { explainForecast } from '@/lib/ai/service';
 import { canAccessPredictorRelease, predictorAccessError } from '@/lib/product/predictor';
-import { postToMacMini, shouldProxyToMacMini } from '@/lib/server/mac-mini';
+import { postToMacMini, shouldUseMacMiniBackend } from '@/lib/server/mac-mini';
 
 const BodySchema = z.object({
   commodity: z.string().min(1),
@@ -24,8 +24,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = BodySchema.parse(await req.json());
     if (body.question) await assertSafeUserText(body.question, 'forecast question');
-    const isNetlify = Boolean(process.env.NETLIFY);
-    const response = (!isNetlify && shouldProxyToMacMini())
+    const response = shouldUseMacMiniBackend()
       ? await postToMacMini('/api/internal/forecast-explain', body)
       : await explainForecast(body);
     return NextResponse.json(response);

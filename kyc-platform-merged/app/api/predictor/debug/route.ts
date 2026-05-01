@@ -1,11 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
 import { isAdmin } from '@/lib/auth/entitlement';
+import { proxyRouteToMacMini, shouldForceMacMiniProxy } from '@/lib/server/mac-mini-proxy';
 
 export const maxDuration = 60;
 
 /** Admin-only: shows raw API response to diagnose data issues. */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (shouldForceMacMiniProxy(req)) {
+    return proxyRouteToMacMini(req);
+  }
+
   const session = await getServerSession();
   if (!isAdmin(session)) {
     return NextResponse.json({ error: 'Admin only.' }, { status: 403 });

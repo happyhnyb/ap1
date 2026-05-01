@@ -9,7 +9,7 @@ import PredictorTabs from '@/components/predictor/PredictorTabs';
 import AIAnalysisBar from '@/components/predictor/AIAnalysisBar';
 import { canAccessPredictorRelease, getPredictorReleaseMode } from '@/lib/product/predictor';
 import { getPredictorPageData, type PredictorPageData } from '@/lib/predictor/page-data';
-import { getFromMacMini, shouldProxyToMacMini } from '@/lib/server/mac-mini';
+import { getFromMacMini, shouldUseMacMiniBackend } from '@/lib/server/mac-mini';
 
 export const metadata: Metadata = {
   title: 'Price Predictor | KYC Agri',
@@ -66,10 +66,7 @@ export default async function PredictorPage({ searchParams }: Props) {
     if (firstValue) query.set(key, firstValue);
   }
 
-  // On Netlify (process.env.NETLIFY is set by the platform) use local seed + live
-  // Agmarknet data — the Mac Mini proxy is unreliable from Netlify's IP range.
-  const isNetlify = Boolean(process.env.NETLIFY);
-  const pageData: PredictorPageData = (!isNetlify && shouldProxyToMacMini())
+  const pageData: PredictorPageData = shouldUseMacMiniBackend()
     ? await getFromMacMini<PredictorPageData>(`/api/internal/predictor/page-data${query.size ? `?${query.toString()}` : ''}`).catch(() => getPredictorPageData(params))
     : await getPredictorPageData(params);
 

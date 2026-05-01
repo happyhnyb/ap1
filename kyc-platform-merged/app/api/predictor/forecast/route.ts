@@ -4,10 +4,15 @@ import { canAccessPredictorRelease, predictorAccessError, PREDICTOR_DISCLAIMER }
 import { forecastingEngine } from '@/lib/forecasting/engine';
 import { fallbackForecastResponse } from '@/lib/forecasting/fallback';
 import { toLegacyPredictorForecast } from '@/lib/forecasting/adapters/legacy';
+import { proxyRouteToMacMini, shouldForceMacMiniProxy } from '@/lib/server/mac-mini-proxy';
 
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
+  if (shouldForceMacMiniProxy(req)) {
+    return proxyRouteToMacMini(req);
+  }
+
   const session = await getServerSession();
   if (!canAccessPredictorRelease(session)) {
     return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });

@@ -6,8 +6,22 @@ function getMacMiniBaseUrl() {
   return env.MAC_MINI_API_BASE_URL.replace(/\/$/, '');
 }
 
+export function isNetlifyRuntime() {
+  const runtimeEnv = globalThis.process?.env ?? {};
+  return Boolean(
+    runtimeEnv.NETLIFY
+    || runtimeEnv.DEPLOY_ID
+    || runtimeEnv.SITE_ID
+    || runtimeEnv.URL?.includes('netlify.app')
+  );
+}
+
 export function shouldProxyToMacMini() {
   return Boolean(getMacMiniBaseUrl());
+}
+
+export function shouldUseMacMiniBackend() {
+  return shouldProxyToMacMini() && isNetlifyRuntime();
 }
 
 async function parseJsonResponse<T>(res: Response): Promise<T> {
