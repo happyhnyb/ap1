@@ -31,6 +31,14 @@ function getBackendBaseUrl() {
   return env.MAC_MINI_API_BASE_URL.replace(/\/$/, '');
 }
 
+function isNetlifyRuntime() {
+  return Boolean(process.env.NETLIFY);
+}
+
+function canUseSqlReads() {
+  return Boolean(env.DATABASE_URL) && !isNetlifyRuntime();
+}
+
 async function runSnapshotFallback<T>(reason: unknown, loader: () => T | Promise<T>, label: string): Promise<T> {
   console.warn(`[postsAdapter] Falling back to bundled posts snapshot for ${label}.`, reason);
   return await loader();
@@ -193,7 +201,8 @@ async function mongoPublishById(id: string) {
 
 export const postsAdapter = {
   async listPublished(): Promise<Post[]> {
-    if (env.DATABASE_URL) return listPublishedArticles();
+    if (isNetlifyRuntime()) return getPostsSnapshot();
+    if (canUseSqlReads()) return listPublishedArticles();
     if (isMongoConfigured()) return mongoListPublished();
     try {
       return await proxyJson<Post[]>('/api/internal/posts');
@@ -203,7 +212,8 @@ export const postsAdapter = {
   },
 
   async listPublishedPaged(page: number, limit: number, type?: string) {
-    if (env.DATABASE_URL) return listPublishedArticlesPaged(page, limit, type);
+    if (isNetlifyRuntime()) return getPagedPostsSnapshot(page, limit, type);
+    if (canUseSqlReads()) return listPublishedArticlesPaged(page, limit, type);
     if (isMongoConfigured()) return mongoListPublishedPaged(page, limit, type);
     const query = new URLSearchParams({
       page: String(page),
@@ -218,13 +228,14 @@ export const postsAdapter = {
   },
 
   async listAll(): Promise<Post[]> {
-    if (env.DATABASE_URL) return listAllArticles();
+    if (canUseSqlReads()) return listAllArticles();
     if (isMongoConfigured()) return mongoListAll();
     return proxyJson<Post[]>('/api/internal/posts?all=true');
   },
 
   async getBySlug(slug: string): Promise<Post | null> {
-    if (env.DATABASE_URL) return getArticleBySlug(slug);
+    if (isNetlifyRuntime()) return getPostFromSnapshot(slug);
+    if (canUseSqlReads()) return getArticleBySlug(slug);
     if (isMongoConfigured()) return mongoGetBySlug(slug);
     try {
       const result = await proxyJson<{ post: Post | null }>(`/api/internal/posts/${encodeURIComponent(slug)}`);
@@ -235,7 +246,8 @@ export const postsAdapter = {
   },
 
   async search(query: string): Promise<Post[]> {
-    if (env.DATABASE_URL) return searchArticles(query);
+    if (isNetlifyRuntime()) return searchPostsSnapshot(query);
+    if (canUseSqlReads()) return searchArticles(query);
     if (isMongoConfigured()) return mongoSearch(query);
     const qs = new URLSearchParams({ q: query }).toString();
     try {
