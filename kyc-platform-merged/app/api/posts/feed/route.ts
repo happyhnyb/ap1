@@ -4,8 +4,14 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { postsAdapter } from '@/lib/adapters';
+import { getPagedPostsSnapshot } from '@/lib/fallback/posts-snapshot';
 
 const PAGE_SIZE = 12;
+
+function isNetlifyRuntime() {
+  const runtimeEnv = globalThis.process?.env ?? {};
+  return Boolean(runtimeEnv.NETLIFY || runtimeEnv.DEPLOY_ID || runtimeEnv.SITE_ID || runtimeEnv.URL?.includes('netlify.app'));
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -18,6 +24,12 @@ export async function GET(req: NextRequest) {
   const safeType = type && validTypes.has(type.toUpperCase()) ? type.toUpperCase() : undefined;
 
   try {
+    if (isNetlifyRuntime()) {
+      const { posts, total } = getPagedPostsSnapshot(page, limit, safeType);
+      const hasMore = page * limit < total;
+      return NextResponse.json({ posts, total, page, hasMore });
+    }
+
     const { posts, total } = await postsAdapter.listPublishedPaged(page, limit, safeType);
     const hasMore = page * limit < total;
     return NextResponse.json({ posts, total, page, hasMore });

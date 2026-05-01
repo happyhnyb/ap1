@@ -31,12 +31,22 @@ function getBackendBaseUrl() {
   return env.MAC_MINI_API_BASE_URL.replace(/\/$/, '');
 }
 
+function runtimeEnv(name: string) {
+  return globalThis.process?.env?.[name] ?? '';
+}
+
 function isNetlifyRuntime() {
-  return Boolean(process.env.NETLIFY);
+  const url = runtimeEnv('URL');
+  return Boolean(
+    runtimeEnv('NETLIFY')
+    || runtimeEnv('DEPLOY_ID')
+    || runtimeEnv('SITE_ID')
+    || (url && url.includes('netlify.app'))
+  );
 }
 
 function canUseSqlReads() {
-  return Boolean(env.DATABASE_URL) && !isNetlifyRuntime();
+  return Boolean(runtimeEnv('DATABASE_URL')) && !isNetlifyRuntime();
 }
 
 async function runSnapshotFallback<T>(reason: unknown, loader: () => T | Promise<T>, label: string): Promise<T> {

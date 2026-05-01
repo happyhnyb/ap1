@@ -5,6 +5,12 @@ import { isEditor } from '@/lib/auth/entitlement';
 import { parseBody, CreatePostSchema } from '@/lib/validation';
 import { proxyRouteToMacMini } from '@/lib/server/mac-mini-proxy';
 import { env } from '@/lib/env';
+import { getPostsSnapshot } from '@/lib/fallback/posts-snapshot';
+
+function isNetlifyRuntime() {
+  const runtimeEnv = globalThis.process?.env ?? {};
+  return Boolean(runtimeEnv.NETLIFY || runtimeEnv.DEPLOY_ID || runtimeEnv.SITE_ID || runtimeEnv.URL?.includes('netlify.app'));
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,6 +20,10 @@ export async function GET(req: NextRequest) {
     const session = await getServerSession();
     if (all && !isEditor(session)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!all && isNetlifyRuntime()) {
+      return NextResponse.json(getPostsSnapshot());
     }
 
     const posts = all ? await postsAdapter.listAll() : await postsAdapter.listPublished();

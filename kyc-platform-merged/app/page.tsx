@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Feed from '@/components/feed/Feed';
 import { postsAdapter } from '@/lib/adapters';
+import { getPostsSnapshot } from '@/lib/fallback/posts-snapshot';
 
 export const metadata: Metadata = {
   title: 'Know Your Commodity — Agriculture & Commodity Analysis',
@@ -9,8 +10,13 @@ export const metadata: Metadata = {
 
 export const revalidate = 300;
 
+function isNetlifyRuntime() {
+  const env = globalThis.process?.env ?? {};
+  return Boolean(env.NETLIFY || env.DEPLOY_ID || env.SITE_ID || env.URL?.includes('netlify.app'));
+}
+
 export default async function HomePage() {
-  const posts = await postsAdapter.listPublished().catch((error) => {
+  const posts = await (isNetlifyRuntime() ? Promise.resolve(getPostsSnapshot()) : postsAdapter.listPublished()).catch((error) => {
     console.error('[app/page] Failed to load published posts for homepage.', error);
     return [];
   });
