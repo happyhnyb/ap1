@@ -5,6 +5,7 @@ import { fmtDate } from '@/lib/utils';
 import { PostThumb } from '@/components/feed/PostThumb';
 import { ArticleAISummary } from './ArticleAISummary';
 import { parsePostBodySections } from '@/lib/posts/body';
+import { normalizeImageSrc, shouldUnoptimizeImage } from '@/lib/media/url';
 
 function renderBody(body: string) {
   return parsePostBodySections(body).map((section, i) => {
@@ -42,6 +43,7 @@ export function Article({
   isLoggedIn?: boolean;
 }) {
   const teaserLen = Math.max(400, Math.floor(post.body.length * 0.22));
+  const heroImageSrc = post.hero_image ? normalizeImageSrc(post.hero_image) : null;
 
   return (
     <div className="article-shell">
@@ -54,16 +56,16 @@ export function Article({
 
       <article className="card-elevated" style={{ padding: 0, overflow: 'hidden' }}>
         {/* Hero image — real photo if set, emoji fallback otherwise */}
-        {post.hero_image ? (
+        {heroImageSrc ? (
           <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', maxHeight: 400, borderRadius: '20px 20px 0 0', overflow: 'hidden' }}>
             <Image
-              src={post.hero_image}
+              src={heroImageSrc}
               alt={post.title}
               fill
               priority
               sizes="(max-width: 860px) 100vw, 860px"
               style={{ objectFit: 'cover' }}
-              unoptimized={post.hero_image.startsWith('/')}
+              unoptimized={shouldUnoptimizeImage(heroImageSrc)}
             />
           </div>
         ) : (

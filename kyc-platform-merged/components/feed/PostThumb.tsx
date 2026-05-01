@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { normalizeImageSrc, shouldUnoptimizeImage } from '@/lib/media/url';
 
 const icons: Record<string, string> = {
   crops: '🌾', agritech: '🛰️', dairy: '🐄', wheat: '🌿', organic: '🌱',
@@ -16,15 +17,16 @@ interface Props {
 
 export function PostThumb({ label, src, className = 'post-thumb post-thumb-card', style }: Props) {
   if (src) {
+    const imageSrc = normalizeImageSrc(src);
     return (
       <div className={className} style={{ position: 'relative', overflow: 'hidden', fontSize: 0, ...style }}>
         <Image
-          src={src}
+          src={imageSrc}
           alt={label}
           fill
           sizes="(max-width: 479px) 100vw, (max-width: 767px) 50vw, 400px"
           style={{ objectFit: 'cover' }}
-          unoptimized={src.startsWith('/')}
+          unoptimized={shouldUnoptimizeImage(imageSrc)}
         />
       </div>
     );

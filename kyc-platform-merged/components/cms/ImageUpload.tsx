@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import Image from 'next/image';
+import { normalizeImageSrc, shouldUnoptimizeImage } from '@/lib/media/url';
 
 interface Props {
   name?: string;
@@ -14,6 +15,7 @@ export function ImageUpload({ name = 'hero_image', label = 'Hero Image', initial
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
   const inputRef              = useRef<HTMLInputElement>(null);
+  const previewSrc            = url ? normalizeImageSrc(url) : '';
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -49,7 +51,7 @@ export function ImageUpload({ name = 'hero_image', label = 'Hero Image', initial
       {/* Preview */}
       {url && (
         <div style={{ position: 'relative', width: '100%', height: 180, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border2)' }}>
-          <Image src={url} alt="Hero preview" fill style={{ objectFit: 'cover' }} unoptimized={url.startsWith('/')} />
+          <Image src={previewSrc} alt="Hero preview" fill style={{ objectFit: 'cover' }} unoptimized={shouldUnoptimizeImage(previewSrc)} />
           <button
             type="button"
             onClick={() => setUrl('')}
