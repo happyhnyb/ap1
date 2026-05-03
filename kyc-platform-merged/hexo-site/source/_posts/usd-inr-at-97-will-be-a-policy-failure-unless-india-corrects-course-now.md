@@ -1,0 +1,22 @@
+---
+title: "USD/INR at 97 Will Be a Policy Failure — Unless India Corrects Course Now!!"
+date: "2026-04-13T11:46:00.000Z"
+updated: "2026-04-13T11:46:00.000Z"
+slug: "usd-inr-at-97-will-be-a-policy-failure-unless-india-corrects-course-now"
+layout: "post"
+type: "ARTICLE"
+excerpt: "Let’s be clear and unsentimental. If USD/INR drifts toward 97 by end of 2026, which looks a reality today, it will not be an inevitable outcome of a strong dollar. It will be the result of avoidable Indian policy failures— and prolonged complacency. This is..."
+author: "Know Your Commodity"
+author_id: "snapshot"
+category: "Trade Talk"
+tags: []
+is_premium: false
+linked_article_id: null
+status: "published"
+view_count: 0
+img: "IMG-20260221-WA0006.jpg"
+hero_image: "/trade-talk/usd-inr-at-97-will-be-a-policy-failure-unless-india-corrects-course-now.jpg"
+---
+Let’s be clear and unsentimental. If USD/INR drifts toward 97 by end of 2026, which looks a reality today, it will not be an inevitable outcome of a strong dollar. It will be the result of avoidable Indian policy failures— and prolonged complacency. This is not a currency crisis. It is a governance and execution deficit. What Has Gone Wrong India’s macro story looks strong on the surface, but beneath it lies a misalignment between trade policy, industrial strategy, and currency management. - The trade deficit is no longer cyclical; it is structural. - Import dependence on energy, edible oils, electronics, capital goods, and fertilizers remains unchecked. - Export growth relies disproportionately on services, while manufacturing exports lack scale and consistency. - Policy flip-flops have eroded long-term trade confidence. A weaker rupee is now being quietly tolerated as a substitute for competitiveness, instead of fixing the competitiveness itself. Why RBI Alone Cannot Fix This The central bank can smooth volatility, not solve structural leaks. FX reserves are being used defensively because policy coordination is absent. Currency stability cannot rest indefinitely on intervention while fiscal, trade, and industrial policies pull in different directions. If USD/INR reaches 97, it signals not panic—but policy exhaustion.
+
+What Needs to Change — Immediately 1. Trade Policy Must Become Predictable India needs fewer announcements and more 10-year visibility. 2. Export Competitiveness Over Export Incentives Subsidies cannot replace scale. Align FTAs with domestic capability, not optimism. 3. Capital Must Be Patient, Not Just Plentiful India must shift from celebrating inflows to earning foreign exchange sustainably in greenfield. 4. Stop flight of Human Capital We need to retain productive and high networth individuals. Lessons for Businesses - 1. Stop Assuming a Stable Rupee Businesses must plan for structural depreciation, not temporary volatility. Build currency risk into pricing models. Hedge longer, not tactically. Avoid import-heavy cost structures without FX cover. 2. Exporters: A Weak Rupee Is Not a Strategy. Margin expansion from depreciation is short-lived. Invest in productivity, branding, and market access. Move up the value chain instead of relying on currency tailwinds. 3. Importers: Localisation Is No Longer Optional. Every unhedged import is a balance-sheet risk. Explore domestic alternatives, even at higher initial costs. Treat FX risk as operational risk, not treasury noise. Bottom Line USD/INR at 100 would mean a macro shock. USD/INR at 97 would mean missed opportunities. The rupee is not failing. Policy alignment is. If India fixes trade discipline, export depth, and capital quality, 97 becomes a ceiling. If not, depreciation will continue—slowly, silently, and expensively. Markets don’t punish narratives. They punish incompetency.

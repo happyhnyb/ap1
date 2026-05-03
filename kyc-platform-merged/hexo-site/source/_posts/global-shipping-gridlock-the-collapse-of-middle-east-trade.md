@@ -1,0 +1,22 @@
+---
+title: "Global Shipping Gridlock: The Collapse of Middle East Trade!!"
+date: "2026-04-13T11:00:00.000Z"
+updated: "2026-04-13T11:00:00.000Z"
+slug: "global-shipping-gridlock-the-collapse-of-middle-east-trade"
+layout: "post"
+type: "ARTICLE"
+excerpt: "There has been a rapid and extensive collapse of global shipping operations following the 28 February 2026 US–Israel strikes on Iran and the subsequent closure of the Strait of Hormuz. By 5 March 2026, maritime insurance withdrawals and indefinite booking..."
+author: "Know Your Commodity"
+author_id: "snapshot"
+category: "Trade Talk"
+tags: []
+is_premium: false
+linked_article_id: null
+status: "published"
+view_count: 0
+img: "IMG-20260305-WA0008.jpg"
+hero_image: "/trade-talk/global-shipping-gridlock-the-collapse-of-middle-east-trade.jpg"
+---
+There has been a rapid and extensive collapse of global shipping operations following the 28 February 2026 US–Israel strikes on Iran and the subsequent closure of the Strait of Hormuz. By 5 March 2026, maritime insurance withdrawals and indefinite booking suspensions have effectively severed the Middle East Gulf (MEG) from global container networks. Phase 1: Initial Response (28 Feb – 1 Mar)🚢 A.P. Moller - Maersk: Suspended all ship transits through the Strait of Hormuz on 1 March, citing the absolute priority of crew and vessel safety. Hapag-Lloyd AG: Announced a War Risk Surcharge (WRS) of USD 1,500 per TEU on 1 March, effective immediately for all bookings to the Arabian and Persian Gulf. CMA CGM: Instructed all vessels inside or bound for the Gulf to proceed to designated shelter areas on 28 February and suspended all Suez Canal transits in favor of the Cape of Good Hope. Phase 2: Booking Suspensions & Diversions (2 Mar)⚠️ MSC Mediterranean Shipping Company: Declared an unprecedented “End of Voyage” for all containerized cargo destined for the Arabian Gulf, discharging containers at safe hubs like Salalah or Jeddah. Hapag-Lloyd: Formally suspended all vessel transits through the Strait due to the "security closure" by Iranian authorities. Global Impact: Tanker movements through the Strait dropped sharply, with major crude tankers becoming effectively absent from recorded transits. Phase 3: Total Regional Halts (3–5 Mar)⛽ COSCO SHIPPING: Suspended all services to and from Gulf countries, including the UAE, Bahrain,
+
+Saudi Arabia, Iraq, and Kuwait, on 4 March. Services to Fujairah and Khor Fakkan (outside the Strait) remained technically accessible. Maersk Line, Limited: On 4 March, expanded its suspension to all new cargo bookings from GCC. Insurance Collapse: Major maritime insurers cancelled all war-risk cover for the Persian Gulf and Strait of Hormuz, effective 5 March. The Legal Trap for Shippers⚖️ From a legal standpoint, shippers are facing an uphill battle. Carriers are widely invoking "Liberty Clauses" and "Force Majeure" provisions to justify terminating voyages at intermediate ports or additional costs. Under maritime law, these clauses allow carriers to deviate or end services without liability when hostilities create imminent threats. With insurance cover withdrawn, continued transit is technically "impossible," meaning the burden of on-carriage costs and risk for "abandoned" cargo now falls squarely on the cargo owners. Economic and Logistics Impact📈 Stranded Vessels: At least 37 Indian-flagged ships with over 1,100 seafarers were reported stranded in Gulf waters by 4 March. Transit Delays: Rerouting via the Cape of Good Hope is adding 10–14 days to transit times and significantly increasing fuel consumption and operational costs. The maritime industry has entered a phase of high-uncertainty operations, with carriers prioritizing the safety of seafarers. https://www.linkedin.com/posts/know-your-commodity_global-shipping-gridlock-the-collapse-of- activity-7435211368909156353-tgXR

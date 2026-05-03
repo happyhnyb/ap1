@@ -17,9 +17,11 @@ function renderBody(body: string, heroImageSrc?: string | null) {
 
       return (
         <figure key={i} style={{ margin: '28px 0' }}>
-          {/* Inline blog images can come from local media or arbitrary remote URLs pasted by editors. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={sectionSrc} alt={section.alt} style={{ width: '100%', borderRadius: 16, display: 'block' }} />
+          <div style={{ width: '100%', aspectRatio: '19 / 9', overflow: 'hidden', borderRadius: 16, border: '1px solid var(--border2)', background: 'linear-gradient(135deg, rgba(18,24,16,.95), rgba(28,35,25,.95))' }}>
+            {/* Inline blog images can come from local media or arbitrary remote URLs pasted by editors. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={sectionSrc} alt={section.alt} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+          </div>
           {section.alt !== 'Article image' ? (
             <figcaption style={{ marginTop: 10, fontSize: 13, color: 'var(--dim)', textAlign: 'center' }}>
               {section.alt}
@@ -40,12 +42,12 @@ export function Article({
   post,
   canRead = true,
   linkedArticle,
-  isLoggedIn = false,
+  hasPremiumAI = false,
 }: {
   post: Post;
   canRead?: boolean;
   linkedArticle?: Post | null;
-  isLoggedIn?: boolean;
+  hasPremiumAI?: boolean;
 }) {
   const teaserLen = Math.max(400, Math.floor(post.body.length * 0.22));
   const heroImageSrc = post.hero_image ? normalizeImageSrc(post.hero_image) : null;
@@ -62,14 +64,14 @@ export function Article({
       <article className="card-elevated" style={{ padding: 0, overflow: 'hidden' }}>
         {/* Hero image — real photo if set, emoji fallback otherwise */}
         {heroImageSrc ? (
-          <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', maxHeight: 400, borderRadius: '20px 20px 0 0', overflow: 'hidden' }}>
+          <div style={{ position: 'relative', width: '100%', aspectRatio: '19 / 9', maxHeight: 420, borderRadius: '20px 20px 0 0', overflow: 'hidden', background: 'linear-gradient(135deg, rgba(18,24,16,.95), rgba(28,35,25,.95))' }}>
             <Image
               src={heroImageSrc}
               alt={post.title}
               fill
               priority
               sizes="(max-width: 860px) 100vw, 860px"
-              style={{ objectFit: 'cover' }}
+              style={{ objectFit: 'contain' }}
               unoptimized={shouldUnoptimizeImage(heroImageSrc)}
             />
           </div>
@@ -101,7 +103,7 @@ export function Article({
             <span className="post-meta-dot" style={{ color: 'var(--dim)' }}>{post.view_count.toLocaleString()} reads</span>
           </div>
 
-          {canRead && <ArticleAISummary slug={post.slug} isLoggedIn={isLoggedIn} />}
+          {canRead && <ArticleAISummary slug={post.slug} hasAccess={hasPremiumAI} />}
 
           {/* Body */}
           <div className="article-body">

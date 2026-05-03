@@ -1,8 +1,12 @@
 import Link from 'next/link';
+import Script from 'next/script';
 import type { Metadata } from 'next';
 import { getEffectiveServerSession } from '@/lib/auth/current-user';
 import { env } from '@/lib/env';
 import { getPredictorReleaseMode, PREDICTOR_DISCLAIMER } from '@/lib/product/predictor';
+import { getPaymentProvider, getPaymentProviderLabel } from '@/lib/payments/provider';
+import { RAZORPAY_PLAN_AMOUNT } from '@/lib/payments/razorpay';
+import { SubscribeButton } from '@/components/subscribe/SubscribeButton';
 
 export const metadata: Metadata = {
   title: 'Access',
@@ -28,9 +32,12 @@ export default async function SubscribePage() {
   const session = await getEffectiveServerSession();
   const predictorMode = getPredictorReleaseMode();
   const billingLive = env.PAYMENTS_ENABLED;
+  const provider = getPaymentProvider();
+  const providerLabel = getPaymentProviderLabel(provider);
 
   return (
     <main>
+      {provider === 'razorpay' && <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />}
       <div className="subscribe-hero">
         <div className="container">
           <span className="badge badge-gold" style={{ marginBottom: 18, display: 'inline-flex', fontSize: 10 }}>
@@ -40,7 +47,7 @@ export default async function SubscribePage() {
             KYC access is being rolled out in phases.
           </h1>
           <p style={{ fontSize: 'clamp(14px,2vw,18px)', color: 'var(--muted)', maxWidth: 620, margin: '0 auto 28px', lineHeight: 1.7 }}>
-            Account creation is live. The predictor is available in release mode today. Online billing is not currently being processed on this site.
+            Account creation is live. The predictor is available in release mode today. Premium access can be unlocked online when billing is enabled.
           </p>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -65,8 +72,70 @@ export default async function SubscribePage() {
           <strong>Online billing status</strong>
           <div style={{ marginTop: 6 }}>
             {billingLive
-              ? 'Billing has been enabled in configuration, but release mode for this launch still prioritizes account access and product validation.'
+              ? `${providerLabel} checkout is enabled for premium access purchases.`
               : 'Billing is not active yet. No online payment is being processed from this page, and no checkout should be treated as live.'}
+          </div>
+        </div>
+
+        <div className="subscribe-comparison" style={{ marginBottom: 28 }}>
+          <div className="subscribe-plan">
+            <div className="subscribe-price-row">
+              <div className="subscribe-price">₹499</div>
+              <div className="subscribe-period">per month</div>
+            </div>
+            <ul className="subscribe-feature-list" style={{ margin: '16px 0 18px', padding: 0 }}>
+              <li className="subscribe-feature-item"><span className="subscribe-feature-check">✓</span> Monthly KYC Pro access</li>
+              <li className="subscribe-feature-item"><span className="subscribe-feature-check">✓</span> Premium articles and AI tools</li>
+              <li className="subscribe-feature-item"><span className="subscribe-feature-check">✓</span> Cancel or change later through support</li>
+            </ul>
+            {billingLive ? (
+              <SubscribeButton
+                planName="Monthly Pro"
+                price="₹499"
+                period="/month"
+                featured={false}
+                plan="monthly"
+                provider={provider}
+                providerLabel={providerLabel}
+                amountPaise={RAZORPAY_PLAN_AMOUNT.monthly}
+                razorpayKeyId={env.NEXT_PUBLIC_RAZORPAY_KEY_ID}
+              />
+            ) : (
+              <Link href="/contact" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+                Ask about monthly access
+              </Link>
+            )}
+          </div>
+
+          <div className="subscribe-plan subscribe-plan-pro">
+            <div className="subscribe-pro-badge">Best value</div>
+            <div className="subscribe-price-row">
+              <div className="subscribe-price">₹4999</div>
+              <div className="subscribe-period">per year</div>
+            </div>
+            <div className="subscribe-savings">Save compared with paying monthly</div>
+            <ul className="subscribe-feature-list" style={{ margin: '16px 0 18px', padding: 0 }}>
+              <li className="subscribe-feature-item"><span className="subscribe-feature-check">✓</span> Annual KYC Pro access</li>
+              <li className="subscribe-feature-item"><span className="subscribe-feature-check">✓</span> Predictor, premium research, and AI search</li>
+              <li className="subscribe-feature-item"><span className="subscribe-feature-check">✓</span> Lower effective monthly price</li>
+            </ul>
+            {billingLive ? (
+              <SubscribeButton
+                planName="Annual Pro"
+                price="₹4999"
+                period="/year"
+                featured={true}
+                plan="annual"
+                provider={provider}
+                providerLabel={providerLabel}
+                amountPaise={RAZORPAY_PLAN_AMOUNT.annual}
+                razorpayKeyId={env.NEXT_PUBLIC_RAZORPAY_KEY_ID}
+              />
+            ) : (
+              <Link href="/contact" className="btn btn-gold" style={{ width: '100%', justifyContent: 'center' }}>
+                Ask about annual access
+              </Link>
+            )}
           </div>
         </div>
 

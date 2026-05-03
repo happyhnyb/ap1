@@ -5,3 +5,7 @@
 **/.env.*.local
 **/*.env.local
 **/secrets.*
+
+# Local Netlify folder
+.netlify
+.vercel

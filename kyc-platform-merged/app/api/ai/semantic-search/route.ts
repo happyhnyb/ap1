@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { semanticSearch } from '@/lib/ai/retrieval';
 import { assertSafeUserText } from '@/lib/ai/moderation';
+import { getServerSession } from '@/lib/auth/jwt';
+import { hasFreshPremiumAccess, premiumAIAccessError } from '@/lib/auth/premium-access';
 
 export async function GET(req: NextRequest) {
+  const session = await getServerSession();
+  if (!(await hasFreshPremiumAccess(session, 'GET /api/ai/semantic-search'))) {
+    return NextResponse.json({ error: premiumAIAccessError(session) }, { status: session ? 403 : 401 });
+  }
+
   const query = req.nextUrl.searchParams.get('q')?.trim() ?? '';
   const commodity = req.nextUrl.searchParams.get('commodity')?.trim() ?? '';
   const limit = parseInt(req.nextUrl.searchParams.get('limit') || '6', 10);
@@ -20,4 +27,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Semantic search failed.' }, { status: 400 });
   }
 }
-

@@ -18,18 +18,20 @@ interface Props {
 export function PostThumb({ label, src, className = 'post-thumb post-thumb-card', style }: Props) {
   if (src) {
     const imageSrc = normalizeImageSrc(src);
-    return (
-      <div className={className} style={{ position: 'relative', overflow: 'hidden', fontSize: 0, ...style }}>
-        <Image
-          src={imageSrc}
-          alt={label}
-          fill
-          sizes="(max-width: 479px) 100vw, (max-width: 767px) 50vw, 400px"
-          style={{ objectFit: 'cover' }}
-          unoptimized={shouldUnoptimizeImage(imageSrc)}
-        />
-      </div>
-    );
+    if (imageSrc) {
+      return (
+        <div className={className} style={{ position: 'relative', overflow: 'hidden', fontSize: 0, background: 'linear-gradient(135deg, rgba(18,24,16,.95), rgba(28,35,25,.95))', ...style }}>
+          <Image
+            src={imageSrc}
+            alt={label}
+            fill
+            sizes="(max-width: 479px) 100vw, (max-width: 767px) 50vw, 400px"
+            style={{ objectFit: 'contain' }}
+            unoptimized={shouldUnoptimizeImage(imageSrc)}
+          />
+        </div>
+      );
+    }
   }
   return (
     <div className={className} style={{ backgroundImage: 'linear-gradient(135deg,#0e1f0c 0%,#1a3015 100%)', ...style }}>

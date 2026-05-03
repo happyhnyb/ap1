@@ -1,0 +1,48 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kyc_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-kyc_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.local}
+    volumes:
+      # Uses a named Docker volume by default — data persists across restarts.
+      # To store on an external SSD instead, set POSTGRES_DATA_PATH in .env.local:
+      #   POSTGRES_DATA_PATH=/Volumes/YourSSD/kycagri-data/postgres
+      - ${POSTGRES_DATA_PATH:-kyc_postgres_data}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kyc_app} -d ${POSTGRES_DB:-kyc_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mandi:
+    build:
+      context: ./mandi-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env.local
+
+volumes:
+  kyc_postgres_data:

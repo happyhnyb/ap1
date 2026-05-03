@@ -24,6 +24,8 @@ import {
   updateArticleBySlug,
 } from '@/lib/db/repositories/articles';
 import { generateSlug } from '@/lib/utils';
+import { normalizeStoredImageUrl } from '@/lib/media/url';
+import { normalizePublishedAtInput } from '@/lib/posts/publish-date';
 
 export type CreatePostInput = ArticleInput;
 
@@ -97,6 +99,7 @@ function toPost(doc: Record<string, unknown>): Post {
     title: doc.title as string,
     slug: doc.slug as string,
     excerpt: doc.excerpt as string,
+    summary: (doc.summary as string | null) ?? null,
     body: doc.body as string,
     author: doc.author as string,
     author_id: doc.author_id as string,
@@ -110,7 +113,9 @@ function toPost(doc: Record<string, unknown>): Post {
     updated_at: new Date(doc.updated_at as string).toISOString(),
     view_count: Number(doc.view_count ?? 0),
     img: (doc.img as string) || 'crops',
-    hero_image: (doc.hero_image as string | null) ?? null,
+    hero_image: normalizeStoredImageUrl((doc.hero_image as string | null) ?? null) || null,
+    seo_title: (doc.seo_title as string | null) ?? null,
+    seo_description: (doc.seo_description as string | null) ?? null,
     inline_images: (doc.inline_images as string[]) || [],
   };
 }
@@ -164,12 +169,15 @@ async function mongoIncrementViews(slug: string) {
 
 async function mongoCreate(input: CreatePostInput) {
   await connectDB();
-  const now = new Date();
+  const normalizedHeroImage = normalizeStoredImageUrl(input.hero_image ?? null) || null;
+  const normalizedPublishedAt = input.published_at ? normalizePublishedAtInput(input.published_at) : null;
+  const now = normalizedPublishedAt ? new Date(normalizedPublishedAt) : new Date();
   const doc = await PostModel.create({
     type: input.type,
     title: input.title,
     slug: generateSlug(input.title),
     excerpt: input.excerpt,
+    summary: input.summary ?? null,
     body: input.body,
     category: input.category,
     tags: input.tags,
@@ -178,9 +186,11 @@ async function mongoCreate(input: CreatePostInput) {
     author: input.author,
     author_id: input.author_id,
     status: input.status ?? 'draft',
-    published_at: input.status === 'published' ? now : null,
+    published_at: normalizedPublishedAt ?? (input.status === 'published' ? now : null),
     img: 'crops',
-    hero_image: input.hero_image ?? null,
+    hero_image: normalizedHeroImage,
+    seo_title: input.seo_title ?? null,
+    seo_description: input.seo_description ?? null,
   });
   return toPost(doc.toObject() as unknown as Record<string, unknown>);
 }
@@ -189,7 +199,11 @@ async function mongoUpdate(slug: string, patch: Partial<CreatePostInput> & { sta
   await connectDB();
   const update: Record<string, unknown> = { ...patch, updated_at: new Date() };
   if (patch.title) update.slug = generateSlug(patch.title);
-  if (patch.status === 'published') update.published_at = new Date();
+  if (patch.hero_image !== undefined) update.hero_image = normalizeStoredImageUrl(patch.hero_image ?? null) || null;
+  if (patch.published_at !== undefined) update.published_at = normalizePublishedAtInput(patch.published_at) ?? null;
+  if (patch.status === 'published' && update.published_at === undefined) {
+    update.published_at = new Date();
+  }
   const doc = await PostModel.findOneAndUpdate({ slug }, update, { new: true }).lean();
   return doc ? toPost(doc as unknown as Record<string, unknown>) : null;
 }
@@ -201,9 +215,11 @@ async function mongoDeleteById(id: string) {
 
 async function mongoPublishById(id: string) {
   await connectDB();
+  const existing = await PostModel.findById(id).lean();
+  const publishedAt = existing?.published_at ? new Date(existing.published_at as Date | string) : new Date();
   const doc = await PostModel.findByIdAndUpdate(
     id,
-    { status: 'published', published_at: new Date(), updated_at: new Date() },
+    { status: 'published', published_at: publishedAt, updated_at: new Date() },
     { new: true }
   ).lean();
   return doc ? toPost(doc as unknown as Record<string, unknown>) : null;

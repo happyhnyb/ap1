@@ -1,12 +1,13 @@
 import crypto from 'crypto';
+import Razorpay from 'razorpay';
 import { env } from '@/lib/env';
 
 export const RAZORPAY_PLAN_AMOUNT = {
-  monthly: 19900,
-  annual: 179900,
+  monthly: 49900,
+  annual: 499900,
 } as const;
 
-type RazorpayPlan = keyof typeof RAZORPAY_PLAN_AMOUNT;
+export type RazorpayPlan = keyof typeof RAZORPAY_PLAN_AMOUNT;
 
 interface CreatePaymentLinkInput {
   userId: string;
@@ -21,6 +22,15 @@ interface RazorpayPaymentLinkResponse {
   short_url: string;
   status: string;
   reference_id?: string | null;
+}
+
+export interface RazorpayOrderResponse {
+  id: string;
+  amount: number;
+  currency: string;
+  receipt: string | null;
+  status: string;
+  notes?: Record<string, string>;
 }
 
 export interface RazorpayWebhookEvent {
@@ -58,8 +68,46 @@ function getBasicAuthHeader() {
   return `Basic ${token}`;
 }
 
+function getRazorpayClient() {
+  if (!env.RAZORPAY_API_ENABLED) {
+    throw new Error('Razorpay API is not configured.');
+  }
+
+  return new Razorpay({
+    key_id: env.RAZORPAY_KEY_ID,
+    key_secret: env.RAZORPAY_KEY_SECRET,
+  });
+}
+
 export function makeRazorpayReferenceId(userId: string, plan: RazorpayPlan): string {
   return `kyc_${plan}_${userId}_${Date.now()}`;
+}
+
+export async function createRazorpayOrder(input: {
+  amount: number;
+  currency: string;
+  receipt: string;
+  plan: RazorpayPlan;
+  userId: string;
+}) {
+  const razorpay = getRazorpayClient();
+  const order = await razorpay.orders.create({
+    amount: input.amount,
+    currency: input.currency,
+    receipt: input.receipt,
+    notes: {
+      kyc_user_id: input.userId,
+      kyc_plan: input.plan,
+    },
+  });
+
+  return order as RazorpayOrderResponse;
+}
+
+export async function fetchRazorpayOrder(orderId: string) {
+  const razorpay = getRazorpayClient();
+  const order = await razorpay.orders.fetch(orderId);
+  return order as RazorpayOrderResponse;
 }
 
 export async function createRazorpayPaymentLink(input: CreatePaymentLinkInput): Promise<RazorpayPaymentLinkResponse> {
@@ -121,6 +169,24 @@ export function verifyRazorpayWebhookSignature(rawBody: string, signature: strin
 
   const expectedBuf = Buffer.from(expected);
   const actualBuf = Buffer.from(signature);
+  if (expectedBuf.length !== actualBuf.length) return false;
+  return crypto.timingSafeEqual(expectedBuf, actualBuf);
+}
+
+export function verifyRazorpayPaymentSignature(input: {
+  orderId: string;
+  paymentId: string;
+  signature: string;
+}): boolean {
+  if (!env.RAZORPAY_KEY_SECRET) return false;
+
+  const expected = crypto
+    .createHmac('sha256', env.RAZORPAY_KEY_SECRET)
+    .update(`${input.orderId}|${input.paymentId}`)
+    .digest('hex');
+
+  const expectedBuf = Buffer.from(expected);
+  const actualBuf = Buffer.from(input.signature);
   if (expectedBuf.length !== actualBuf.length) return false;
   return crypto.timingSafeEqual(expectedBuf, actualBuf);
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
+import { EmailOTPCard } from '@/components/auth/EmailOTPCard';
 
 export default function RegisterForm({ isDemo = false }: { isDemo?: boolean }) {
   const router = useRouter();
@@ -86,12 +87,22 @@ export default function RegisterForm({ isDemo = false }: { isDemo?: boolean }) {
         </form>
 
         <div className="divider" style={{ margin: '20px 0' }} />
+        <EmailOTPCard
+          intent="register"
+          title="Create account with OTP"
+          description="Skip setting a password for now. We’ll email a 6-digit verification code and create your account after you confirm it."
+        />
+
+        <div className="divider" style={{ margin: '20px 0' }} />
         <GoogleAuthButton text="signup_with" />
 
         <div className="divider" style={{ margin: '24px 0' }} />
         <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--muted)', margin: 0 }}>
           Already have an account?{' '}
           <Link href="/login" style={{ color: 'var(--green)', fontWeight: 500 }}>Sign in</Link>
+        </p>
+        <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--dim)', margin: '10px 0 0' }}>
+          Verification codes are sent from <strong style={{ color: 'var(--muted)' }}>info@kycagri.com</strong>.
         </p>
 
         <div style={{ marginTop: 20, padding: '14px 16px', borderRadius: 10, border: '1px solid var(--border)', fontSize: 12, color: 'var(--dim)', lineHeight: 1.6 }}>

@@ -1,0 +1,22 @@
+---
+title: "Australian Agriculture: From Record Boom to Healthy Reset!!"
+date: "2026-04-13T09:43:00.000Z"
+updated: "2026-04-13T09:43:00.000Z"
+slug: "australian-agriculture-from-record-boom-to-healthy-reset"
+layout: "post"
+type: "ARTICLE"
+excerpt: "Australia’s agricultural sector is stepping off a historic peak and into a deliberate cooldown. According to ABARES gross value of agricultural production hit a record AUD 101.4 billion (USD 65.91 billion) in 2025–26, fuelled by sky-high livestock prices,..."
+author: "Know Your Commodity"
+author_id: "snapshot"
+category: "Trade Talk"
+tags: []
+is_premium: false
+linked_article_id: null
+status: "published"
+view_count: 0
+img: "IMG-20260404-WA0003.jpg"
+hero_image: "/trade-talk/australian-agriculture-from-record-boom-to-healthy-reset.jpg"
+---
+Australia’s agricultural sector is stepping off a historic peak and into a deliberate cooldown. According to ABARES gross value of agricultural production hit a record AUD 101.4 billion (USD 65.91 billion) in 2025–26, fuelled by sky-high livestock prices, record beef turn-off, and the second-largest winter crop on record. In 2026–27 that figure is forecast to ease 6% to AUD 95.0 B (USD 65.55 B) — still well above the five-year average and a clear sign the sector remains structurally strong. The broader picture (including fisheries and forestry) shows combined production value falling from AUD 107.4 B to AUD 101.2 B. Livestock and livestock products take the biggest hit: down 8% to AUD 43.4 B. On the export front, agricultural export value is projected to decline 9% to AUD 72.8 B (USD 50.23 B) from the AUD 80.5 B (USD 52.33 B) record set in 2025–26. A firmer Australian dollar is weighing on competitiveness. Crops with production value slipping a modest 5% to AUD 51.5 B. The culprit is volume, not price. Below-average autumn rainfall (60–80% chance across southern Australia) and low soil moisture in south-eastern cropping zones are expected to constrain the 2026–27 winter crop. Wheat tells the story clearly: production reached 36 million tons (MMT) in 2025–26 (third-highest on record) but is forecast to ease 8% to 33 MMT in 2026–27, with planted area contracting 5% and national yields dipping slightly. Wheat gross value falls 13% to AUD 9.5 billion and export value 13% to AUD 8.6 billion. Canola, coarse grains, cotton and irrigated sectors face similar volume pressure amid Murray-Darling Basin storages at just 49% capacity.
+
+At farm level the profit squeeze is real. Average broadacre farm business profit is forecast to fall 40% (AUD 84,000 in real terms) from AUD 210,000 (USD 136,500) in 2025–26 to AUD 126,000 (USD 86,940) per farm — still close to the 10-year average of AUD 115,000 (USD 79,350). Cash receipts slide to AUD 1,066,000 (USD 735,540) while costs edge up to AUD 744,000 (USD 513,360), driven by 2% higher input prices for labour, fertiliser and services. Cropping farms remain the profit leaders followed by mixed enterprises. Livestock farms see steeper declines. Cash incomes stay solidly positive across every category, giving farmers breathing room. Farmers’ terms of trade deteriorate a further 4% as output prices fall 2% while input prices rise 2%. In short, 2026–27 is a healthy normalisation after three extraordinary years. Volumes remain robust, cash flows positive, and Australian farmers continue to demonstrate remarkable adaptability through on-farm storage, diversification and risk management. The sector enters the new financial year leaner, more cautious, yet fundamentally resilient. https://www.linkedin.com/posts/know-your-commodity_australianagriculture-agoutlook- farmbusiness-activity-7446074683990470657-o28U

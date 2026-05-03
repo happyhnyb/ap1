@@ -1,0 +1,22 @@
+---
+title: "Policy Continuity Likely in Pulses: Stability, Not Shock, Is the Government’s Current Playbook!!"
+date: "2026-04-13T11:22:00.000Z"
+updated: "2026-04-13T11:22:00.000Z"
+slug: "policy-continuity-likely-in-pulses-stability-not-shock-is-the-governments-current-playbook"
+layout: "post"
+type: "ARTICLE"
+excerpt: "As the March 31, 2026 policy horizon approaches, market chatter has intensified around possible duty changes in the pulses basket. However, reading the current price environment, inflation trajectory, and farmer realisation trends together suggests that..."
+author: "Know Your Commodity"
+author_id: "snapshot"
+category: "Trade Talk"
+tags: []
+is_premium: false
+linked_article_id: null
+status: "published"
+view_count: 0
+img: "IMG-20260221-WA0009.jpg"
+hero_image: "/trade-talk/policy-continuity-likely-in-pulses-stability-not-shock-is-the-governments-current-playbook.jpg"
+---
+As the March 31, 2026 policy horizon approaches, market chatter has intensified around possible duty changes in the pulses basket. However, reading the current price environment, inflation trajectory, and farmer realisation trends together suggests that policy continuity—not disruption —is the most probable outcome in the near term. The government today is operating in a relatively balanced zone. On one hand, farmgate prices across key pulses remain broadly remunerative, avoiding the political and economic pressure that typically triggers protectionist tightening. On the other, retail pulses inflation has stayed in low single digits, removing the urgency for aggressive import liberalisation. In such a calibrated environment, policymakers historically prefer fine-tuning over frequent reversals. Against this backdrop, the most likely scenario is an extension of the existing policy framework with minimal structural change: Tur and Urad: Duty-free import window likely to continue to ensure supply comfort and prevent volatility. Desi Chickpeas and Lentils: The current ~10% duty structure provides a balanced cushion— protective enough for farmers yet not inflationary for consumers. Yellow Peas: The 30% duty regime is already moderating inflows and supporting domestic pulse substitution dynamics; a status quo extension appears logical. Kabuli Chickpeas: At 40% duty, the segment remains adequately shielded, and no immediate recalibration signals are visible. Moong: Existing import restrictions are likely to remain intact, given the government’s consistent preference to protect domestic green gram growers.
+
+What strengthens the case for continuity is the broader macro narrative. The government has, over the past two years, demonstrated a measured and data-driven pulses policy, intervening only when either farmer distress or consumer inflation crosses comfort thresholds. Neither condition appears acute at present. Moreover, abrupt duty changes at this stage could introduce unnecessary market volatility, disrupt trade pipelines, and complicate procurement planning—outcomes policymakers have consciously tried to avoid in recent cycles. Stability in policy has become an under-appreciated but powerful tool in managing both farmer sentiment and consumer prices. This does not mean policy will remain static indefinitely. Much will depend on production trends, monsoon behaviour, and global pulse flows in the coming months. But as of today, the signals point toward extension rather than escalation. For traders, millers, importers, and farmers, the message is clear: expect policy stability through continuity, not sudden tightening. In pulses, as in policy, the government’s current bias appears to favour balance over surprise.

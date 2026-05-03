@@ -1,0 +1,22 @@
+---
+title: "The Lentil Liquidity Trap: Decoding the Convergence of Canadian Surpluses and India’s Rabi"
+date: "2026-04-13T11:10:00.000Z"
+updated: "2026-04-13T11:10:00.000Z"
+slug: "the-lentil-liquidity-trap-decoding-the-convergence-of-canadian-surpluses-and-indias-rabi"
+layout: "post"
+type: "ARTICLE"
+excerpt: "Arrival!! The global pulse market is currently navigating a \"liquidity squeeze\" that has temporarily decoupled long-term supply concerns from immediate price action. As we close out February 2026, the Indian Masur (lentil) market is feeling the dual pressure..."
+author: "Know Your Commodity"
+author_id: "snapshot"
+category: "Trade Talk"
+tags: []
+is_premium: false
+linked_article_id: null
+status: "published"
+view_count: 0
+img: "IMG-20260228-WA0002.jpg"
+hero_image: "/trade-talk/the-lentil-liquidity-trap-decoding-the-convergence-of-canadian-surpluses-and-indias-rabi.jpg"
+---
+Arrival!! The global pulse market is currently navigating a "liquidity squeeze" that has temporarily decoupled long-term supply concerns from immediate price action. As we close out February 2026, the Indian Masur (lentil) market is feeling the dual pressure of a massive "supply bridge" from the North and the seasonal "wall of seed" from domestic harvests. 1. The Canadian "Inventory Surge": By the Numbers The primary anchor on global lentil prices is the significant stockpile currently sitting in Canadian terminals. Data from Canada confirms that the 2025 harvest was far more productive than the market's initial ability to absorb it. Year-on-Year Stock Growth: Lentil inventories as of December 31, 2025, showed a significant increase of 25-30% compared to 2024, creating a "short-term supply pressure" that exporters are now forced to address before the 2026 planting cycle. Total Supply Volume: Canada’s total supply for the 2025-26 marketing year hit 3.01 million tonnes (Mt), a substantial jump from the previous cycle. The Export Rush: With high carry-over stocks, Canadian shippers have aggressively moved volume to India, driving a surge in arrivals at Indian ports throughout January and February. 2. India’s Spot Market: The "March Squeeze" In India, this international surplus has met a domestic market that is bracing for the Rabi harvest. The result is a tactical softening of prices across major hubs. Negative Parity & Miller Apathy: Indian millers are operating on a "hand-to-mouth" basis. With
+
+fresh domestic Masur expected in mandis within 15 days, processors are refusing to hold expensive imported inventory, leading to a spot price retreat of ₹150–₹200 per quintal. The Port Pivot: Steady arrivals at the ports have replenished the pipeline, effectively removing the "scarcity premium" that supported prices in Q4 2025. Currency Friction: While global prices soften, the Indian Rupee's volatility near ₹91/$ means the "landed cost" benefit is partially erased for new bookings, further encouraging traders to focus on clearing existing port stocks. 3. Strategic Outlook: The 2026 Correction While the short-term outlook is bearish due to the "stocks surge," the long-term data suggests a possible correction. The AAFC report forecasts a 15% contraction in Canadian lentil acreage for the 2026-27 season as growers pivot to wheat. For Indian economists and strategists, this creates a unique "buy the dip" window. The current price softening is a logistical phenomenon—a temporary glut meeting a seasonal harvest. Once the Canadian "overhang" is cleared and the Indian Rabi peak passes, the 15% reduction in future supply will likely become the dominant future market driver.

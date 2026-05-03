@@ -2,6 +2,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import { env } from '@/lib/env';
+import { parseNaturalDateInput } from '@/lib/posts/publish-date';
 
 const summarySchema = z.object({
   title: z.string().trim().min(1).max(99),
@@ -22,8 +23,13 @@ const forecastExplanationSchema = z.object({
   watchouts: z.array(z.string().trim().min(1)).max(3),
 });
 
+const parsedDateSchema = z.object({
+  date_only: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
 export type LocalArticleSummary = z.infer<typeof summarySchema>;
 export type LocalForecastExplanation = z.infer<typeof forecastExplanationSchema>;
+export type LocalParsedDate = z.infer<typeof parsedDateSchema>;
 
 type OllamaChatResponse = {
   choices?: Array<{
@@ -235,6 +241,45 @@ export async function explainForecastWithOllama(input: {
   } catch (error) {
     console.error('[explainForecastWithOllama] using fallback explanation', error);
     return fallback;
+  }
+}
+
+export async function parseNaturalDateWithOllama(text: string): Promise<{
+  data: { dateOnly: string; iso: string };
+  fallback: boolean;
+  error?: string;
+}> {
+  const deterministic = parseNaturalDateInput(text);
+  const fallbackValue = deterministic ?? { dateOnly: '', iso: '' };
+  const prompt = [
+    'Return JSON with this exact schema:',
+    '{"date_only":"YYYY-MM-DD"}',
+    'Interpret the input as an Indian admin-entered calendar date.',
+    'Prefer DD/MM/YYYY when the separators are slashes.',
+    'Do not include time or explanations.',
+    `Input: ${text.trim()}`,
+  ].join('\n');
+
+  try {
+    const data = await requestValidatedJson({
+      prompt,
+      schema: parsedDateSchema,
+      retryPrompt: 'Your previous reply was invalid. Return only {"date_only":"YYYY-MM-DD"}.',
+    });
+    const parsed = parseNaturalDateInput(data.date_only);
+    if (!parsed) {
+      throw new Error('Ollama returned an invalid date.');
+    }
+    return { data: { dateOnly: parsed.dateOnly, iso: parsed.iso }, fallback: false };
+  } catch (error) {
+    if (!deterministic) {
+      throw error instanceof Error ? error : new Error('Could not parse date.');
+    }
+    return {
+      data: fallbackValue,
+      fallback: true,
+      error: error instanceof Error ? error.message : 'Invalid Ollama response',
+    };
   }
 }
 

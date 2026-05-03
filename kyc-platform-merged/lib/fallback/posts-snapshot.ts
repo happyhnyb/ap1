@@ -2,6 +2,7 @@ import fs from 'fs';
 import { createRequire } from 'module';
 import path from 'path';
 import type { Post } from '@/types/post';
+import { normalizeStoredImageUrl } from '@/lib/media/url';
 
 // Statically imported so bundlers always include the file regardless of
 // how process.cwd() resolves at runtime in serverless environments.
@@ -57,6 +58,7 @@ function normalizePost(candidate: SnapshotCandidate, index: number): Post | null
     title: candidate.title,
     slug: candidate.slug,
     excerpt,
+    summary: typeof candidate.summary === 'string' ? candidate.summary : null,
     body: candidate.body,
     author: typeof candidate.author === 'string' && candidate.author.trim() ? candidate.author : 'KYC Desk',
     author_id: typeof candidate.author_id === 'string' && candidate.author_id.trim() ? candidate.author_id : 'snapshot',
@@ -74,7 +76,9 @@ function normalizePost(candidate: SnapshotCandidate, index: number): Post | null
     img: typeof candidate.img === 'string' && candidate.img.trim()
       ? candidate.img
       : (typeof candidate.img_name === 'string' && candidate.img_name.trim() ? candidate.img_name : 'crops'),
-    hero_image: typeof candidate.hero_image === 'string' && candidate.hero_image.trim() ? candidate.hero_image : null,
+    hero_image: normalizeStoredImageUrl(typeof candidate.hero_image === 'string' ? candidate.hero_image : null) || null,
+    seo_title: typeof candidate.seo_title === 'string' ? candidate.seo_title : null,
+    seo_description: typeof candidate.seo_description === 'string' ? candidate.seo_description : null,
     inline_images: Array.isArray(candidate.inline_images)
       ? candidate.inline_images.filter((image): image is string => typeof image === 'string' && image.trim().length > 0)
       : [],

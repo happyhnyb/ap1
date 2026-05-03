@@ -95,6 +95,7 @@ export const env = {
   RAZORPAY_KEY_SECRET:       process.env.RAZORPAY_KEY_SECRET ?? '',
   RAZORPAY_WEBHOOK_SECRET:   process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
   RAZORPAY_PAYMENT_LINK_URL: process.env.RAZORPAY_PAYMENT_LINK_URL ?? '',
+  NEXT_PUBLIC_RAZORPAY_KEY_ID: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? process.env.RAZORPAY_KEY_ID ?? '',
 
   // Cloudflare R2 — optional in dev (falls back to public/uploads/)
   R2_ENDPOINT:          process.env.R2_ENDPOINT          ?? '',
@@ -131,11 +132,20 @@ export const env = {
   get GOOGLE_OAUTH_ENABLED(): boolean {
     return !!this.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   },
-  get EMAIL_OTP_ENABLED(): boolean {
-    return !!(this.RESEND_API_KEY || this.IS_DEV);
+  get GMAIL_ENABLED(): boolean {
+    return !!(this.GMAIL_USER && this.GMAIL_APP_PASSWORD);
   },
+  get EMAIL_DELIVERY_ENABLED(): boolean {
+    return this.GMAIL_ENABLED || !!this.RESEND_API_KEY;
+  },
+  get EMAIL_OTP_ENABLED(): boolean {
+    return !!(this.EMAIL_DELIVERY_ENABLED || this.IS_DEV);
+  },
+  GMAIL_USER: process.env.GMAIL_USER ?? '',
+  GMAIL_APP_PASSWORD: process.env.GMAIL_APP_PASSWORD ?? '',
+  EMAIL_FROM: process.env.EMAIL_FROM ?? process.env.RESEND_FROM_EMAIL ?? process.env.CONTACT_EMAIL ?? 'info@kycagri.com',
   RESEND_API_KEY: process.env.RESEND_API_KEY ?? '',
-  RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL ?? process.env.CONTACT_EMAIL ?? 'editor@kyc.news',
+  RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL ?? process.env.CONTACT_EMAIL ?? 'info@kycagri.com',
   PASSWORD_RESET_FROM_EMAIL: process.env.PASSWORD_RESET_FROM_EMAIL ?? 'info@kycagri.com',
-  CONTACT_EMAIL: process.env.CONTACT_EMAIL ?? 'editor@kyc.news',
+  CONTACT_EMAIL: process.env.CONTACT_EMAIL ?? 'info@kycagri.com',
 } as const;

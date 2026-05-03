@@ -1,0 +1,22 @@
+---
+title: "THE WAR IN THE PERSIAN GULF COULD PLUNGE THE WORLD INTO HUNGER!!"
+date: "2026-04-13T10:41:00.000Z"
+updated: "2026-04-13T10:41:00.000Z"
+slug: "the-war-in-the-persian-gulf-could-plunge-the-world-into-hunger"
+layout: "post"
+type: "ARTICLE"
+excerpt: "We are watching a slow-motion food catastrophe unfold in real time — and most people aren't paying attention. When the US-Israel strike on Iran closed the Strait of Hormuz, the world's most critical maritime chokepoint went dark. Over 20% of global oil & gas..."
+author: "Know Your Commodity"
+author_id: "snapshot"
+category: "Trade Talk"
+tags: []
+is_premium: false
+linked_article_id: null
+status: "published"
+view_count: 0
+img: "IMG-20260316-WA0003.jpg"
+hero_image: "/trade-talk/the-war-in-the-persian-gulf-could-plunge-the-world-into-hunger.jpg"
+---
+We are watching a slow-motion food catastrophe unfold in real time — and most people aren't paying attention. When the US-Israel strike on Iran closed the Strait of Hormuz, the world's most critical maritime chokepoint went dark. Over 20% of global oil & gas and nearly 49% of traded urea flows through this narrow passage. What began as a geopolitical event is now a direct threat to the global food supply. The Scenario: Crude at $130. Urea at $700. This is not alarmism. This is where markets are heading. Brent crude has already surged from $72 to over $105/barrel. Urea — the primary nitrogen fertilizer for corn, wheat and rice — has jumped from $383/mt in January to $598/mt today, up 52% year-on-year. If Hormuz remains closed through spring planting, $700/mt urea is not a ceiling — it could be a floor. What does this mean on the farm? In the US alone, corn cost-of-production is projected to jump from ~$272/acre to $435/acre — a 60% increase. Fertilizer alone accounts for ~$212/acre in this scenario.The timing of surge is literally the worst possible. 25% of US farmers have not yet purchased fertilizer. The American Farm Bureau Federation (AFBF) has already warned the White House. Grain acres shifting. Lower nitrogen application rates. Smaller yields. Tighter global grain production.
+
+The Price Cascade: From Field to Fork In the US Wheat: $5.80 $8.70/bushel (+50%)→ Corn: $4.60 $6.90/bushel (+50%)→ Rice: $510 $720/tonne (+41%)→ These are not abstract commodity numbers. These are the inputs to bread, pasta, noodles — the daily calories of 4 billion people. The double whammy India faces: commodity shock + currency depreciation Every Indian import pays the price in two ways — the commodity rises in USD, and the rupee buys fewer dollars. At ₹88/$ the pain was bad. At ₹94/$ it's compounded more. Cost of production of khariff crop/imported pulses & oil could increase by 28-42%. Who gets hurt most? Sub-Saharan Africa imports 90%+ of its fertilizer. Egypt — the world's largest wheat importer — is on the financial edge. India risks losing 63% of its nitrogen fertilizer imports from Gulf suppliers. The GCC itself, which imports 77–95% of its staple foods, faces acute grocery price shocks. Drawing the parallel clearly: during the Russia-Ukraine fertilizer shock of 2022, 23 countries imposed food export bans within weeks. We are now in a more severe disruption — with more actors, higher energy prices, and tighter buffers. The 2 Billion People Nobody Is Talking About International Monetary Fund data shows that 2 billion people in the Global South spend 40–60% of household income on food. A 40–60% rise in staple prices is not inflation. It is unaffordability. It is hunger. It is instability. Famine does not need a drought to arrive. It just needs a war, a blocked strait, and $700 urea. The world is not running out of food. It could run out of affordable and available food. https://www.linkedin.com/posts/know-your-commodity_the-war-in-the-persian-gulf-could- plunge-activity-7439238661956624384-Q9eC

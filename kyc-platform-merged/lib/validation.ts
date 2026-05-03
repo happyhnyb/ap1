@@ -3,6 +3,8 @@
  * Centralising them here ensures consistency and makes them testable.
  */
 import { z } from 'zod';
+import { normalizeStoredImageUrl } from '@/lib/media/url';
+import { normalizePublishedAtInput } from '@/lib/posts/publish-date';
 
 // ── Auth ─────────────────────────────────────────────────────────
 
@@ -41,14 +43,32 @@ const CHAR_LIMITS = { SHORT: 1000, STORY: 3000, ARTICLE: 10000 } as const;
 const _PostBaseSchema = z.object({
   title:             z.string().min(5).max(200).trim(),
   excerpt:           z.string().min(10).max(500).trim(),
+  summary:           z.string().max(400).trim().nullable().optional(),
   body:              z.string().min(20),
   category:          z.string().min(1).max(60),
   type:              PostTypeEnum,
   tags:              z.array(z.string().max(40)).max(10).default([]),
   is_premium:        z.boolean().default(false),
   linked_article_id: z.string().max(120).nullable().optional(),
-  hero_image:        z.string().max(2000).nullable().optional(),
+  hero_image: z.preprocess(
+    (value) => {
+      if (typeof value !== 'string') return value;
+      const normalized = normalizeStoredImageUrl(value);
+      return normalized || null;
+    },
+    z.string().max(2000).nullable().optional()
+  ),
   status:            PostStatusEnum.optional().default('draft'),
+  published_at: z.preprocess(
+    (value) => {
+      if (typeof value !== 'string') return value;
+      const normalized = normalizePublishedAtInput(value);
+      return normalized ?? null;
+    },
+    z.string().datetime().nullable().optional()
+  ),
+  seo_title:         z.string().max(200).trim().nullable().optional(),
+  seo_description:   z.string().max(320).trim().nullable().optional(),
 });
 
 function addBodyLimitRefinement<T extends typeof _PostBaseSchema>(schema: T) {

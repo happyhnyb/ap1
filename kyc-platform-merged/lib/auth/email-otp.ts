@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'crypto';
 import { SignJWT, jwtVerify } from 'jose';
 import { env } from '@/lib/env';
-import { sendResendEmail } from '@/lib/email/resend';
+import { sendEmail } from '@/lib/email/send';
 
 type OTPIntent = 'login' | 'register';
 
@@ -73,9 +73,9 @@ export async function sendOTPEmail(input: {
   intent: OTPIntent;
   name?: string | null;
 }) {
-  if (!env.RESEND_API_KEY) {
+  if (!env.EMAIL_DELIVERY_ENABLED) {
     if (env.IS_DEV) return { delivered: false };
-    throw new Error('Email OTP is not configured. Set RESEND_API_KEY.');
+    throw new Error('Email OTP is not configured. Set GMAIL_USER + GMAIL_APP_PASSWORD.');
   }
 
   const subject = input.intent === 'register'
@@ -92,7 +92,8 @@ export async function sendOTPEmail(input: {
     </div>
   `.trim();
 
-  return sendResendEmail({
+  return sendEmail({
+    from: env.EMAIL_FROM,
     to: [input.email],
     subject,
     html,

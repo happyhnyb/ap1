@@ -1,0 +1,22 @@
+---
+title: "The Great Brazilian Sugar Washout of 2026 is Happening Right Now!!"
+date: "2026-04-13T10:23:00.000Z"
+updated: "2026-04-13T10:23:00.000Z"
+slug: "the-great-brazilian-sugar-washout-of-2026-is-happening-right-now"
+layout: "post"
+type: "ARTICLE"
+excerpt: "Forget the early 2025 forecasts of a massive Brazilian sugar surplus. The theoretical food vs. fuel dynamic at the mill gate has exploded into a physical reality. The highly discussed \"structural option\" to flip cane allocation from sugar exports to domestic..."
+author: "Know Your Commodity"
+author_id: "snapshot"
+category: "Trade Talk"
+tags: []
+is_premium: false
+linked_article_id: null
+status: "published"
+view_count: 0
+img: "IMG-20260322-WA0006.jpg"
+hero_image: "/trade-talk/the-great-brazilian-sugar-washout-of-2026-is-happening-right-now.jpg"
+---
+Forget the early 2025 forecasts of a massive Brazilian sugar surplus. The theoretical food vs. fuel dynamic at the mill gate has exploded into a physical reality. The highly discussed "structural option" to flip cane allocation from sugar exports to domestic ethanol is no longer a risk—it is the active trade flow. The washouts have started, and they are violent. The Perfect Storm: Rock-Bottom Sugar vs. Historic-High Ethanol The economic calculation driving this pivot is simple and brutal. Let's look at the triggers: Sugar’s February Collapse: Up until the end of last month, global sugar prices were at rock bottom. On February 12, 2026, benchmark US Sugar #11 futures plummeted to 13.34 cents per pound—the lowest price recorded since October 2020. Millions of tonnes of Brazilian export contracts were booked at these depressed, highly reduced price levels. Historically High Ethanol Prices: While sugar was crashing, Brazil’s internal ethanol market was exploding. Throughout early 2026, prices have remained at historically high levels, currently up 7.4% year-over-year and rising 5.0% over just the last three months. Severe Ethanol Scarcity: This pricing power is driven by an absolute shortage of fuel supply. As of mid-February, Brazilian hydrous ethanol stocks were 22% lower than the same period last year, while anhydrous stocks were down 24%. The Policy Match in the Powder Keg The Brazilian government just applied the final accelerant. To secure local fuel supplies, the ethanol blend rate in gasoline was recently raised from 27% to 30%. Furthermore, Brasília is reportedly considering a further emergency increase to 35%.
+
+This mandatory demand boom, colliding with historically low stocks and high prices, means mills can make significantly more money producing fuel for local tanks than fulfilling cheap sugar export bags booked last month. The Washout Logic For a mill, the math is inescapable. It is highly profitable to pay the "wash-fee" (contractual penalty) to cancel a sugar export contract booked at 13-14 cents, flip the cane to ethanol, and sell into the short, high-priced domestic fuel market. This dynamic is tightening the effective global physical sugar flow right now, regardless of Conab’s earlier bumper-crop forecasts of 45.9 million tons, a 40-41 million tons looks more practical. If your 2026 procurement strategy relies on assumed "Brazilian abundance," your model is broken. Stop watching the crop forecasts. Watch the ethanol parity and the rising count of washed-out contracts. https://www.linkedin.com/posts/know-your-commodity_sugartrade-biofuels-agribusiness- activity-7441397248493625344-PuuT

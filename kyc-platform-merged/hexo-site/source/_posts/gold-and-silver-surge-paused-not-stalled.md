@@ -1,0 +1,22 @@
+---
+title: "Gold and Silver Surge - Paused not Stalled!!"
+date: "2026-04-13T09:34:00.000Z"
+updated: "2026-04-13T09:34:00.000Z"
+slug: "gold-and-silver-surge-paused-not-stalled"
+layout: "post"
+type: "ARTICLE"
+excerpt: "We are witnessing a momentary breather in the precious metals complex, but do not mistake consolidation for a trend reversal. The macroeconomic scaffolding supporting bullion has never been stronger. We are transitioning into a classic stagflationary trap,..."
+author: "Know Your Commodity"
+author_id: "snapshot"
+category: "Trade Talk"
+tags: []
+is_premium: false
+linked_article_id: null
+status: "published"
+view_count: 0
+img: "IMG-20260409-WA0001.jpg"
+hero_image: "/trade-talk/gold-and-silver-surge-paused-not-stalled.jpg"
+---
+We are witnessing a momentary breather in the precious metals complex, but do not mistake consolidation for a trend reversal. The macroeconomic scaffolding supporting bullion has never been stronger. We are transitioning into a classic stagflationary trap, and the global accumulation of physical metals reflects a profound lack of faith in fiat resilience. Here is the data-heavy reality of why the bullion rush will return with a vengeance: 1. The Dragon’s Golden Hedge China’s de-dollarization is accelerating physically. As of early 2026, the PBOC has aggressively acquired gold for over 15 consecutive months. Official holdings reached roughly 2,308 tonnes by February 2026—a massive addition of 359.5 tonnes since 2021. China is insulating its wealth from Western fiscal instability. 2. The 25,000-Ton Silver Deficit Silver is no longer just a monetary metal; it is an industrial bottleneck. The global market has been in a structural deficit since 2021, accumulating a massive 25,625-ton shortfall. In China, industrial demand (heavily driven by photovoltaics) now consumes 60% of total silver usage, up from 40% just five years ago. 3. China's Record Import Binge The math for Chinese silver is brutally misaligned. China produces 3,300–3,500 tonnes domestically but demands 8,500–8,800 tonnes. To bridge this, Jan-Feb 2026 saw imports hit an eight-year high of 790 tonnes, with February alone seeing a record 470 tonnes. As the refiner of 60-70% of the world's silver, China's import appetite guarantees a permanent price floor.
+
+4. The U.S. Stagflation Trap The U.S. economy is fundamentally cornered. The recent Supreme Court directive reversing previous tariffs is not deflationary—it mandates massive refunds that act as a severe systemic liquidity drain and swell the current account deficit. To compensate, the new flat 15% tariff acts as a blunt, regressive tax that fails to fix the trade deficit. 5. Paralyzed Policy & Stagnating Growth This blunt 15% tariff, combined with surging fuel costs from the expensive Middle East conflict, has locked in sticky, supply-side inflation. Consequently, the Federal Reserve is paralyzed. High inflation squeezes away any rate reductions for the foreseeable future, while liquidity drains and war costs constrain government spending. Growth is stagnating. The Bottom Line: While a few distressed nations scramble to liquidate gold to generate dollars just to keep the lights on and buy fertilizer, the global sovereign "smart money" is fiercely accumulating. Once the initial shock of this current geopolitical cycle subsides and the U.S. dollar inevitably weakens under the weight of its own unpayable deficits, the bullion rush will be back. History is about to repeat itself. Prepare for one of the most profound precious metal rallies we have ever seen. https://www.linkedin.com/posts/commodities-gold-silver-share-7447892629087764480-2PTh

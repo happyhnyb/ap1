@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { SignJWT, jwtVerify } from 'jose';
 import { env } from '@/lib/env';
-import { sendResendEmail } from '@/lib/email/resend';
+import { sendEmail } from '@/lib/email/send';
 import type { User } from '@/types/user';
 
 const PASSWORD_RESET_EXPIRY_SECS = 60 * 60;
@@ -54,9 +54,9 @@ export async function sendPasswordResetEmail(input: {
   resetUrl: string;
   name?: string | null;
 }) {
-  if (!env.RESEND_API_KEY) {
+  if (!env.EMAIL_DELIVERY_ENABLED) {
     if (env.IS_DEV) return { delivered: false };
-    throw new Error('Password reset email is not configured. Set RESEND_API_KEY.');
+    throw new Error('Password reset email is not configured. Set GMAIL_USER + GMAIL_APP_PASSWORD.');
   }
 
   const displayName = input.name?.trim() || 'there';
@@ -73,7 +73,7 @@ export async function sendPasswordResetEmail(input: {
     </div>
   `.trim();
 
-  return sendResendEmail({
+  return sendEmail({
     from: env.PASSWORD_RESET_FROM_EMAIL,
     to: [input.email],
     subject: 'Reset your KYC Agri password',

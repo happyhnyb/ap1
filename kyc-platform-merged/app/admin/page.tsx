@@ -8,11 +8,16 @@ import { postsAdapter } from '@/lib/adapters';
 import { CATEGORIES } from '@/mocks/data';
 import Link from 'next/link';
 import { ImageUpload } from '@/components/cms/ImageUpload';
+import { DeletePostButton } from '@/components/cms/DeletePostButton';
 import { PostBodyEditor } from '@/components/cms/PostBodyEditor';
 import { SystemMonitor } from '@/components/admin/SystemMonitor';
 import { stripDuplicateHeroImage } from '@/lib/posts/hero-image';
+import { importLocalFileUrl } from '@/lib/storage/local-media';
+import { normalizeStoredImageUrl } from '@/lib/media/url';
+import { normalizePublishedAtInput, toDateInputValue } from '@/lib/posts/publish-date';
 
 export const metadata: Metadata = { title: 'CMS Admin' };
+const POSTS_PER_PAGE = 20;
 
 async function requireEditorSession(): Promise<SessionPayload> {
   const session = await getServerSession();
@@ -20,7 +25,7 @@ async function requireEditorSession(): Promise<SessionPayload> {
   return session;
 }
 
-function getPostInput(formData: FormData) {
+async function getPostInput(formData: FormData, uploadedBy?: string | null) {
   const title   = String(formData.get('title') || '');
   const excerpt = String(formData.get('excerpt') || '');
   const body    = String(formData.get('body') || '');
@@ -28,9 +33,19 @@ function getPostInput(formData: FormData) {
   const type    = String(formData.get('type') || 'SHORT') as 'SHORT' | 'STORY' | 'ARTICLE';
   const tags       = String(formData.get('tags') || '').split(',').map((t) => t.trim()).filter(Boolean);
   const isPremium  = formData.get('is_premium') === 'on';
-  const linked     = String(formData.get('linked_article_id') || '') || null;
   const status     = String(formData.get('status') || 'draft') as 'draft' | 'published' | 'archived';
-  const heroImage  = String(formData.get('hero_image') || '') || null;
+  const seoTitle = String(formData.get('seo_title') || '').trim() || null;
+  const seoDescription = String(formData.get('seo_description') || '').trim() || null;
+  const publishedAt = normalizePublishedAtInput(String(formData.get('published_at') || ''));
+  const rawHeroImage = String(formData.get('hero_image') || '').trim();
+  let heroImage: string | null = normalizeStoredImageUrl(rawHeroImage) || null;
+
+  // file:// URLs aren't reachable from the browser. Copy the file into local
+  // media storage so it can be served from /api/media/...
+  if (rawHeroImage.startsWith('file://')) {
+    const imported = await importLocalFileUrl(rawHeroImage, uploadedBy);
+    if (imported) heroImage = imported;
+  }
 
   return {
     title,
@@ -40,22 +55,37 @@ function getPostInput(formData: FormData) {
     type,
     tags,
     is_premium: isPremium,
-    linked_article_id: linked,
     hero_image: heroImage,
     status,
+    published_at: publishedAt,
+    seo_title: seoTitle,
+    seo_description: seoDescription,
   };
+}
+
+function buildAdminUrl(params: Record<string, string | null | undefined>) {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) qs.set(key, value);
+  }
+  const query = qs.toString();
+  return query ? `/admin?${query}` : '/admin';
 }
 
 async function createPost(formData: FormData) {
   'use server';
   const session = await requireEditorSession();
-
-  await postsAdapter.create({
-    ...getPostInput(formData),
-    author: session.name,
-    author_id: session._id,
-  });
-  redirect('/admin');
+  const page = String(formData.get('page') || '');
+  try {
+    await postsAdapter.create({
+      ...(await getPostInput(formData, session._id)),
+      author: session.name,
+      author_id: session._id,
+    });
+    redirect(buildAdminUrl({ notice: 'post-created', page }));
+  } catch (error) {
+    redirect(buildAdminUrl({ error: error instanceof Error ? error.message : 'Failed to create post.', page }));
+  }
 }
 
 async function publishPost(formData: FormData) {
@@ -63,21 +93,31 @@ async function publishPost(formData: FormData) {
   await requireEditorSession();
 
   const id = String(formData.get('id') || '');
+  const page = String(formData.get('page') || '');
   if (!id) redirect('/admin');
 
-  await postsAdapter.publishById(id);
-  redirect('/admin');
+  try {
+    await postsAdapter.publishById(id);
+    redirect(buildAdminUrl({ notice: 'post-published', page }));
+  } catch (error) {
+    redirect(buildAdminUrl({ error: error instanceof Error ? error.message : 'Failed to publish post.', page }));
+  }
 }
 
 async function updatePost(formData: FormData) {
   'use server';
-  await requireEditorSession();
+  const session = await requireEditorSession();
 
   const slug = String(formData.get('slug') || '');
+  const page = String(formData.get('page') || '');
   if (!slug) redirect('/admin');
 
-  await postsAdapter.update(slug, getPostInput(formData));
-  redirect('/admin');
+  try {
+    await postsAdapter.update(slug, await getPostInput(formData, session._id));
+    redirect(buildAdminUrl({ notice: 'post-updated', edit: slug, page }));
+  } catch (error) {
+    redirect(buildAdminUrl({ error: error instanceof Error ? error.message : 'Failed to update post.', edit: slug, page }));
+  }
 }
 
 async function deletePost(formData: FormData) {
@@ -85,27 +125,44 @@ async function deletePost(formData: FormData) {
   await requireEditorSession();
 
   const id = String(formData.get('id') || '');
+  const page = String(formData.get('page') || '');
   if (!id) redirect('/admin');
 
-  await postsAdapter.deleteById(id);
-  redirect('/admin');
+  try {
+    await postsAdapter.deleteById(id);
+    redirect(buildAdminUrl({ notice: 'post-deleted', page }));
+  } catch (error) {
+    redirect(buildAdminUrl({ error: error instanceof Error ? error.message : 'Failed to delete post.', page }));
+  }
 }
 
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ edit?: string }>;
+  searchParams?: Promise<{ edit?: string; notice?: string; error?: string; page?: string }>;
 }) {
   const session = await requireEditorSession();
 
   const [posts, contacts, users] = await Promise.all([getAllPosts(), getContacts(), getUsers()]);
-  const { edit: editSlug = '' } = (await searchParams) ?? {};
-  const published = posts.filter((p) => p.status === 'published');
-  const drafts    = posts.filter((p) => p.status === 'draft');
+  const { edit: editSlug = '', notice = '', error = '', page = '1' } = (await searchParams) ?? {};
+  const visiblePosts = posts.filter((p) => p.status !== 'archived');
+  const currentPage = Math.max(1, Number.parseInt(page, 10) || 1);
+  const totalPages = Math.max(1, Math.ceil(visiblePosts.length / POSTS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * POSTS_PER_PAGE;
+  const paginatedPosts = visiblePosts.slice(pageStart, pageStart + POSTS_PER_PAGE);
+  const published = visiblePosts.filter((p) => p.status === 'published');
+  const drafts    = visiblePosts.filter((p) => p.status === 'draft');
   const postToEdit = editSlug ? posts.find((post) => post.slug === editSlug) ?? null : null;
   const formAction = postToEdit ? updatePost : createPost;
   const formTitle = postToEdit ? `Edit Post: ${postToEdit.title}` : 'Create Post';
   const submitLabel = postToEdit ? 'Update post' : 'Save post';
+  const noticeMessages: Record<string, string> = {
+    'post-created': 'Post created successfully.',
+    'post-updated': 'Post updated successfully.',
+    'post-published': 'Post published successfully.',
+    'post-deleted': 'Post deleted successfully.',
+  };
 
   return (
     <main className="admin-shell">
@@ -122,6 +179,18 @@ export default async function AdminPage({
         </div>
       </div>
 
+      {notice && noticeMessages[notice] ? (
+        <div className="notice" style={{ marginBottom: 20, padding: '10px 14px' }}>
+          {noticeMessages[notice]}
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="notice notice-red" style={{ marginBottom: 20, padding: '10px 14px' }}>
+          {error}
+        </div>
+      ) : null}
+
       <div className="admin-grid">
         {/* Sidebar */}
         <aside className="card sidebar" style={{ alignSelf: 'start', position: 'sticky', top: 80 }}>
@@ -129,7 +198,6 @@ export default async function AdminPage({
           {[
             { label: 'Published', count: published.length, color: 'var(--green)' },
             { label: 'Drafts',    count: drafts.length,    color: 'var(--gold)' },
-            { label: 'Archived',  count: posts.filter((p) => p.status === 'archived').length, color: 'var(--dim)' },
             { label: 'Users',     count: users.length,     color: 'var(--text)' },
             { label: 'Inbox',     count: contacts.length,  color: contacts.some((c) => c.status === 'new') ? 'var(--red)' : 'var(--text)' },
           ].map((item) => (
@@ -153,13 +221,14 @@ export default async function AdminPage({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
               <h2 className="serif" style={{ margin: 0, fontSize: 20 }}>{formTitle}</h2>
               {postToEdit && (
-                <Link href="/admin" className="btn btn-sm" style={{ fontSize: 12 }}>
+                <Link href={buildAdminUrl({ page: String(safePage) })} className="btn btn-sm" style={{ fontSize: 12 }}>
                   Cancel editing
                 </Link>
               )}
             </div>
             <form action={formAction} className="form-grid">
               {postToEdit && <input type="hidden" name="slug" value={postToEdit.slug} />}
+              <input type="hidden" name="page" value={String(safePage)} />
               <div className="form-group">
                 <label className="form-label">Title *</label>
                 <input className="field" name="title" placeholder="Headline" required defaultValue={postToEdit?.title ?? ''} />
@@ -168,7 +237,11 @@ export default async function AdminPage({
                 <label className="form-label">Excerpt *</label>
                 <textarea className="textarea" name="excerpt" rows={2} placeholder="One-sentence summary (max 500 chars)" required style={{ minHeight: 'unset' }} defaultValue={postToEdit?.excerpt ?? ''} />
               </div>
-              <PostBodyEditor defaultValue={postToEdit?.body ?? ''} />
+              <PostBodyEditor
+                key={postToEdit?.slug ?? 'new-post'}
+                defaultValue={postToEdit?.body ?? ''}
+                heroImageUrl={postToEdit?.hero_image ?? null}
+              />
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <div className="form-group" style={{ flex: '1 1 140px' }}>
@@ -190,9 +263,18 @@ export default async function AdminPage({
                   <select className="select" name="status" defaultValue={postToEdit?.status ?? 'draft'}>
                     <option value="draft">Draft</option>
                     <option value="published">Publish</option>
-                    <option value="archived">Archive</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Publish Date</label>
+                <input
+                  className="field"
+                  type="date"
+                  name="published_at"
+                  defaultValue={toDateInputValue(postToEdit?.published_at ?? null)}
+                />
               </div>
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -200,13 +282,20 @@ export default async function AdminPage({
                   <label className="form-label">Tags (comma-separated)</label>
                   <input className="field" name="tags" placeholder="wheat, monsoon, MSP" defaultValue={postToEdit?.tags.join(', ') ?? ''} />
                 </div>
-                <div className="form-group" style={{ flex: 2 }}>
-                  <label className="form-label">Linked article slug or ID (for STORY → ARTICLE)</label>
-                  <input className="field" name="linked_article_id" placeholder="article-slug-or-id-or-leave-blank" defaultValue={postToEdit?.linked_article_id ?? ''} />
-                </div>
               </div>
 
               <ImageUpload name="hero_image" label="Hero Image" initialUrl={postToEdit?.hero_image ?? null} />
+
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">SEO Title</label>
+                  <input className="field" name="seo_title" placeholder="Optional SEO title" defaultValue={postToEdit?.seo_title ?? ''} />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">SEO Description</label>
+                  <input className="field" name="seo_description" placeholder="Optional SEO description" defaultValue={postToEdit?.seo_description ?? ''} />
+                </div>
+              </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
@@ -221,8 +310,11 @@ export default async function AdminPage({
 
           {/* Posts table */}
           <div className="card admin-panel">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 className="serif" style={{ margin: 0, fontSize: 20 }}>All Posts ({posts.length})</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+              <h2 className="serif" style={{ margin: 0, fontSize: 20 }}>All Posts ({visiblePosts.length})</h2>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                Page {safePage} of {totalPages}
+              </div>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table className="table">
@@ -232,13 +324,14 @@ export default async function AdminPage({
                     <th>Type</th>
                     <th>Category</th>
                     <th>Status</th>
+                    <th>Date</th>
                     <th>Premium</th>
                     <th>Views</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {posts.map((p) => (
+                  {paginatedPosts.map((p) => (
                     <tr key={p._id}>
                       <td>
                         <Link href={`/post/${p.slug}`} style={{ color: 'var(--green)', fontWeight: 500 }}>
@@ -252,6 +345,9 @@ export default async function AdminPage({
                           {p.status}
                         </span>
                       </td>
+                      <td style={{ color: 'var(--muted)', fontSize: 12 }}>
+                        {p.published_at ? new Date(p.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                      </td>
                       <td>{p.is_premium ? <span className="badge badge-gold" style={{ fontSize: 10 }}>★ Pro</span> : <span className="muted">—</span>}</td>
                       <td style={{ color: 'var(--muted)' }}>{p.view_count.toLocaleString()}</td>
                       <td>
@@ -259,12 +355,13 @@ export default async function AdminPage({
                           <Link href={`/post/${p.slug}`} className="btn btn-sm" style={{ fontSize: 12 }}>
                             {p.status === 'published' ? 'Open' : 'Preview'}
                           </Link>
-                          <Link href={`/admin?edit=${encodeURIComponent(p.slug)}`} className="btn btn-sm" style={{ fontSize: 12 }}>
+                          <Link href={buildAdminUrl({ edit: p.slug, page: String(safePage) })} className="btn btn-sm" style={{ fontSize: 12 }}>
                             Edit
                           </Link>
                           {p.status === 'draft' && (
                             <form action={publishPost}>
                               <input type="hidden" name="id" value={p._id} />
+                              <input type="hidden" name="page" value={String(safePage)} />
                               <button className="btn btn-sm btn-primary" type="submit" style={{ fontSize: 12 }}>
                                 Publish
                               </button>
@@ -272,9 +369,8 @@ export default async function AdminPage({
                           )}
                           <form action={deletePost}>
                             <input type="hidden" name="id" value={p._id} />
-                            <button className="btn btn-sm" type="submit" style={{ fontSize: 12, color: 'var(--red)' }}>
-                              Delete
-                            </button>
+                            <input type="hidden" name="page" value={String(safePage)} />
+                            <DeletePostButton />
                           </form>
                         </div>
                       </td>
@@ -283,6 +379,29 @@ export default async function AdminPage({
                 </tbody>
               </table>
             </div>
+            {totalPages > 1 ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 18 }}>
+                <span style={{ fontSize: 12, color: 'var(--dim)' }}>
+                  Showing {pageStart + 1}-{Math.min(pageStart + POSTS_PER_PAGE, visiblePosts.length)} of {visiblePosts.length}
+                </span>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Link
+                    href={buildAdminUrl({ page: safePage > 1 ? String(safePage - 1) : '1', edit: editSlug || null })}
+                    className="btn btn-sm"
+                    style={{ fontSize: 12, pointerEvents: safePage === 1 ? 'none' : undefined, opacity: safePage === 1 ? 0.45 : 1 }}
+                  >
+                    Previous
+                  </Link>
+                  <Link
+                    href={buildAdminUrl({ page: safePage < totalPages ? String(safePage + 1) : String(totalPages), edit: editSlug || null })}
+                    className="btn btn-sm"
+                    style={{ fontSize: 12, pointerEvents: safePage === totalPages ? 'none' : undefined, opacity: safePage === totalPages ? 0.45 : 1 }}
+                  >
+                    Next
+                  </Link>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {/* Users table */}

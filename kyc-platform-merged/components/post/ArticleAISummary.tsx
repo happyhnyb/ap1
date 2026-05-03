@@ -29,14 +29,14 @@ const PERSONA_LABELS: Record<Persona, string> = {
   procurement: 'Procurement',
 };
 
-export function ArticleAISummary({ slug, isLoggedIn = false }: { slug: string; isLoggedIn?: boolean }) {
+export function ArticleAISummary({ slug, hasAccess = false }: { slug: string; hasAccess?: boolean }) {
   const [persona, setPersona] = useState<Persona>('general');
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(isLoggedIn);
+  const [loading, setLoading] = useState(hasAccess);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!hasAccess) return;
 
     let cancelled = false;
 
@@ -64,7 +64,7 @@ export function ArticleAISummary({ slug, isLoggedIn = false }: { slug: string; i
 
     load();
     return () => { cancelled = true; };
-  }, [slug, persona, isLoggedIn]);
+  }, [slug, persona, hasAccess]);
 
   return (
     <section style={{ marginBottom: 24, padding: 20, borderRadius: 16, border: '1px solid var(--border2)', background: 'rgba(76,175,80,.04)' }}>
@@ -95,9 +95,9 @@ export function ArticleAISummary({ slug, isLoggedIn = false }: { slug: string; i
         </div>
       </div>
 
-      {!isLoggedIn ? (
+      {!hasAccess ? (
         <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-          <a href="/login" style={{ color: 'var(--green)', fontWeight: 600 }}>Sign in</a> to view the AI-grounded brief for this article.
+          <a href="/subscribe" style={{ color: 'var(--green)', fontWeight: 600 }}>Upgrade to premium</a> to view the AI-grounded brief for this article.
         </div>
       ) : loading ? (
         <div style={{ fontSize: 14, color: 'var(--muted)' }}>Building grounded summary…</div>

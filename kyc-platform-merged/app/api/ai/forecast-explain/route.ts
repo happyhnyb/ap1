@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getServerSession } from '@/lib/auth/jwt';
 import { assertSafeUserText } from '@/lib/ai/moderation';
 import { explainForecast } from '@/lib/ai/service';
-import { canAccessPredictorRelease, predictorAccessError } from '@/lib/product/predictor';
+import { hasFreshPremiumAccess, premiumAIAccessError } from '@/lib/auth/premium-access';
 import { postToMacMini, shouldUseMacMiniBackend } from '@/lib/server/mac-mini';
 
 const BodySchema = z.object({
@@ -17,8 +17,8 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession();
-  if (!canAccessPredictorRelease(session)) {
-    return NextResponse.json({ error: predictorAccessError(session) }, { status: 403 });
+  if (!(await hasFreshPremiumAccess(session, 'POST /api/ai/forecast-explain'))) {
+    return NextResponse.json({ error: premiumAIAccessError(session) }, { status: session ? 403 : 401 });
   }
 
   try {

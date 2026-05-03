@@ -7,6 +7,8 @@ import { Footer } from '@/components/layout/Footer';
 import { Ticker } from '@/components/layout/Ticker';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { AnimationProvider } from '@/components/layout/AnimationProvider';
+import { CookieConsentBanner } from '@/components/layout/CookieConsentBanner';
+import { LegalPolicyModal } from '@/components/legal/LegalPolicyModal';
 import { env } from '@/lib/env';
 
 export const metadata: Metadata = {
@@ -56,6 +58,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Header session={session} predictorPublic={predictorPublic} billingEnabled={env.PAYMENTS_ENABLED} />
         {children}
         <Footer predictorPublic={predictorPublic} />
+        <CookieConsentBanner />
+        <LegalPolicyModal />
         <BottomNav session={session} predictorPublic={predictorPublic} billingEnabled={env.PAYMENTS_ENABLED} />
         <AnimationProvider />
       </body>

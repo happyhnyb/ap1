@@ -45,6 +45,9 @@ export default function ForgotPasswordForm() {
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <h1 className="form-title">Forgot password</h1>
           <p className="form-sub">Enter your account email and we’ll send you a reset link.</p>
+          <p style={{ margin: '10px 0 0', fontSize: 12, color: 'var(--dim)' }}>
+            Reset emails are sent from <strong style={{ color: 'var(--muted)' }}>info@kycagri.com</strong>.
+          </p>
         </div>
 
         {error && <div className="notice notice-red" style={{ marginBottom: 18, textAlign: 'center' }}>{error}</div>}

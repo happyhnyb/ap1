@@ -1,0 +1,13 @@
+title: Know Your Commodity Hexo Bridge
+subtitle: Static publishing pipeline for KYC article snapshots
+description: Hexo export workspace used to generate fallback article snapshots for the Next frontend.
+author: KYC Desk
+language: en
+timezone: Asia/Kolkata
+url: https://www.kycagri.com
+root: /
+permalink: post/:slug/
+source_dir: source
+public_dir: public
+theme: landscape
+post_asset_folder: false

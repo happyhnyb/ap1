@@ -5,12 +5,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
+import { EmailOTPCard } from '@/components/auth/EmailOTPCard';
 
 export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const requestedPath = searchParams.get('from');
+  const safeRequestedPath = requestedPath && requestedPath.startsWith('/') ? requestedPath : null;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -29,8 +32,6 @@ export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Login failed.'); return; }
-      const requestedPath = searchParams.get('from');
-      const safeRequestedPath = requestedPath && requestedPath.startsWith('/') ? requestedPath : null;
       const isPrivilegedUser = data?.user?.role === 'admin' || data?.user?.role === 'editor';
       router.push(safeRequestedPath || (isPrivilegedUser ? '/admin' : '/'));
       router.refresh();
@@ -80,12 +81,23 @@ export default function LoginForm({ isDemo = false }: { isDemo?: boolean }) {
         </form>
 
         <div className="divider" style={{ margin: '20px 0' }} />
+        <EmailOTPCard
+          intent="login"
+          redirectTo={safeRequestedPath || '/'}
+          title="Sign in with OTP"
+          description="Prefer a one-time passcode? We’ll email you a 6-digit code you can use instead of your password."
+        />
+
+        <div className="divider" style={{ margin: '20px 0' }} />
         <GoogleAuthButton text="signin_with" />
 
         <div className="divider" style={{ margin: '24px 0' }} />
         <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--muted)', margin: 0 }}>
           Don't have an account?{' '}
           <Link href="/register" style={{ color: 'var(--green)', fontWeight: 500 }}>Create one free</Link>
+        </p>
+        <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--dim)', margin: '10px 0 0' }}>
+          Password reset links and sign-in codes are sent from <strong style={{ color: 'var(--muted)' }}>info@kycagri.com</strong>.
         </p>
 
         {isDemo && (

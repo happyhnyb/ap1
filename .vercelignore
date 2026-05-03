@@ -1,0 +1,5 @@
+.DS_Store
+.git
+**/.next
+**/.netlify
+**/node_modules

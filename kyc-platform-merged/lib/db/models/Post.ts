@@ -5,6 +5,7 @@ export interface IPost extends Document {
   title: string;
   slug: string;
   excerpt: string;
+  summary: string | null;
   body: string;
   tags: string[];
   category: string;
@@ -16,6 +17,8 @@ export interface IPost extends Document {
   linked_article_id: string | null;  // for STORY → ARTICLE deep-dive link
   status: 'draft' | 'published' | 'archived';
   published_at: Date | null;
+  seo_title: string | null;
+  seo_description: string | null;
   created_at: Date;
   updated_at: Date;
   view_count: number;
@@ -30,6 +33,7 @@ const PostSchema = new Schema<IPost>(
     title: { type: String, required: true, maxlength: 300 },
     slug: { type: String, required: true, unique: true },
     excerpt: { type: String, required: true, maxlength: 500 },
+    summary: { type: String, default: null, maxlength: 400 },
     body: { type: String, required: true },
     tags: [{ type: String }],
     category: { type: String, required: true },
@@ -41,6 +45,8 @@ const PostSchema = new Schema<IPost>(
     linked_article_id: { type: String, default: null },
     status: { type: String, enum: ['draft', 'published', 'archived'], default: 'draft' },
     published_at: { type: Date, default: null },
+    seo_title: { type: String, default: null, maxlength: 200 },
+    seo_description: { type: String, default: null, maxlength: 320 },
     view_count: { type: Number, default: 0 },
     img: { type: String, default: 'crops' },
     search_text: { type: String, default: '' },

@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth/jwt';
-import { isPremiumUser } from '@/lib/auth/entitlement';
 import { UsageLogModel } from '@/lib/db/models/UsageLog';
 import { isMongoConfigured, connectDB } from '@/lib/db/connect';
 import { checkRateLimit, getClientId, LIMITS } from '@/lib/ratelimit';
-import { usersAdapter } from '@/lib/adapters';
 import { semanticSearch } from '@/lib/ai/retrieval';
 import type { AICitation } from '@/lib/ai/types';
 import { getFromMacMini, shouldProxyToMacMini } from '@/lib/server/mac-mini';
-import { isPremium } from '@/lib/auth/entitlement';
+import { hasFreshPremiumAccess, premiumAIAccessError } from '@/lib/auth/premium-access';
 
 function groundedAnswer(query: string, citations: AICitation[]) {
   if (!citations.length) {
@@ -33,30 +31,8 @@ function groundedAnswer(query: string, citations: AICitation[]) {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession();
-  if (!session) {
-    return NextResponse.json(
-      { error: 'Sign in with an eligible research-access account to use AI search.' },
-      { status: 403 }
-    );
-  }
-
-  const hasSessionPremiumAccess = isPremium(session);
-  let hasPremiumAccess = hasSessionPremiumAccess;
-
-  if (!hasSessionPremiumAccess) {
-    try {
-      const user = await usersAdapter.getByEmail(session.email);
-      hasPremiumAccess = isPremiumUser(user);
-    } catch (error) {
-      console.error('[GET /api/ai-search] premium DB check failed, falling back to session entitlement', error);
-    }
-  }
-
-  if (!hasPremiumAccess) {
-    return NextResponse.json(
-      { error: 'AI search is currently limited to eligible research-access accounts.' },
-      { status: 403 }
-    );
+  if (!(await hasFreshPremiumAccess(session, 'GET /api/ai-search'))) {
+    return NextResponse.json({ error: premiumAIAccessError(session) }, { status: session ? 403 : 401 });
   }
 
   const rl = checkRateLimit(getClientId(req), 'ai-search', LIMITS.aiSearch);

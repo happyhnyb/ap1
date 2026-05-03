@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { personalizeFeed } from '@/lib/ai/service';
 import { getServerSession } from '@/lib/auth/jwt';
+import { hasFreshPremiumAccess, premiumAIAccessError } from '@/lib/auth/premium-access';
 import { postToMacMini, shouldProxyToMacMini } from '@/lib/server/mac-mini';
 
 const BodySchema = z.object({
@@ -11,8 +12,8 @@ const BodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Login required.' }, { status: 401 });
+  if (!(await hasFreshPremiumAccess(session, 'POST /api/ai/personalize'))) {
+    return NextResponse.json({ error: premiumAIAccessError(session) }, { status: session ? 403 : 401 });
   }
 
   try {

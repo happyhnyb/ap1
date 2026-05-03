@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation';
 export function EmailOTPCard({
   intent,
   defaultName = '',
+  redirectTo = '/',
   title,
   description,
 }: {
   intent: 'login' | 'register';
   defaultName?: string;
+  redirectTo?: string;
   title?: string;
   description?: string;
 }) {
@@ -31,7 +33,7 @@ export function EmailOTPCard({
       const res = await fetch('/api/auth/otp/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, intent }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), name: name.trim(), intent }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not send verification code.');
@@ -56,7 +58,8 @@ export function EmailOTPCard({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Invalid verification code.');
-      router.push('/');
+      const isPrivilegedUser = data?.user?.role === 'admin' || data?.user?.role === 'editor';
+      router.push(redirectTo || (isPrivilegedUser ? '/admin' : '/'));
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid verification code.');
@@ -74,6 +77,9 @@ export function EmailOTPCard({
         {description ?? (intent === 'login'
           ? 'We’ll email you a 6-digit sign-in code.'
           : 'We’ll email you a 6-digit code and create your account after verification.')}
+      </p>
+      <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--dim)', lineHeight: 1.6 }}>
+        The code will be sent from <strong style={{ color: 'var(--muted)' }}>info@kycagri.com</strong>.
       </p>
 
       <div style={{ display: 'grid', gap: 10 }}>
@@ -124,7 +130,7 @@ export function EmailOTPCard({
               {loading ? 'Verifying…' : 'Verify and continue'}
             </button>
             <button type="button" className="btn btn-sm" onClick={requestCode} disabled={loading} style={{ justifyContent: 'center' }}>
-              Resend code
+              Send a new code
             </button>
           </>
         )}

@@ -2,6 +2,8 @@ import { createId } from '@/lib/db/ids';
 import { pgQuery, withPgTransaction } from '@/lib/db/pg';
 import { generateSlug } from '@/lib/utils';
 import type { Post } from '@/types/post';
+import { normalizeStoredImageUrl } from '@/lib/media/url';
+import { normalizePublishedAtInput } from '@/lib/posts/publish-date';
 
 type ArticleRow = {
   id: string;
@@ -44,6 +46,7 @@ export interface ArticleInput {
   author: string;
   author_id: string;
   status?: Post['status'];
+  published_at?: string | null;
   summary?: string | null;
   seo_title?: string | null;
   seo_description?: string | null;
@@ -85,6 +88,7 @@ function toPost(row: ArticleRow): Post {
     title: row.title,
     slug: row.slug,
     excerpt: row.excerpt,
+    summary: row.summary,
     body: row.body,
     author: row.author_name,
     author_id: row.author_id,
@@ -98,7 +102,9 @@ function toPost(row: ArticleRow): Post {
     updated_at: row.updated_at,
     view_count: row.view_count,
     img: 'crops',
-    hero_image: row.hero_image,
+    hero_image: normalizeStoredImageUrl(row.hero_image) || null,
+    seo_title: row.seo_title,
+    seo_description: row.seo_description,
     inline_images: [],
   };
 }
@@ -244,8 +250,11 @@ export async function createArticle(input: ArticleInput) {
   const id = createId('art');
   const slug = await generateUniqueArticleSlug(input.title);
   const status = input.status ?? 'draft';
-  const publishedAt = status === 'published' ? new Date().toISOString() : null;
+  const publishedAt = input.published_at
+    ? normalizePublishedAtInput(input.published_at)
+    : (status === 'published' ? new Date().toISOString() : null);
   const linkedArticleId = await resolveLinkedArticleReference(input.linked_article_id);
+  const heroImage = normalizeStoredImageUrl(input.hero_image ?? null) || null;
 
   await withPgTransaction(async (client) => {
     await client.query(
@@ -266,7 +275,7 @@ export async function createArticle(input: ArticleInput) {
         input.excerpt,
         input.body,
         input.author_id,
-        input.hero_image ?? null,
+        heroImage,
         input.is_premium,
         linkedArticleId,
         status,
@@ -304,15 +313,22 @@ export async function updateArticleBySlug(slug: string, patch: Partial<ArticleIn
   }
   if (patch.excerpt !== undefined) set('excerpt', patch.excerpt);
   if (patch.body !== undefined) set('body', patch.body);
-  if (patch.hero_image !== undefined) set('hero_image', patch.hero_image);
+  if (patch.hero_image !== undefined) set('hero_image', normalizeStoredImageUrl(patch.hero_image ?? null) || null);
   if (patch.is_premium !== undefined) set('is_premium', patch.is_premium);
   if (patch.linked_article_id !== undefined) {
     set('linked_article_id', await resolveLinkedArticleReference(patch.linked_article_id));
   }
   if (patch.status !== undefined) {
     set('status', patch.status);
-    if (patch.status === 'published') set('published_at', new Date().toISOString());
+    if (patch.status === 'published' && patch.published_at === undefined) {
+      const currentDate = await pgQuery<{ published_at: string | null }>(
+        'SELECT published_at FROM articles WHERE id = $1 LIMIT 1',
+        [articleId]
+      );
+      set('published_at', currentDate.rows[0]?.published_at ?? new Date().toISOString());
+    }
   }
+  if (patch.published_at !== undefined) set('published_at', normalizePublishedAtInput(patch.published_at) ?? null);
   if (patch.summary !== undefined) set('summary', patch.summary);
   if (patch.seo_title !== undefined) set('seo_title', patch.seo_title);
   if (patch.seo_description !== undefined) set('seo_description', patch.seo_description);
@@ -343,7 +359,7 @@ export async function deleteArticleById(id: string) {
 export async function publishArticleById(id: string) {
   await pgQuery(
     `UPDATE articles
-     SET status = 'published', published_at = NOW(), updated_at = NOW()
+     SET status = 'published', published_at = COALESCE(published_at, NOW()), updated_at = NOW()
      WHERE id = $1`,
     [id]
   );

@@ -1,6 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import Image from 'next/image';
+import { useEffect, useRef, useState } from 'react';
+import { normalizeImageSrc, shouldUnoptimizeImage } from '@/lib/media/url';
 
 type Props = {
   name?: string;
@@ -8,6 +10,7 @@ type Props = {
   defaultValue?: string;
   placeholder?: string;
   rows?: number;
+  heroImageUrl?: string | null;
 };
 
 function buildImageMarkdown(url: string, fileName: string) {
@@ -21,12 +24,20 @@ export function PostBodyEditor({
   defaultValue = '',
   placeholder = 'Article body. Use ## H2, ### H3, > for quotes, and ![Caption](/api/media/...).',
   rows = 12,
+  heroImageUrl,
 }: Props) {
   const [value, setValue] = useState(defaultValue);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const heroPreviewSrc = heroImageUrl ? normalizeImageSrc(heroImageUrl) : '';
+  const hasExistingArticle = defaultValue.trim().length > 0;
+
+  useEffect(() => {
+    setValue(defaultValue);
+    setError('');
+  }, [defaultValue]);
 
   async function handleInlineImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -100,19 +111,55 @@ export function PostBodyEditor({
         </div>
       </div>
 
-      <textarea
-        ref={textareaRef}
-        className="textarea"
-        name={name}
-        rows={rows}
-        placeholder={placeholder}
-        required
-        value={value}
-        onChange={(event) => {
-          setValue(event.target.value);
-          if (error) setError('');
-        }}
-      />
+      {heroPreviewSrc ? (
+        <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+          <span style={{ fontSize: 12, color: 'var(--dim)' }}>Current hero image</span>
+          <div style={{ position: 'relative', width: '100%', aspectRatio: '19 / 9', overflow: 'hidden', borderRadius: 16, border: '1px solid var(--border2)', background: 'linear-gradient(135deg, rgba(18,24,16,.95), rgba(28,35,25,.95))' }}>
+            <Image
+              src={heroPreviewSrc}
+              alt="Current hero image"
+              fill
+              style={{ objectFit: 'contain' }}
+              unoptimized={shouldUnoptimizeImage(heroPreviewSrc)}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      <div style={{ display: 'grid', gap: 14, gridTemplateColumns: hasExistingArticle ? 'repeat(auto-fit, minmax(280px, 1fr))' : 'minmax(0, 1fr)' }}>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--dim)', fontWeight: 600 }}>
+            {hasExistingArticle ? 'Edit this version' : 'Article body'}
+          </div>
+          <textarea
+            ref={textareaRef}
+            className="textarea"
+            name={name}
+            rows={rows}
+            placeholder={placeholder}
+            required
+            value={value}
+            onChange={(event) => {
+              setValue(event.target.value);
+              if (error) setError('');
+            }}
+          />
+        </div>
+
+        {hasExistingArticle ? (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ fontSize: 12, color: 'var(--dim)', fontWeight: 600 }}>Current saved article</div>
+            <textarea
+              className="textarea"
+              rows={rows}
+              value={defaultValue}
+              readOnly
+              aria-label="Current saved article"
+              style={{ background: 'var(--bg2)', color: 'var(--muted)' }}
+            />
+          </div>
+        ) : null}
+      </div>
 
       {error ? (
         <p className="notice notice-red" style={{ margin: '8px 0 0', padding: '8px 12px', fontSize: 13 }}>

@@ -11,7 +11,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const post = await getPost(slug);
   const session = await getEffectiveServerSession();
   if (!post || (post.status !== 'published' && !isEditor(session))) return {};
-  return { title: post.title, description: post.excerpt };
+  return {
+    title: post.seo_title || post.title,
+    description: post.seo_description || post.excerpt,
+  };
 }
 
 export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -35,5 +38,5 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     linkedArticle = await postsAdapter.getBySlug(post.linked_article_id).catch(() => null);
   }
 
-  return <Article post={post} canRead={canRead} linkedArticle={linkedArticle} isLoggedIn={!!session} />;
+  return <Article post={post} canRead={canRead} linkedArticle={linkedArticle} hasPremiumAI={isPremium(session)} />;
 }

@@ -1,0 +1,8 @@
+{
+  "experimentalServices": {
+    "mandi-service": {
+      "entrypoint": "kyc-platform-merged/mandi-service",
+      "routePrefix": "/"
+    }
+  }
+}

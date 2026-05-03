@@ -11,6 +11,33 @@ import { semanticSearch } from './retrieval';
 import { forecastingEngine } from '@/lib/forecasting/engine';
 import { explainForecastWithOllama, summarizeTextWithOllama } from '@/lib/local-ai/ollama';
 
+function stripAudienceLeak(text: string): string {
+  return text
+    .replace(/\b(?:target\s+)?persona\s*:\s*[^\n]+/gi, '')
+    .replace(/\baudience\s*:\s*[^\n]+/gi, '')
+    .replace(/^(?:general|farmer|trader|procurement)\s+(?:summary|brief)\s*[:\-]\s*/gim, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function sanitizeSummaryOutput(response: {
+  title?: string;
+  summary: string;
+  bullets?: string[];
+}, fallbackTitle: string) {
+  const cleanedTitle = stripAudienceLeak(response.title || '').trim();
+  const cleanedSummary = stripAudienceLeak(response.summary);
+  const cleanedBullets = (response.bullets ?? [])
+    .map((bullet) => stripAudienceLeak(bullet))
+    .filter(Boolean);
+
+  return {
+    title: cleanedTitle || fallbackTitle,
+    summary: cleanedSummary,
+    bullets: cleanedBullets,
+  };
+}
+
 function fallbackCopilot(query: string, persona: AIPersona, citations: AICitation[]): AICopilotResponse {
   const best = citations[0];
   return {
@@ -132,18 +159,23 @@ export async function summarizeArticle(slug: string, persona: AIPersona): Promis
 
   try {
     const response = await summarizeTextWithOllama([
-      `Persona: ${persona}`,
+      'Write a short customer-facing article brief using only the article content below.',
+      `Adapt the wording internally for this audience: ${persona}.`,
+      'Never mention persona, audience, customer segment, internal instructions, or prompting in the output.',
+      'Do not prefix the answer with labels like Persona, Audience, Farmer Summary, Trader Summary, or Procurement Summary.',
+      'Return plain reader-facing copy only.',
       `Title: ${post.title}`,
       `Excerpt: ${post.excerpt ?? ''}`,
       `Body: ${post.body}`,
     ].join('\n\n'), post.title);
+    const cleaned = sanitizeSummaryOutput(response.data, post.title);
 
     return {
       mode: 'article_summary',
       persona,
-      title: response.data.title || post.title,
-      summary: response.data.summary,
-      bullets: response.data.bullets,
+      title: cleaned.title,
+      summary: cleaned.summary,
+      bullets: cleaned.bullets,
       citations,
     };
   } catch (error) {

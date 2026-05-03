@@ -1,5 +1,5 @@
 import { env } from '@/lib/env';
-import { getContactNotificationRecipients, sendResendEmail } from '@/lib/email/resend';
+import { getContactNotificationRecipients, sendEmail } from '@/lib/email/send';
 
 type ContactNotificationInput = {
   ref: string;
@@ -36,7 +36,7 @@ export async function sendContactSubmissionNotifications(input: ContactNotificat
     </div>
   `.trim();
 
-  return sendResendEmail({
+  return sendEmail({
     to: recipients,
     subject: `New contact submission: ${input.subject}`,
     html,

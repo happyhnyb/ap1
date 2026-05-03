@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   try {
     const url = env.R2_ENABLED
       ? await uploadR2Image(file)
-      : await uploadLocalImage(file, session!._id, req.nextUrl.origin);
+      : await uploadLocalImage(file, session!._id);
     return NextResponse.json({ url });
   } catch (err) {
     console.error('[upload] Storage error:', err);

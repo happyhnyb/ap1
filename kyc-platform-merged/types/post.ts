@@ -7,6 +7,7 @@ export interface Post {
   title: string;
   slug: string;
   excerpt: string;
+  summary?: string | null;
   body: string;
   author: string;
   author_id: string;
@@ -21,6 +22,8 @@ export interface Post {
   view_count: number;
   img: string;
   hero_image: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
   inline_images?: string[];
 }
 

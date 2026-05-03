@@ -32,7 +32,8 @@ export async function GET() {
     ollama,
     predictor,
     email: {
-      configured: Boolean(env.RESEND_API_KEY),
+      configured: env.EMAIL_DELIVERY_ENABLED,
+      provider: env.GMAIL_ENABLED ? 'gmail' : env.RESEND_API_KEY ? 'resend' : 'none',
       contactRecipientsConfigured: Boolean(env.CONTACT_EMAIL.trim()),
     },
     backend: {
