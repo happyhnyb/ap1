@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { CookieSettingsButton } from '@/components/layout/CookieSettingsButton';
 
 const EFFECTIVE_DATE = '3 May 2026';
 
@@ -14,9 +13,6 @@ export function CookiePolicyContent() {
           DPDP Act and explain here how we use cookies, tracking technologies, and contact channels for privacy
           matters.
         </p>
-        <div>
-          <CookieSettingsButton className="btn btn-sm" label="Manage cookie settings" />
-        </div>
       </div>
 
       <section className="cookie-policy-section">
@@ -104,9 +100,6 @@ export function CookiePolicyContent() {
           <li>Enhancing user experience</li>
           <li>Security and fraud prevention</li>
         </ul>
-        <div>
-          <CookieSettingsButton className="btn btn-sm" label="Manage cookie settings" />
-        </div>
       </section>
 
       <section className="cookie-policy-section">
